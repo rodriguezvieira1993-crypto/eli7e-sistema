@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eli7e — Contable</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <img src="img/eli7e_logo.png" alt="Eli7e" class="sb-logo-img" onerror="this.style.display='none'">
+            <span class="sb-logo-text">Eli7e</span>
+        </div>
+        <nav class="sb-nav">
+            <div class="sb-section">Financiero</div>
+            <a href="#" class="sb-link active" data-view="cobranza"><span>💰</span> Cobranza</a>
+            <a href="#" class="sb-link" data-view="cierre"><span>🧾</span> Cierre Diario</a>
+            <a href="#" class="sb-link" data-view="pagos"><span>✅</span> Registrar Pago</a>
+            <a href="#" class="sb-link" data-view="reportes"><span>📊</span> Reportes</a>
+        </nav>
+        <div class="sb-footer">
+            <div class="sb-avatar cont">C</div>
+            <div>
+                <div class="sb-name" id="userName">Contable</div>
+                <div class="sb-rol">Contable</div>
+            </div>
+            <button class="sb-logout" onclick="logout()">⏻</button>
+        </div>
+    </aside>
+
+    <div class="main-wrap">
+        <header class="topbar">
+            <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+            <div class="topbar-title" id="pageTitle">Cobranza</div>
+            <div class="topbar-right">
+                <div class="status-dot"></div>
+                <span id="topbarDate" style="font-size:0.82rem;color:var(--muted)"></span>
+            </div>
+        </header>
+
+        <main class="content">
+
+            <!-- ══ COBRANZA ══════════════════════════════════════════ -->
+            <div class="view active" id="view-cobranza">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Panel de Cobranza</h1>
+                        <span class="view-sub">Facturas pendientes en tiempo real</span>
+                    </div>
+                    <div style="display:flex;gap:10px;">
+                        <select id="filtroDeuda" onchange="loadCobranza()"
+                            style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-family:inherit;">
+                            <option value="todas">Todas las marcas</option>
+                            <option value="critica">🔴 Deuda crítica (&gt;$50)</option>
+                            <option value="alerta">🟡 En alerta ($20-$50)</option>
+                            <option value="normal">🟢 Normal (&lt;$20)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- KPIs Financieros -->
+                <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+                    <div class="kpi-card">
+                        <div class="kpi-icon">💵</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-totalDeuda">$0</div>
+                            <div class="kpi-lbl">Deuda Total</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi-warn">
+                        <div class="kpi-icon">🔴</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-criticas">0</div>
+                            <div class="kpi-lbl">Cuentas Críticas</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon">📅</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-hoyFact">$0</div>
+                            <div class="kpi-lbl">Facturado Hoy</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Marca</th>
+                                <th>Servicios</th>
+                                <th>Facturado</th>
+                                <th>Pagado</th>
+                                <th>Deuda</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cobranzaBody">
+                            <tr>
+                                <td colspan="7" class="loading-txt">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ CIERRE DIARIO ═════════════════════════════════════ -->
+            <div class="view" id="view-cierre">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Cierre Diario de Caja</h1>
+                        <span class="view-sub" id="fechaCierre"></span>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-hdr">📊 Resumen del Día</div>
+                        <div class="cierre-stats" id="cierreStats">
+                            <div class="stat-row"><span>Servicios completados:</span><strong
+                                    id="cs-servicios">—</strong></div>
+                            <div class="stat-row"><span>Total facturado:</span><strong id="cs-facturado">—</strong>
+                            </div>
+                            <div class="stat-row"><span>Total pendiente de cobro:</span><strong id="cs-pendiente"
+                                    style="color:var(--warn)">—</strong></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-hdr">✅ Validar Cierre</div>
+                        <div class="field">
+                            <label>Efectivo recibido hoy (USD)</label>
+                            <input type="number" id="efectivoCobrado" step="0.01" placeholder="0.00">
+                        </div>
+                        <div class="field">
+                            <label>Notas del cierre</label>
+                            <textarea id="notasCierre" rows="3" placeholder="Observaciones..."></textarea>
+                        </div>
+                        <button class="btn-primary" style="width:100%;" onclick="validarCierre()">
+                            Validar y Cerrar el Día
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Historial cierres -->
+                <div class="card" style="margin-top:20px;">
+                    <div class="card-hdr">📅 Historial de Cierres</div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Servicios</th>
+                                <th>Facturado</th>
+                                <th>Cobrado</th>
+                                <th>Diferencia</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cierresHistBody">
+                            <tr>
+                                <td colspan="6" class="loading-txt">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ REGISTRAR PAGO ════════════════════════════════════ -->
+            <div class="view" id="view-pagos">
+                <div class="view-header">
+                    <h1 class="view-title">Registrar Pago</h1>
+                    <span class="view-sub">Cuando una marca cancela su deuda</span>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <form id="formPago" onsubmit="registrarPago(event)">
+                            <div class="field">
+                                <label>Marca que paga *</label>
+                                <select id="p_cliente" required>
+                                    <option value="">— Seleccionar —</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Monto recibido (USD) *</label>
+                                <input type="number" id="p_monto" step="0.01" required placeholder="0.00">
+                            </div>
+                            <div class="field">
+                                <label>Método de pago *</label>
+                                <select id="p_metodo">
+                                    <option value="efectivo">💵 Efectivo (Divisas)</option>
+                                    <option value="binance">₿ Binance USDT</option>
+                                    <option value="transferencia">🏦 Transferencia</option>
+                                </select>
+                            </div>
+                            <div class="field">
+                                <label>Referencia</label>
+                                <input id="p_ref" placeholder="Nro. de transacción o referencia">
+                            </div>
+                            <button type="submit" class="btn-primary" style="width:100%;">Registrar Pago ✅</button>
+                        </form>
+                    </div>
+                    <div class="card">
+                        <div class="card-hdr">📋 Últimos Pagos Registrados</div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Marca</th>
+                                    <th>Monto</th>
+                                    <th>Método</th>
+                                    <th>Fecha</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ultimosPagos">
+                                <tr>
+                                    <td colspan="4" class="loading-txt">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ REPORTES ═══════════════════════════════════════════ -->
+            <div class="view" id="view-reportes">
+                <div class="view-header">
+                    <h1 class="view-title">Reportes Financieros</h1>
+                </div>
+                <div class="kpi-grid">
+                    <div class="card" style="text-align:center;padding:28px;">
+                        <div style="font-size:2rem;margin-bottom:10px;">📥</div>
+                        <div style="font-weight:700;margin-bottom:8px;">Reporte Semanal</div>
+                        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;">Resumen de deuda y pagos de
+                            la semana por marca</p>
+                        <button class="btn-primary" onclick="exportarReporte('semanal')">Descargar</button>
+                    </div>
+                    <div class="card" style="text-align:center;padding:28px;">
+                        <div style="font-size:2rem;margin-bottom:10px;">📊</div>
+                        <div style="font-weight:700;margin-bottom:8px;">Cobranzas Pendientes</div>
+                        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;">Listado completo de facturas
+                            sin cobrar</p>
+                        <button class="btn-primary" onclick="exportarReporte('pendientes')">Descargar</button>
+                    </div>
+                    <div class="card" style="text-align:center;padding:28px;">
+                        <div style="font-size:2rem;margin-bottom:10px;">📅</div>
+                        <div style="font-weight:700;margin-bottom:8px;">Historial de Cierres</div>
+                        <p style="font-size:0.82rem;color:var(--muted);margin-bottom:14px;">Todos los cierres diarios
+                            del mes</p>
+                        <button class="btn-primary" onclick="exportarReporte('cierres')">Descargar</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL: Registrar Pago Rápido desde Cobranza -->
+    <div class="modal-overlay" id="modalPagoRapido">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>💰 Registrar Pago</span>
+                <button onclick="closeModal('modalPagoRapido')">✕</button>
+            </div>
+            <input type="hidden" id="pr_clienteId">
+            <div class="field"><label id="pr_label">Marca</label></div>
+            <div class="field">
+                <label>Monto (USD)</label>
+                <input type="number" id="pr_monto" step="0.01" placeholder="0.00">
+            </div>
+            <div class="field">
+                <label>Método</label>
+                <select id="pr_metodo">
+                    <option value="efectivo">💵 Efectivo</option>
+                    <option value="binance">₿ Binance</option>
+                    <option value="transferencia">🏦 Transferencia</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modalPagoRapido')">Cancelar</button>
+                <button class="btn-primary" onclick="confirmarPagoRapido()">Confirmar Pago</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="js/api.js"></script>
+    <script src="js/dashboard-contable.js"></script>
+</body>
+
+</html>

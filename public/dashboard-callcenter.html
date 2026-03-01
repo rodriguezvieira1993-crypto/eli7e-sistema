@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eli7e — Call Center</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+
+<body>
+
+    <aside class="sidebar">
+        <div class="sidebar-logo">
+            <img src="img/eli7e_logo.png" alt="Eli7e" class="sb-logo-img" onerror="this.style.display='none'">
+            <span class="sb-logo-text">Eli7e</span>
+        </div>
+        <nav class="sb-nav">
+            <div class="sb-section">Operativo</div>
+            <a href="#" class="sb-link active" data-view="nuevo"><span>➕</span> Nuevo Servicio</a>
+            <a href="#" class="sb-link" data-view="activos"><span>🔄</span> En Curso</a>
+            <a href="#" class="sb-link" data-view="historial"><span>📋</span> Mis Servicios</a>
+            <a href="#" class="sb-link" data-view="flota"><span>🛵</span> Flota Ahora</a>
+            <a href="#" class="sb-link" data-view="clientes"><span>🏪</span> Consultar Cliente</a>
+        </nav>
+        <div class="sb-footer">
+            <div class="sb-avatar cc">C</div>
+            <div>
+                <div class="sb-name" id="userName">Operador</div>
+                <div class="sb-rol">Call Center</div>
+            </div>
+            <button class="sb-logout" onclick="logout()">⏻</button>
+        </div>
+    </aside>
+
+    <div class="main-wrap">
+        <header class="topbar">
+            <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+            <div class="topbar-title" id="pageTitle">Nuevo Servicio</div>
+            <div class="topbar-right">
+                <div class="status-dot"></div>
+                <span id="topbarDate" style="font-size:0.82rem;color:var(--muted)"></span>
+            </div>
+        </header>
+
+        <main class="content">
+
+            <!-- ══ NUEVO SERVICIO ════════════════════════════════════ -->
+            <div class="view active" id="view-nuevo">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Registrar Servicio</h1>
+                        <span class="view-sub">Llena los datos del servicio solicitado</span>
+                    </div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <form id="formServicio" onsubmit="crearServicio(event)">
+
+                            <div class="field">
+                                <label>Tipo de Servicio *</label>
+                                <select id="s_tipo" required>
+                                    <option value="">— Seleccionar —</option>
+                                    <option value="mototaxi">🛵 Mototaxi</option>
+                                    <option value="delivery">📦 Delivery</option>
+                                    <option value="encomienda">📬 Encomienda</option>
+                                    <option value="compras">🛒 Compras (Personal Shopper)</option>
+                                    <option value="flete">🚛 Flete</option>
+                                    <option value="viaje">🗺 Viaje</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <label>Cliente / Marca *</label>
+                                <select id="s_cliente" required>
+                                    <option value="">— Cargando clientes... —</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <label>Motorizado *</label>
+                                <select id="s_motorizado" required>
+                                    <option value="">— Cargando disponibles... —</option>
+                                </select>
+                            </div>
+
+                            <div class="field">
+                                <label>Monto acordado (USD) *</label>
+                                <input type="number" id="s_monto" step="0.01" min="0.01" required placeholder="0.00">
+                            </div>
+
+                            <div class="field">
+                                <label>Descripción / Observaciones</label>
+                                <textarea id="s_desc" rows="3"
+                                    placeholder="Origen, destino, detalles del pedido..."></textarea>
+                            </div>
+
+                            <button type="submit" class="btn-primary" style="width:100%;padding:14px;font-size:1rem;">
+                                ✅ Registrar Servicio
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Panel de flota disponible en tiempo real -->
+                    <div class="card">
+                        <div class="card-hdr">🛵 Flota Disponible Ahora</div>
+                        <div id="flotaDisp" class="moto-list">
+                            <p class="loading-txt">Cargando...</p>
+                        </div>
+                        <div class="card-hdr" style="margin-top:20px;">📋 Último Servicio Registrado</div>
+                        <div id="ultimoServicio" style="font-size:0.85rem;color:var(--muted);padding:12px 0;">
+                            Sin registros aún en esta sesión.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ EN CURSO ════════════════════════════════════════ -->
+            <div class="view" id="view-activos">
+                <div class="view-header">
+                    <h1 class="view-title">Servicios en Curso</h1>
+                    <span class="view-sub">Servicios activos ahora mismo</span>
+                </div>
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Tipo</th>
+                                <th>Cliente</th>
+                                <th>Motorizado</th>
+                                <th>Monto</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="activosBody">
+                            <tr>
+                                <td colspan="6" class="loading-txt">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ HISTORIAL ════════════════════════════════════════ -->
+            <div class="view" id="view-historial">
+                <div class="view-header">
+                    <h1 class="view-title">Mis Servicios del Día</h1>
+                </div>
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Hora</th>
+                                <th>Tipo</th>
+                                <th>Cliente</th>
+                                <th>Motorizado</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                                <th>Nota</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historialBody">
+                            <tr>
+                                <td colspan="7" class="loading-txt">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ FLOTA ════════════════════════════════════════════ -->
+            <div class="view" id="view-flota">
+                <div class="view-header">
+                    <h1 class="view-title">Estado de la Flota</h1>
+                    <span class="view-sub">Solo lectura — Para cambios contactar al Admin</span>
+                </div>
+                <div class="moto-cards" id="motosGridCC">
+                    <p class="loading-txt">Cargando flota...</p>
+                </div>
+            </div>
+
+            <!-- ══ CONSULTAR CLIENTE ════════════════════════════════ -->
+            <div class="view" id="view-clientes">
+                <div class="view-header">
+                    <h1 class="view-title">Consultar Cliente</h1>
+                </div>
+                <div class="search-bar">
+                    <input type="text" placeholder="🔍  Buscar marca..." id="searchClienteCC"
+                        oninput="filterClientesCC()">
+                </div>
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Marca</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Deuda Actual</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientesCCBody">
+                            <tr>
+                                <td colspan="4" class="loading-txt">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL: Cerrar Servicio -->
+    <div class="modal-overlay" id="modalCierre">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>✅ Cerrar Servicio</span>
+                <button onclick="closeModal('modalCierre')">✕</button>
+            </div>
+            <p style="color:var(--muted);font-size:0.88rem;margin-bottom:20px;">
+                Al cerrar el servicio se generará la Nota de Entrega automáticamente.
+            </p>
+            <input type="hidden" id="cierre_id">
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modalCierre')">Cancelar</button>
+                <button class="btn-primary" onclick="cerrarServicio()">Confirmar y Generar Nota</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="js/api.js"></script>
+    <script src="js/dashboard-callcenter.js"></script>
+</body>
+
+</html>

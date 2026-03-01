@@ -1,0 +1,48 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+
+const app = express();
+
+// ── Middleware ──────────────────────────────────────────────
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Servir archivos estáticos del frontend
+app.use(express.static(path.join(__dirname, '../public')));
+
+// ── Rutas API ───────────────────────────────────────────────
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/clientes', require('./routes/clientes'));
+app.use('/api/motorizados', require('./routes/motorizados'));
+app.use('/api/servicios', require('./routes/servicios'));
+app.use('/api/cobranza', require('./routes/cobranza'));
+app.use('/api/cierres', require('./routes/cierres'));
+app.use('/api/usuarios', require('./routes/usuarios'));
+
+// ── Health check ────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', sistema: 'Eli7e', hora: new Date().toISOString() });
+});
+
+// ── SPA fallback: todas las rutas → index.html ──────────────
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// ── Iniciar servidor ────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
+
+initDB().then(() => {
+    app.listen(PORT, () => {
+        console.log(`✅ Eli7e Sistema corriendo en http://localhost:${PORT}`);
+        console.log(`   Admin: admin@eli7e.com / eli7e2026`);
+    });
+}).catch(err => {
+    console.error('❌ No se pudo inicializar la BD:', err.message);
+    process.exit(1);
+});
+
+module.exports = app;

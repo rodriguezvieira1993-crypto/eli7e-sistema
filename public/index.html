@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eli7e — Acceso al Sistema</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --g1: #00DD00;
+            --g2: #00BB00;
+            --g3: #007700;
+            --glow: rgba(0, 221, 0, 0.15);
+            --bg: #060B06;
+            --card: #0F180F;
+            --card2: #141F14;
+            --border: rgba(0, 221, 0, 0.2);
+            --text: #E4F5E4;
+            --muted: #7A9A7A;
+            --err: #FF4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Fondo animado */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 50% at 20% 80%, rgba(0, 119, 0, 0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 80% 20%, rgba(0, 221, 0, 0.07) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        /* Grid de puntos sutil */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(rgba(0, 221, 0, 0.08) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none;
+        }
+
+        .login-wrapper {
+            width: 100%;
+            max-width: 420px;
+            padding: 24px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Logo */
+        .logo-area {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+
+        .logo-img {
+            height: 52px;
+            filter: drop-shadow(0 0 20px rgba(0, 221, 0, 0.5));
+            margin-bottom: 12px;
+        }
+
+        .logo-name {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--g1) 0%, #CCFFCC 50%, var(--g1) 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .logo-sub {
+            font-size: 0.78rem;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 36px;
+            box-shadow: 0 0 60px rgba(0, 221, 0, 0.08), 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .card-sub {
+            font-size: 0.82rem;
+            color: var(--muted);
+            margin-bottom: 28px;
+        }
+
+        /* Form */
+        .field {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 7px;
+        }
+
+        input {
+            width: 100%;
+            background: var(--card2);
+            border: 1.5px solid var(--border);
+            border-radius: 10px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: var(--g1);
+            box-shadow: 0 0 0 3px rgba(0, 221, 0, 0.1);
+        }
+
+        input::placeholder {
+            color: var(--muted);
+        }
+
+        /* Error */
+        .error-msg {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.83rem;
+            color: var(--err);
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .error-msg.show {
+            display: block;
+        }
+
+        /* Botón */
+        .btn-login {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, var(--g1) 0%, var(--g3) 100%);
+            color: #000;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 800;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.25s;
+            position: relative;
+            overflow: hidden;
+            margin-top: 6px;
+        }
+
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15), transparent);
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .btn-login:hover::before {
+            opacity: 1;
+        }
+
+        .btn-login:hover {
+            box-shadow: 0 0 24px rgba(0, 221, 0, 0.4);
+            transform: translateY(-1px);
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        .btn-login:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Spinner */
+        .spinner {
+            display: none;
+        }
+
+        .btn-login.loading .btn-text {
+            display: none;
+        }
+
+        .btn-login.loading .spinner {
+            display: inline;
+        }
+
+        /* Roles info */
+        .roles-hint {
+            margin-top: 24px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .roles-hint p {
+            font-size: 0.75rem;
+            color: var(--muted);
+            text-align: center;
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .role-pills {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .role-pill {
+            background: var(--card2);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 4px 14px;
+            font-size: 0.75rem;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .role-pill:hover {
+            border-color: var(--g2);
+            color: var(--g1);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.72rem;
+            color: rgba(122, 154, 122, 0.5);
+        }
+
+        /* Responsive */
+        @media (max-width: 480px) {
+            .card {
+                padding: 24px 20px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="login-wrapper">
+        <div class="logo-area">
+            <img src="img/eli7e_logo.png" alt="Eli7e Logo" class="logo-img" onerror="this.style.display='none'">
+            <div class="logo-name">Eli7e</div>
+            <div class="logo-sub">Sistema de Gestión</div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Bienvenido 👋</div>
+            <div class="card-sub">Ingresa tus credenciales para acceder al sistema</div>
+
+            <div class="error-msg" id="errorMsg"></div>
+
+            <form id="loginForm">
+                <div class="field">
+                    <label for="email">Correo electrónico</label>
+                    <input type="email" id="email" placeholder="usuario@eli7e.com" autocomplete="email" required>
+                </div>
+                <div class="field">
+                    <label for="password">Contraseña</label>
+                    <input type="password" id="password" placeholder="••••••••" autocomplete="current-password"
+                        required>
+                </div>
+
+                <button type="submit" class="btn-login" id="btnLogin">
+                    <span class="btn-text">Ingresar al Sistema</span>
+                    <span class="spinner">Verificando...</span>
+                </button>
+            </form>
+
+            <div class="roles-hint">
+                <p>Acceso rápido (demo)</p>
+                <div class="role-pills">
+                    <div class="role-pill" onclick="fillDemo('admin')">👑 Admin</div>
+                    <div class="role-pill" onclick="fillDemo('cc')">📞 Call Center</div>
+                    <div class="role-pill" onclick="fillDemo('cont')">💼 Contable</div>
+                </div>
+            </div>
+        </div>
+
+        <footer>Eli7e © 2026 · Sistema de Gestión Operativa</footer>
+    </div>
+
+    <script>
+        const DEMO = {
+            admin: { email: 'admin@eli7e.com', password: 'eli7e2026' },
+            cc: { email: 'callcenter@eli7e.com', password: 'eli7e2026' },
+            cont: { email: 'contable@eli7e.com', password: 'eli7e2026' },
+        };
+
+        function fillDemo(rol) {
+            document.getElementById('email').value = DEMO[rol].email;
+            document.getElementById('password').value = DEMO[rol].password;
+            document.getElementById('errorMsg').classList.remove('show');
+        }
+
+        const DASHBOARD = {
+            admin: 'dashboard-admin.html',
+            call_center: 'dashboard-callcenter.html',
+            contable: 'dashboard-contable.html',
+        };
+
+        // Si ya hay sesión activa → redirigir
+        const sesion = localStorage.getItem('eli7e_user');
+        if (sesion) {
+            const u = JSON.parse(sesion);
+            if (DASHBOARD[u.rol]) window.location.href = DASHBOARD[u.rol];
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = document.getElementById('btnLogin');
+            const err = document.getElementById('errorMsg');
+            err.classList.remove('show');
+            btn.classList.add('loading');
+            btn.disabled = true;
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    err.textContent = data.error || 'Error al iniciar sesión';
+                    err.classList.add('show');
+                    return;
+                }
+
+                // Guardar token y usuario
+                localStorage.setItem('eli7e_token', data.token);
+                localStorage.setItem('eli7e_user', JSON.stringify(data.user));
+
+                // Redirigir según rol
+                const dest = DASHBOARD[data.user.rol] || 'dashboard-admin.html';
+                window.location.href = dest;
+
+            } catch {
+                err.textContent = 'No se pudo conectar con el servidor';
+                err.classList.add('show');
+            } finally {
+                btn.classList.remove('loading');
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+
+</html>

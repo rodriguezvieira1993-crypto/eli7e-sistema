@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eli7e — Panel Administrador</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/dashboard.css">
+</head>
+
+<body>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <img src="img/eli7e_logo.png" alt="Eli7e" class="sb-logo-img" onerror="this.style.display='none'">
+            <span class="sb-logo-text">Eli7e</span>
+        </div>
+
+        <nav class="sb-nav">
+            <div class="sb-section">Principal</div>
+            <a href="#" class="sb-link active" data-view="dashboard"><span>📊</span> Dashboard</a>
+            <a href="#" class="sb-link" data-view="clientes"><span>🏪</span> Clientes</a>
+            <a href="#" class="sb-link" data-view="flota"><span>🛵</span> Flota</a>
+            <a href="#" class="sb-link" data-view="servicios"><span>📝</span> Servicios</a>
+
+            <div class="sb-section">Finanzas</div>
+            <a href="#" class="sb-link" data-view="cobranza"><span>💰</span> Cobranza</a>
+            <a href="#" class="sb-link" data-view="cierres"><span>🧾</span> Cierres</a>
+            <a href="#" class="sb-link" data-view="reportes"><span>📈</span> Reportes</a>
+
+            <div class="sb-section">Sistema</div>
+            <a href="#" class="sb-link" data-view="usuarios"><span>👤</span> Usuarios</a>
+            <a href="#" class="sb-link" data-view="config"><span>⚙️</span> Configuración</a>
+        </nav>
+
+        <div class="sb-footer" id="sbUser">
+            <div class="sb-avatar">A</div>
+            <div>
+                <div class="sb-name" id="userName">Admin</div>
+                <div class="sb-rol">Administrador</div>
+            </div>
+            <button class="sb-logout" onclick="logout()" title="Cerrar sesión">⏻</button>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main-wrap">
+        <!-- TOPBAR -->
+        <header class="topbar">
+            <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+            <div class="topbar-title" id="pageTitle">Dashboard</div>
+            <div class="topbar-right">
+                <div class="status-dot"></div>
+                <span id="topbarDate" style="font-size:0.82rem;color:var(--muted)"></span>
+            </div>
+        </header>
+
+        <!-- VIEWS -->
+        <main class="content">
+
+            <!-- ══ DASHBOARD VIEW ══════════════════════════════════ -->
+            <div class="view active" id="view-dashboard">
+                <div class="view-header">
+                    <h1 class="view-title">Vista General</h1>
+                    <span class="view-sub">Resumen operativo del día</span>
+                </div>
+
+                <!-- KPIs -->
+                <div class="kpi-grid" id="kpiGrid">
+                    <div class="kpi-card">
+                        <div class="kpi-icon">💰</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-ingresos">$0</div>
+                            <div class="kpi-lbl">Ingresos Hoy</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon">📦</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-servicios">0</div>
+                            <div class="kpi-lbl">Servicios Hoy</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon">🛵</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-motos">0</div>
+                            <div class="kpi-lbl">Motos Activas</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card kpi-warn">
+                        <div class="kpi-icon">⚠️</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-deuda">$0</div>
+                            <div class="kpi-lbl">Deuda Pendiente</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TABLAS lado a lado -->
+                <div class="dash-grid">
+                    <div class="card">
+                        <div class="card-hdr">🛵 Estado de Flota</div>
+                        <div id="flotaStatus" class="moto-list">
+                            <p class="loading-txt">Cargando...</p>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-hdr">💰 Deudas Prioritarias</div>
+                        <table class="mini-table" id="deudaTable">
+                            <thead>
+                                <tr>
+                                    <th>Marca</th>
+                                    <th>Deuda</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody id="deudaBody">
+                                <tr>
+                                    <td colspan="3" class="loading-txt">Cargando...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ CLIENTES VIEW ══════════════════════════════════ -->
+            <div class="view" id="view-clientes">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Clientes / Marcas</h1>
+                        <span class="view-sub">Gestión de las marcas aliadas</span>
+                    </div>
+                    <button class="btn-primary" onclick="openModal('modalCliente')">+ Nuevo Cliente</button>
+                </div>
+
+                <div class="search-bar">
+                    <input type="text" placeholder="🔍  Buscar marca..." id="searchCliente" oninput="filterClientes()">
+                </div>
+
+                <div class="card">
+                    <table class="data-table" id="clientesTable">
+                        <thead>
+                            <tr>
+                                <th>Marca</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Deuda</th>
+                                <th>Estado</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="clientesBody">
+                            <tr>
+                                <td colspan="6" class="loading-txt">Cargando clientes...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ FLOTA VIEW ══════════════════════════════════════ -->
+            <div class="view" id="view-flota">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Flota de Motorizados</h1>
+                        <span class="view-sub">Control de disponibilidad de la flota</span>
+                    </div>
+                    <button class="btn-primary" onclick="openModal('modalMoto')">+ Nuevo Motorizado</button>
+                </div>
+
+                <div class="moto-cards" id="motosGrid">
+                    <p class="loading-txt">Cargando flota...</p>
+                </div>
+            </div>
+
+            <!-- ══ SERVICIOS VIEW ═══════════════════════════════════ -->
+            <div class="view" id="view-servicios">
+                <div class="view-header">
+                    <h1 class="view-title">Servicios</h1>
+                    <span class="view-sub">Historial completo de servicios</span>
+                </div>
+                <div class="card">
+                    <table class="data-table" id="serviciosTable">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Cliente</th>
+                                <th>Motorizado</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="serviciosBody">
+                            <tr>
+                                <td colspan="6" class="loading-txt">Cargando servicios...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ COBRANZA VIEW ════════════════════════════════════ -->
+            <div class="view" id="view-cobranza">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Panel de Cobranza</h1>
+                        <span class="view-sub">Facturas pendientes en tiempo real</span>
+                    </div>
+                    <button class="btn-primary" onclick="enviarCierresMasivos()">📧 Enviar Cierres Semanales</button>
+                </div>
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Marca</th>
+                                <th>Servicios</th>
+                                <th>Facturado</th>
+                                <th>Pagado</th>
+                                <th>Deuda</th>
+                                <th>Semáforo</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cobranzaBody">
+                            <tr>
+                                <td colspan="7" class="loading-txt">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ CIERRES VIEW ═════════════════════════════════════ -->
+            <div class="view" id="view-cierres">
+                <div class="view-header">
+                    <h1 class="view-title">Cierres Diarios</h1>
+                    <span class="view-sub">Historial de cuadres de caja</span>
+                </div>
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Servicios</th>
+                                <th>Facturado</th>
+                                <th>Cobrado</th>
+                                <th>Diferencia</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cierresBody">
+                            <tr>
+                                <td colspan="6" class="loading-txt">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ REPORTES VIEW ════════════════════════════════════ -->
+            <div class="view" id="view-reportes">
+                <div class="view-header">
+                    <h1 class="view-title">Reportes</h1>
+                    <span class="view-sub">Análisis gerencial</span>
+                </div>
+                <div class="kpi-grid">
+                    <div class="card" style="text-align:center;padding:32px;">
+                        <div style="font-size:2.5rem;margin-bottom:12px;">📥</div>
+                        <div style="font-weight:700;margin-bottom:8px;">Reporte Semanal</div>
+                        <button class="btn-primary" onclick="exportarReporte('semanal')">Descargar PDF</button>
+                    </div>
+                    <div class="card" style="text-align:center;padding:32px;">
+                        <div style="font-size:2.5rem;margin-bottom:12px;">📊</div>
+                        <div style="font-weight:700;margin-bottom:8px;">Ranking de Marcas</div>
+                        <button class="btn-primary" onclick="exportarReporte('ranking')">Descargar PDF</button>
+                    </div>
+                    <div class="card" style="text-align:center;padding:32px;">
+                        <div style="font-size:2.5rem;margin-bottom:12px;">📅</div>
+                        <div style="font-weight:700;margin-bottom:8px;">Reporte Mensual</div>
+                        <button class="btn-primary" onclick="exportarReporte('mensual')">Descargar PDF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ══ USUARIOS VIEW ════════════════════════════════════ -->
+            <div class="view" id="view-usuarios">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Usuarios del Sistema</h1>
+                    </div>
+                    <button class="btn-primary" onclick="openModal('modalUsuario')">+ Nuevo Usuario</button>
+                </div>
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Rol</th>
+                                <th>Último Acceso</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usuariosBody">
+                            <tr>
+                                <td colspan="5" class="loading-txt">Cargando...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ CONFIG VIEW ══════════════════════════════════════ -->
+            <div class="view" id="view-config">
+                <div class="view-header">
+                    <h1 class="view-title">Configuración</h1>
+                </div>
+                <div class="grid-2">
+                    <div class="card">
+                        <div class="card-hdr">📧 Gmail SMTP</div>
+                        <div class="field"><label>Correo empresa</label><input type="email" id="gmailUser"
+                                placeholder="correo@eli7e.com"></div>
+                        <div class="field"><label>App Password</label><input type="password" id="gmailPass"
+                                placeholder="••••••••••••"></div>
+                        <button class="btn-primary" onclick="guardarGmail()">Guardar Configuración</button>
+                    </div>
+                    <div class="card">
+                        <div class="card-hdr">🏢 Datos de la Empresa</div>
+                        <div class="field"><label>Nombre</label><input type="text" value="Delivery Eli7e"></div>
+                        <div class="field"><label>Teléfono</label><input type="text" placeholder="+58 000 000 0000">
+                        </div>
+                        <button class="btn-primary">Guardar</button>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- MODAL CLIENTE -->
+    <div class="modal-overlay" id="modalCliente">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>+ Nuevo Cliente / Marca</span>
+                <button onclick="closeModal('modalCliente')">✕</button>
+            </div>
+            <form id="formCliente" onsubmit="crearCliente(event)">
+                <div class="field"><label>Nombre de la Marca *</label><input required id="c_nombre"
+                        placeholder="Ej: Topping Burguer"></div>
+                <div class="field"><label>Email (para reportes)</label><input type="email" id="c_email"
+                        placeholder="contacto@marca.com"></div>
+                <div class="field"><label>Teléfono</label><input id="c_tel" placeholder="+58 000 000 0000"></div>
+                <div class="field"><label>RIF</label><input id="c_rif" placeholder="J-00000000-0"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalCliente')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Crear Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL MOTORIZADO -->
+    <div class="modal-overlay" id="modalMoto">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>+ Nuevo Motorizado</span>
+                <button onclick="closeModal('modalMoto')">✕</button>
+            </div>
+            <form id="formMoto" onsubmit="crearMoto(event)">
+                <div class="field"><label>Nombre completo *</label><input required id="m_nombre"
+                        placeholder="Ej: Manuel Pérez"></div>
+                <div class="field"><label>Cédula</label><input id="m_cedula" placeholder="V-00000000"></div>
+                <div class="field"><label>Teléfono</label><input id="m_tel" placeholder="+58 000 000 0000"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalMoto')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Agregar Motorizado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="js/api.js"></script>
+    <script src="js/dashboard-admin.js"></script>
+</body>
+
+</html>
