@@ -10,7 +10,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- ============================================================
 -- 1. USUARIOS DEL SISTEMA
 -- ============================================================
-CREATE TABLE usuarios (
+CREATE TABLE IF NOT EXISTS usuarios (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre      VARCHAR(100) NOT NULL,
     email       VARCHAR(150) NOT NULL UNIQUE,
@@ -23,14 +23,15 @@ CREATE TABLE usuarios (
 
 -- Usuarios iniciales (passwords son bcrypt de "eli7e2026")
 INSERT INTO usuarios (nombre, email, password, rol) VALUES
-('Administrador',   'admin@eli7e.com',      '$2b$10$rGqtqIRGBjKzfJn0R5GnTup9RiwKlL.DmGqJG2wBSv8q3TH4xGJHi', 'admin'),
-('Operador 1',      'callcenter@eli7e.com', '$2b$10$rGqtqIRGBjKzfJn0R5GnTup9RiwKlL.DmGqJG2wBSv8q3TH4xGJHi', 'call_center'),
-('Contable',        'contable@eli7e.com',   '$2b$10$rGqtqIRGBjKzfJn0R5GnTup9RiwKlL.DmGqJG2wBSv8q3TH4xGJHi', 'contable');
+('Administrador',   'admin@eli7e.com',      '$2a$10$xf.IGg7JlEedaSsfPnRewOkV4iiP5fIafMgwbZ5mfP4RG5IA8FWAy', 'admin'),
+('Operador 1',      'callcenter@eli7e.com', '$2a$10$xf.IGg7JlEedaSsfPnRewOkV4iiP5fIafMgwbZ5mfP4RG5IA8FWAy', 'call_center'),
+('Contable',        'contable@eli7e.com',   '$2a$10$xf.IGg7JlEedaSsfPnRewOkV4iiP5fIafMgwbZ5mfP4RG5IA8FWAy', 'contable')
+ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password;
 
 -- ============================================================
 -- 2. CLIENTES / MARCAS ALIADAS
 -- ============================================================
-CREATE TABLE clientes (
+CREATE TABLE IF NOT EXISTS clientes (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre_marca        VARCHAR(150) NOT NULL,
     email               VARCHAR(150),
@@ -80,7 +81,7 @@ INSERT INTO clientes (nombre_marca) VALUES
 -- ============================================================
 -- 3. FLOTA DE MOTORIZADOS
 -- ============================================================
-CREATE TABLE motorizados (
+CREATE TABLE IF NOT EXISTS motorizados (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre      VARCHAR(100) NOT NULL,
     cedula      VARCHAR(20),
@@ -103,7 +104,7 @@ INSERT INTO motorizados (nombre) VALUES
 -- ============================================================
 -- 4. SERVICIOS
 -- ============================================================
-CREATE TABLE servicios (
+CREATE TABLE IF NOT EXISTS servicios (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     tipo            VARCHAR(30) NOT NULL CHECK (tipo IN ('mototaxi','delivery','encomienda','compras','flete','viaje')),
     monto           NUMERIC(10,2) NOT NULL,
@@ -120,7 +121,7 @@ CREATE TABLE servicios (
 -- ============================================================
 -- 5. NOTAS DE ENTREGA
 -- ============================================================
-CREATE TABLE notas_entrega (
+CREATE TABLE IF NOT EXISTS notas_entrega (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     servicio_id         UUID REFERENCES servicios(id) ON DELETE CASCADE,
     numero_nota         SERIAL,
@@ -133,7 +134,7 @@ CREATE TABLE notas_entrega (
 -- ============================================================
 -- 6. CIERRES DIARIOS
 -- ============================================================
-CREATE TABLE cierres_diarios (
+CREATE TABLE IF NOT EXISTS cierres_diarios (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     fecha               DATE NOT NULL UNIQUE DEFAULT CURRENT_DATE,
     total_servicios     INT DEFAULT 0,
@@ -149,7 +150,7 @@ CREATE TABLE cierres_diarios (
 -- ============================================================
 -- 7. PAGOS
 -- ============================================================
-CREATE TABLE pagos (
+CREATE TABLE IF NOT EXISTS pagos (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cliente_id      UUID REFERENCES clientes(id) ON DELETE SET NULL,
     monto           NUMERIC(10,2) NOT NULL,
