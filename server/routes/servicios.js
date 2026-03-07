@@ -9,7 +9,7 @@ router.use(auth);
 // GET /api/servicios
 router.get('/', async (req, res) => {
     try {
-        const { estado, hoy } = req.query;
+        const { estado, hoy, limit } = req.query;
         let query = `
       SELECT s.*, c.nombre_marca AS cliente_nombre, m.nombre AS motorizado_nombre,
              EXISTS(SELECT 1 FROM notas_entrega n WHERE n.servicio_id = s.id) AS tiene_nota
@@ -19,11 +19,17 @@ router.get('/', async (req, res) => {
     `;
         const params = [];
         const where = [];
-        if (estado) { params.push(estado); where.push(`s.estado = $${params.length}`); }
-        if (estado === 'en_curso') where[where.length - 1] = `s.estado = 'pendiente'`;
+
+        if (estado) {
+            // 'en_curso' en el frontend = 'pendiente' en la BD
+            const dbEstado = estado === 'en_curso' ? 'pendiente' : estado;
+            params.push(dbEstado);
+            where.push(`s.estado = $${params.length}`);
+        }
         if (hoy) where.push(`DATE(s.fecha_inicio) = CURRENT_DATE`);
         if (where.length) query += ' WHERE ' + where.join(' AND ');
-        query += ' ORDER BY s.fecha_inicio DESC LIMIT 100';
+        query += ' ORDER BY s.fecha_inicio DESC';
+        query += ` LIMIT ${parseInt(limit) || 100}`;
 
         const { rows } = await pool.query(query, params);
         res.json(rows);
