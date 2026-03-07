@@ -62,7 +62,7 @@ function selectTipo(el) {
 function renderCampos(tipo) {
     const container = document.getElementById('camposDinamicos');
 
-    if (tipo === 'mototaxi') {
+    if (['mototaxi', 'encomienda', 'compras'].includes(tipo)) {
         container.innerHTML = `
             <div class="field">
                 <label>Cliente *</label>
@@ -383,7 +383,7 @@ async function crearServicio(e) {
 
     // Construir descripción con ruta según tipo
     let descripcion = document.getElementById('s_desc')?.value || '';
-    if (tipo === 'mototaxi') {
+    if (['mototaxi', 'encomienda', 'compras'].includes(tipo)) {
         const de = document.getElementById('s_ruta_de')?.value || '';
         const hasta = document.getElementById('s_ruta_hasta')?.value || '';
         const clienteNombre = document.getElementById('s_cliente_nombre')?.value || '';
