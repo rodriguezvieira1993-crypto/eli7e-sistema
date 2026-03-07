@@ -916,3 +916,46 @@ textarea::placeholder {
 .monto-chip {
   min-width: 70px;
 }
+
+/* ─── AUTOCOMPLETE (Zonas) ───────────────────── */
+.autocomplete-wrap {
+  position: relative;
+}
+
+.autocomplete-list {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 0 0 10px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+}
+
+.ac-item {
+  padding: 10px 14px;
+  font-size: .85rem;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all .15s;
+  border-bottom: 1px solid rgba(255, 255, 255, .04);
+}
+
+.ac-item:hover {
+  background: rgba(0, 221, 0, .08);
+  color: var(--text);
+}
+
+.ac-item:last-child {
+  border-bottom: none;
+}
+
+.ac-item strong {
+  color: var(--g1);
+  font-weight: 700;
+}

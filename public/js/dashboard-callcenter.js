@@ -2,6 +2,52 @@
 let allClientesCC = [];
 let motosDisponibles = [];
 
+// ── Zonas de Puerto Ordaz y San Félix ────────────────
+const ZONAS = [
+    // Puerto Ordaz
+    'Alta Vista', 'Alta Vista Sur', 'Altamira', 'Andrés Eloy Blanco',
+    'Cachamay', 'Campo A', 'Caronoco', 'Caroní', 'Castillito',
+    'Centro Cívico', 'Chirica', 'Ciudad Bolívar (referencia)',
+    'Coranzón de Jesús', 'Country Club', 'Dalla Costa',
+    'El Golfito', 'El Marqués', 'El Roble', 'El Medio',
+    'Ferrominera', 'Guaiparo', 'Guaraguao',
+    'Jardines de Caroní', 'La Churuata', 'La Grúa',
+    'Las Américas', 'Las Delicias', 'Las Moreas', 'Loefling',
+    'Los Olivos', 'Los Próceres', 'Macagua',
+    'Manoa', 'Menca de Leoni', 'Mendoza del Medio',
+    'Orinoco', 'Orinokia Mall', 'Paseo Caroní',
+    'Puerto de Hierro', 'Puerto Ordaz Centro',
+    'San Martín de Turumbán', 'Sierra Grande',
+    'Terminal de Puerto Ordaz', 'Tascabaña',
+    'Unare I', 'Unare II', 'Unare III',
+    'Universidad', 'Urb. Angostura', 'Urb. Paraíso',
+    'Urb. Villa Africana', 'Urb. Villa Asia', 'Urb. Villa Brasil',
+    'Urb. Villa Colombia', 'Urb. Villa Europa',
+    'Urb. Villa Alianza', 'Urb. Villa Antillana',
+    'Urb. Villa Central', 'Urb. Villa Floresta',
+    'Urb. Villa Granada', 'Urb. Villa Icabarú',
+    'Urb. Villa Bahía', 'Villa Colombo',
+    // San Félix
+    'San Félix Centro', 'San Félix Terminal',
+    'Bicentenario', 'Cambalache', 'Caruachi',
+    'Chirica (San Félix)', 'Dalla Costa (San Félix)',
+    'El Perú', 'La Paragua', 'La Sabanita',
+    'Los Monos', 'Manoa (San Félix)', 'Mango Verde',
+    'Mercado de San Félix', 'Pica Pica',
+    'San Félix - AV. Guayana', 'San Pedro',
+    'Simón Bolívar', 'Tumeremo', 'Vista al Sol',
+    'Vista Hermosa', 'W', 'Zulia',
+    // Zonas Industriales / Comerciales
+    'Zona Industrial UD-321', 'Zona Industrial Matanzas',
+    'Zona Industrial Chirica', 'Zona Industrial Los Pinos',
+    'C.C. Alta Vista', 'C.C. Orinokia', 'C.C. Churún Merú',
+    'Heres', 'Caicara del Orinoco',
+    'Aeropuerto', 'Terminal de San Félix',
+    'Puente Angosturita', 'Puente Orinoquia',
+    // Otros
+    'Otro (escribir)'
+];
+
 // ── Seleccionar tipo de servicio ─────────────────────
 function selectTipo(el) {
     document.querySelectorAll('.tipo-chip').forEach(c => c.classList.remove('selected'));
@@ -60,8 +106,14 @@ function renderCampos(tipo) {
             <div class="field">
                 <label>Ruta</label>
                 <div style="display:flex;gap:10px;">
-                    <input type="text" id="s_ruta_de" placeholder="📍 De..." style="flex:1">
-                    <input type="text" id="s_ruta_hasta" placeholder="📍 Hasta..." style="flex:1">
+                    <div class="autocomplete-wrap" style="flex:1">
+                        <input type="text" id="s_ruta_de" placeholder="📍 De..." autocomplete="off">
+                        <div class="autocomplete-list" id="ac_de"></div>
+                    </div>
+                    <div class="autocomplete-wrap" style="flex:1">
+                        <input type="text" id="s_ruta_hasta" placeholder="📍 Hasta..." autocomplete="off">
+                        <div class="autocomplete-list" id="ac_hasta"></div>
+                    </div>
                 </div>
             </div>
 
@@ -70,6 +122,8 @@ function renderCampos(tipo) {
                 <textarea id="s_desc" rows="2" placeholder="Detalles adicionales..."></textarea>
             </div>`;
         fillMotosSelect();
+        initAutocomplete('s_ruta_de', 'ac_de');
+        initAutocomplete('s_ruta_hasta', 'ac_hasta');
     } else {
         // Campos por defecto para los demás tipos
         container.innerHTML = `
@@ -115,6 +169,39 @@ function fillClientesSelect() {
     sel.innerHTML = allClientesCC.length
         ? '<option value="">— Seleccionar —</option>' + allClientesCC.map(c => `<option value="${c.id}">${c.nombre_marca}</option>`).join('')
         : '<option value="">Sin clientes</option>';
+}
+
+// ── Autocompletado de zonas ──────────────────────────
+function initAutocomplete(inputId, listId) {
+    const input = document.getElementById(inputId);
+    const list = document.getElementById(listId);
+    if (!input || !list) return;
+
+    input.addEventListener('input', () => {
+        const val = input.value.toLowerCase().trim();
+        if (val.length < 1) { list.innerHTML = ''; list.style.display = 'none'; return; }
+
+        const matches = ZONAS.filter(z => z.toLowerCase().includes(val)).slice(0, 8);
+        if (matches.length === 0) { list.innerHTML = ''; list.style.display = 'none'; return; }
+
+        list.innerHTML = matches.map(z => `<div class="ac-item" onmousedown="selectZona('${inputId}','${listId}','${z.replace(/'/g, "\\'")}')">${z.replace(
+            new RegExp(`(${val})`, 'gi'), '<strong>$1</strong>'
+        )}</div>`).join('');
+        list.style.display = 'block';
+    });
+
+    input.addEventListener('focus', () => {
+        if (input.value.length >= 1) input.dispatchEvent(new Event('input'));
+    });
+
+    input.addEventListener('blur', () => {
+        setTimeout(() => { list.style.display = 'none'; }, 150);
+    });
+}
+
+function selectZona(inputId, listId, zona) {
+    document.getElementById(inputId).value = zona;
+    document.getElementById(listId).style.display = 'none';
 }
 
 // ── Seleccionar monto chip ───────────────────────────
