@@ -1,6 +1,8 @@
 // dashboard-callcenter.js
 let allClientesCC = [];
 let motosDisponibles = [];
+let serviciosRecientes = [];
+const TIPO_EMOJI = { mototaxi: '🛵', delivery: '📦', encomienda: '📬', compras: '🛒', flete: '🚛', viaje: '🗺️' };
 
 // ── Zonas de Puerto Ordaz y San Félix ────────────────
 const ZONAS = [
@@ -227,6 +229,7 @@ function selectMonto(el) {
 async function initCC() {
     await loadFlotaDisp();
     await loadClientesCC();
+    await loadUltimos();
 }
 
 async function loadFlotaDisp() {
@@ -311,17 +314,56 @@ async function crearServicio(e) {
         document.querySelectorAll('.tipo-chip').forEach(c => c.classList.remove('selected'));
         document.getElementById('camposDinamicos').innerHTML = '';
 
-        // Mostrar último servicio
-        document.getElementById('ultimoServicio').innerHTML = `
-      <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--border)">
-        <div style="color:var(--g1);font-weight:700">${res.tipo.toUpperCase()} — ${fmt(res.monto)}</div>
-        <div style="margin-top:4px">${descripcion || 'Registrado correctamente'}</div>
-      </div>`;
+        // Agregar al historial reciente
+        serviciosRecientes.unshift({
+            tipo: res.tipo,
+            monto: res.monto,
+            descripcion: descripcion || '',
+            hora: new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
+            motorizado_nombre: motosDisponibles.find(m => m.id === body.motorizado_id)?.nombre || '—'
+        });
+        if (serviciosRecientes.length > 10) serviciosRecientes.pop();
+        renderUltimos();
 
         await loadFlotaDisp();
     } else {
         showToast('❌ Error al registrar servicio', 'err');
     }
+}
+
+// ── Renderizar mini historial de últimos servicios ───
+function renderUltimos() {
+    const container = document.getElementById('ultimosServicios');
+    if (!container) return;
+    if (serviciosRecientes.length === 0) {
+        container.innerHTML = '<p class="loading-txt" style="font-size:.82rem;">Sin registros aún.</p>';
+        return;
+    }
+    container.innerHTML = serviciosRecientes.map(s => `
+      <div class="ultimo-card">
+        <div class="ultimo-top">
+          <span class="ultimo-tipo">${TIPO_EMOJI[s.tipo] || '📋'} ${s.tipo.toUpperCase()}</span>
+          <span class="ultimo-monto">${fmt(s.monto)}</span>
+        </div>
+        <div class="ultimo-detalle">
+          ${s.motorizado_nombre ? '🛵 ' + s.motorizado_nombre : ''}
+          ${s.hora ? ' · ' + s.hora : ''}
+        </div>
+        ${s.descripcion ? `<div class="ultimo-desc">${s.descripcion}</div>` : ''}
+      </div>`).join('');
+}
+
+async function loadUltimos() {
+    const data = await apiFetch('/servicios?hoy=1&limit=10');
+    if (!data || !data.length) return;
+    serviciosRecientes = data.map(s => ({
+        tipo: s.tipo,
+        monto: s.monto,
+        descripcion: s.descripcion || '',
+        hora: s.fecha_inicio ? new Date(s.fecha_inicio).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '',
+        motorizado_nombre: s.motorizado_nombre || '—'
+    }));
+    renderUltimos();
 }
 
 // ── Vistas: En Curso, Historial, Flota ───────────────

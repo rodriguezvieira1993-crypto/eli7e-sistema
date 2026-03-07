@@ -959,3 +959,69 @@ textarea::placeholder {
   color: var(--g1);
   font-weight: 700;
 }
+
+/* ─── ÚLTIMOS SERVICIOS (mini historial) ─────── */
+.ultimos-servicios-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.ultimo-card {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: all .2s;
+  animation: slideIn .25s ease;
+}
+
+.ultimo-card:hover {
+  border-color: rgba(0, 221, 0, .35);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px)
+  }
+
+  to {
+    opacity: 1;
+    transform: none
+  }
+}
+
+.ultimo-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.ultimo-tipo {
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--g1);
+}
+
+.ultimo-monto {
+  font-size: .85rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.ultimo-detalle {
+  font-size: .75rem;
+  color: var(--muted);
+}
+
+.ultimo-desc {
+  font-size: .72rem;
+  color: var(--muted);
+  margin-top: 3px;
+  opacity: .7;
+}
