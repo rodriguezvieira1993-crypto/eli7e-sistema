@@ -126,6 +126,66 @@ function renderCampos(tipo) {
         fillMotosSelect();
         initAutocomplete('s_ruta_de', 'ac_de');
         initAutocomplete('s_ruta_hasta', 'ac_hasta');
+    } else if (tipo === 'delivery') {
+        container.innerHTML = `
+            <div class="field">
+                <label>Cliente / Marca *</label>
+                <select id="s_cliente" required>
+                    <option value="">— Seleccionar —</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Motorizado *</label>
+                <select id="s_motorizado" required>
+                    <option value="">— Seleccionar —</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Monto (USD) *</label>
+                <input type="hidden" id="s_monto">
+                <div class="tipo-chips">
+                    <div class="monto-chip" data-monto="2" onclick="selectMonto(this)">
+                        <span class="tipo-icon">💵</span>
+                        <span class="tipo-label">$2</span>
+                    </div>
+                    <div class="monto-chip" data-monto="4" onclick="selectMonto(this)">
+                        <span class="tipo-icon">💵</span>
+                        <span class="tipo-label">$4</span>
+                    </div>
+                    <div class="monto-chip" data-monto="6" onclick="selectMonto(this)">
+                        <span class="tipo-icon">💵</span>
+                        <span class="tipo-label">$6</span>
+                    </div>
+                    <div class="monto-chip" data-monto="8" onclick="selectMonto(this)">
+                        <span class="tipo-icon">💵</span>
+                        <span class="tipo-label">$8</span>
+                    </div>
+                    <div class="monto-chip monto-custom" data-monto="custom" onclick="selectMonto(this)">
+                        <span class="tipo-icon">✏️</span>
+                        <span class="tipo-label">Otro</span>
+                    </div>
+                </div>
+                <input type="number" id="s_monto_custom" step="0.01" min="0.01" placeholder="Monto personalizado..."
+                    style="display:none;margin-top:10px;" oninput="document.getElementById('s_monto').value=this.value">
+            </div>
+
+            <div class="field">
+                <label>Para (destino) *</label>
+                <div class="autocomplete-wrap">
+                    <input type="text" id="s_ruta_hasta" placeholder="📍 Zona de entrega..." autocomplete="off">
+                    <div class="autocomplete-list" id="ac_hasta"></div>
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Descripción / Observaciones</label>
+                <textarea id="s_desc" rows="2" placeholder="Detalles del pedido..."></textarea>
+            </div>`;
+        fillMotosSelect();
+        fillClientesSelect();
+        initAutocomplete('s_ruta_hasta', 'ac_hasta');
     } else {
         // Campos por defecto para los demás tipos
         container.innerHTML = `
@@ -321,7 +381,7 @@ async function crearServicio(e) {
         return;
     }
 
-    // Construir descripción con ruta si es mototaxi
+    // Construir descripción con ruta según tipo
     let descripcion = document.getElementById('s_desc')?.value || '';
     if (tipo === 'mototaxi') {
         const de = document.getElementById('s_ruta_de')?.value || '';
@@ -329,6 +389,11 @@ async function crearServicio(e) {
         const clienteNombre = document.getElementById('s_cliente_nombre')?.value || '';
         if (de || hasta) {
             descripcion = `🚩 ${de} → ${hasta}${clienteNombre ? ' | Cliente: ' + clienteNombre : ''}${descripcion ? ' | ' + descripcion : ''}`;
+        }
+    } else if (tipo === 'delivery') {
+        const hasta = document.getElementById('s_ruta_hasta')?.value || '';
+        if (hasta) {
+            descripcion = `📦 Para: ${hasta}${descripcion ? ' | ' + descripcion : ''}`;
         }
     }
 
