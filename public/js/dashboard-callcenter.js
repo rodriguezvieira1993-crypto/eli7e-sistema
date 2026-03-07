@@ -253,10 +253,34 @@ async function loadFlotaDisp() {
             <div class="moto-row">
               <div class="moto-dot ${dotClass}"></div>
               <span style="font-size:.88rem;font-weight:600">${m.nombre}</span>
-              <span class="badge ${badgeClass}" style="margin-left:auto;font-size:.7rem">${label}</span>
+              <span class="badge ${badgeClass} badge-click" style="margin-left:auto;font-size:.7rem;cursor:pointer"
+                    onclick="cambiarEstadoMoto('${m.id}','${m.estado}')" title="Clic para cambiar estado">
+                ${label}
+              </span>
             </div>`;
         }).join('')
         : '<p style="color:var(--err);font-size:.85rem">⚠ Sin motorizados registrados</p>';
+}
+
+// ── Cambiar estado de motorizado con clic ────────────
+async function cambiarEstadoMoto(id, estadoActual) {
+    const ciclo = { disponible: 'en_servicio', en_servicio: 'inactivo', inactivo: 'disponible' };
+    const nuevoEstado = ciclo[estadoActual] || 'disponible';
+    const labels = { disponible: 'Libre', en_servicio: 'En Servicio', inactivo: 'Inactivo' };
+
+    const res = await apiFetch(`/motorizados/${id}/estado`, {
+        method: 'PATCH',
+        body: { estado: nuevoEstado }
+    });
+
+    if (res?.id) {
+        showToast(`🛵 ${res.nombre} → ${labels[nuevoEstado]}`);
+        await loadFlotaDisp();
+        // Actualizar select de motorizado si está visible
+        fillMotosSelect();
+    } else {
+        showToast('❌ Error al cambiar estado', 'err');
+    }
 }
 
 async function loadClientesCC() {
