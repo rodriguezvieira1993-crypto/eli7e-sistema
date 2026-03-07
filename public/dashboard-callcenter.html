@@ -62,15 +62,33 @@
 
                             <div class="field">
                                 <label>Tipo de Servicio *</label>
-                                <select id="s_tipo" required>
-                                    <option value="">— Seleccionar —</option>
-                                    <option value="mototaxi">🛵 Mototaxi</option>
-                                    <option value="delivery">📦 Delivery</option>
-                                    <option value="encomienda">📬 Encomienda</option>
-                                    <option value="compras">🛒 Compras (Personal Shopper)</option>
-                                    <option value="flete">🚛 Flete</option>
-                                    <option value="viaje">🗺 Viaje</option>
-                                </select>
+                                <input type="hidden" id="s_tipo" required>
+                                <div class="tipo-chips">
+                                    <div class="tipo-chip" data-tipo="mototaxi" onclick="selectTipo(this)">
+                                        <span class="tipo-icon">🛵</span>
+                                        <span class="tipo-label">Mototaxi</span>
+                                    </div>
+                                    <div class="tipo-chip" data-tipo="delivery" onclick="selectTipo(this)">
+                                        <span class="tipo-icon">📦</span>
+                                        <span class="tipo-label">Delivery</span>
+                                    </div>
+                                    <div class="tipo-chip" data-tipo="encomienda" onclick="selectTipo(this)">
+                                        <span class="tipo-icon">📬</span>
+                                        <span class="tipo-label">Encomienda</span>
+                                    </div>
+                                    <div class="tipo-chip" data-tipo="compras" onclick="selectTipo(this)">
+                                        <span class="tipo-icon">🛒</span>
+                                        <span class="tipo-label">Compras</span>
+                                    </div>
+                                    <div class="tipo-chip" data-tipo="flete" onclick="selectTipo(this)">
+                                        <span class="tipo-icon">🚛</span>
+                                        <span class="tipo-label">Flete</span>
+                                    </div>
+                                    <div class="tipo-chip" data-tipo="viaje" onclick="selectTipo(this)">
+                                        <span class="tipo-icon">🗺️</span>
+                                        <span class="tipo-label">Viaje</span>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="field">

@@ -1,6 +1,11 @@
 // dashboard-callcenter.js
 let allClientesCC = [];
 
+function selectTipo(el) {
+    document.querySelectorAll('.tipo-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('s_tipo').value = el.dataset.tipo;
+}
 async function initCC() {
     await loadFlotaDisp();
     await loadClientesCC();
@@ -57,8 +62,13 @@ function renderClientesCC(list) {
 
 async function crearServicio(e) {
     e.preventDefault();
+    const tipo = document.getElementById('s_tipo').value;
+    if (!tipo) {
+        showToast('⚠ Selecciona un tipo de servicio', 'err');
+        return;
+    }
     const body = {
-        tipo: document.getElementById('s_tipo').value,
+        tipo,
         cliente_id: document.getElementById('s_cliente').value,
         motorizado_id: document.getElementById('s_motorizado').value,
         monto: parseFloat(document.getElementById('s_monto').value),
@@ -69,6 +79,8 @@ async function crearServicio(e) {
     if (res?.id) {
         showToast(`✅ Servicio registrado — ${res.tipo}`);
         document.getElementById('formServicio').reset();
+        document.getElementById('s_tipo').value = '';
+        document.querySelectorAll('.tipo-chip').forEach(c => c.classList.remove('selected'));
 
         // Mostrar último servicio
         document.getElementById('ultimoServicio').innerHTML = `
