@@ -856,3 +856,63 @@ textarea::placeholder {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ─── TIPO CHIPS (Call Center) ────────────────── */
+.tipo-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.tipo-chip,
+.monto-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 12px 14px;
+  min-width: 80px;
+  background: var(--card2);
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all .2s;
+  user-select: none;
+}
+
+.tipo-chip:hover,
+.monto-chip:hover {
+  border-color: var(--g2);
+  background: rgba(0, 221, 0, .06);
+  transform: translateY(-2px);
+}
+
+.tipo-chip.selected,
+.monto-chip.selected {
+  border-color: var(--g1);
+  background: rgba(0, 221, 0, .12);
+  box-shadow: 0 0 14px rgba(0, 221, 0, .2);
+}
+
+.tipo-chip.selected .tipo-label,
+.monto-chip.selected .tipo-label {
+  color: var(--g1);
+}
+
+.tipo-icon {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.tipo-label {
+  font-size: .7rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: .3px;
+}
+
+.monto-chip {
+  min-width: 70px;
+}

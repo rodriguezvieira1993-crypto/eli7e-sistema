@@ -1,11 +1,142 @@
 // dashboard-callcenter.js
 let allClientesCC = [];
+let motosDisponibles = [];
 
+// ── Seleccionar tipo de servicio ─────────────────────
 function selectTipo(el) {
     document.querySelectorAll('.tipo-chip').forEach(c => c.classList.remove('selected'));
     el.classList.add('selected');
     document.getElementById('s_tipo').value = el.dataset.tipo;
+    renderCampos(el.dataset.tipo);
 }
+
+// ── Renderizar campos dinámicos según tipo ───────────
+function renderCampos(tipo) {
+    const container = document.getElementById('camposDinamicos');
+
+    if (tipo === 'mototaxi') {
+        container.innerHTML = `
+            <div class="field">
+                <label>Cliente *</label>
+                <input type="text" id="s_cliente_nombre" placeholder="Nombre del cliente" required>
+            </div>
+
+            <div class="field">
+                <label>Motorizado *</label>
+                <select id="s_motorizado" required>
+                    <option value="">— Seleccionar —</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Monto (USD) *</label>
+                <input type="hidden" id="s_monto">
+                <div class="tipo-chips">
+                    <div class="monto-chip" data-monto="2" onclick="selectMonto(this)">
+                        <span class="tipo-icon">💵</span>
+                        <span class="tipo-label">$2</span>
+                    </div>
+                    <div class="monto-chip" data-monto="4" onclick="selectMonto(this)">
+                        <span class="tipo-icon">💵</span>
+                        <span class="tipo-label">$4</span>
+                    </div>
+                    <div class="monto-chip" data-monto="6" onclick="selectMonto(this)">
+                        <span class="tipo-icon">💵</span>
+                        <span class="tipo-label">$6</span>
+                    </div>
+                    <div class="monto-chip" data-monto="8" onclick="selectMonto(this)">
+                        <span class="tipo-icon">💵</span>
+                        <span class="tipo-label">$8</span>
+                    </div>
+                    <div class="monto-chip monto-custom" data-monto="custom" onclick="selectMonto(this)">
+                        <span class="tipo-icon">✏️</span>
+                        <span class="tipo-label">Otro</span>
+                    </div>
+                </div>
+                <input type="number" id="s_monto_custom" step="0.01" min="0.01" placeholder="Monto personalizado..."
+                    style="display:none;margin-top:10px;" oninput="document.getElementById('s_monto').value=this.value">
+            </div>
+
+            <div class="field">
+                <label>Ruta</label>
+                <div style="display:flex;gap:10px;">
+                    <input type="text" id="s_ruta_de" placeholder="📍 De..." style="flex:1">
+                    <input type="text" id="s_ruta_hasta" placeholder="📍 Hasta..." style="flex:1">
+                </div>
+            </div>
+
+            <div class="field">
+                <label>Descripción / Observaciones</label>
+                <textarea id="s_desc" rows="2" placeholder="Detalles adicionales..."></textarea>
+            </div>`;
+        fillMotosSelect();
+    } else {
+        // Campos por defecto para los demás tipos
+        container.innerHTML = `
+            <div class="field">
+                <label>Cliente / Marca *</label>
+                <select id="s_cliente" required>
+                    <option value="">— Seleccionar —</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Motorizado *</label>
+                <select id="s_motorizado" required>
+                    <option value="">— Seleccionar —</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Monto acordado (USD) *</label>
+                <input type="number" id="s_monto" step="0.01" min="0.01" required placeholder="0.00">
+            </div>
+
+            <div class="field">
+                <label>Descripción / Observaciones</label>
+                <textarea id="s_desc" rows="3" placeholder="Origen, destino, detalles del pedido..."></textarea>
+            </div>`;
+        fillMotosSelect();
+        fillClientesSelect();
+    }
+}
+
+function fillMotosSelect() {
+    const sel = document.getElementById('s_motorizado');
+    if (!sel) return;
+    sel.innerHTML = motosDisponibles.length
+        ? '<option value="">— Seleccionar —</option>' + motosDisponibles.map(m => `<option value="${m.id}">🛵 ${m.nombre}</option>`).join('')
+        : '<option value="">Sin motorizados disponibles</option>';
+}
+
+function fillClientesSelect() {
+    const sel = document.getElementById('s_cliente');
+    if (!sel) return;
+    sel.innerHTML = allClientesCC.length
+        ? '<option value="">— Seleccionar —</option>' + allClientesCC.map(c => `<option value="${c.id}">${c.nombre_marca}</option>`).join('')
+        : '<option value="">Sin clientes</option>';
+}
+
+// ── Seleccionar monto chip ───────────────────────────
+function selectMonto(el) {
+    document.querySelectorAll('.monto-chip').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+
+    const customInput = document.getElementById('s_monto_custom');
+    const hiddenMonto = document.getElementById('s_monto');
+
+    if (el.dataset.monto === 'custom') {
+        customInput.style.display = 'block';
+        customInput.focus();
+        hiddenMonto.value = customInput.value || '';
+    } else {
+        customInput.style.display = 'none';
+        customInput.value = '';
+        hiddenMonto.value = el.dataset.monto;
+    }
+}
+
+// ── Init ─────────────────────────────────────────────
 async function initCC() {
     await loadFlotaDisp();
     await loadClientesCC();
@@ -14,12 +145,7 @@ async function initCC() {
 async function loadFlotaDisp() {
     const motos = await apiFetch('/motorizados/disponibles');
     if (!motos) return;
-
-    // Select del formulario
-    const sel = document.getElementById('s_motorizado');
-    sel.innerHTML = motos.length
-        ? motos.map(m => `<option value="${m.id}">🛵 ${m.nombre}</option>`).join('')
-        : '<option value="">Sin motorizados disponibles</option>';
+    motosDisponibles = motos;
 
     // Panel lateral
     const el = document.getElementById('flotaDisp');
@@ -37,10 +163,6 @@ async function loadClientesCC() {
     const data = await apiFetch('/clientes');
     if (!data) return;
     allClientesCC = data;
-
-    const sel = document.getElementById('s_cliente');
-    sel.innerHTML = data.map(c => `<option value="${c.id}">${c.nombre_marca}</option>`).join('');
-
     renderClientesCC(data);
 }
 
@@ -60,6 +182,7 @@ function renderClientesCC(list) {
     </tr>`).join('') || '<tr><td colspan="4">Sin resultados</td></tr>';
 }
 
+// ── Crear servicio (dinámico según tipo) ─────────────
 async function crearServicio(e) {
     e.preventDefault();
     const tipo = document.getElementById('s_tipo').value;
@@ -67,12 +190,30 @@ async function crearServicio(e) {
         showToast('⚠ Selecciona un tipo de servicio', 'err');
         return;
     }
+
+    const monto = parseFloat(document.getElementById('s_monto')?.value);
+    if (!monto || monto <= 0) {
+        showToast('⚠ Selecciona o ingresa un monto', 'err');
+        return;
+    }
+
+    // Construir descripción con ruta si es mototaxi
+    let descripcion = document.getElementById('s_desc')?.value || '';
+    if (tipo === 'mototaxi') {
+        const de = document.getElementById('s_ruta_de')?.value || '';
+        const hasta = document.getElementById('s_ruta_hasta')?.value || '';
+        const clienteNombre = document.getElementById('s_cliente_nombre')?.value || '';
+        if (de || hasta) {
+            descripcion = `🚩 ${de} → ${hasta}${clienteNombre ? ' | Cliente: ' + clienteNombre : ''}${descripcion ? ' | ' + descripcion : ''}`;
+        }
+    }
+
     const body = {
         tipo,
-        cliente_id: document.getElementById('s_cliente').value,
+        cliente_id: document.getElementById('s_cliente')?.value || null,
         motorizado_id: document.getElementById('s_motorizado').value,
-        monto: parseFloat(document.getElementById('s_monto').value),
-        descripcion: document.getElementById('s_desc').value || null,
+        monto,
+        descripcion,
     };
 
     const res = await apiFetch('/servicios', { method: 'POST', body });
@@ -81,20 +222,22 @@ async function crearServicio(e) {
         document.getElementById('formServicio').reset();
         document.getElementById('s_tipo').value = '';
         document.querySelectorAll('.tipo-chip').forEach(c => c.classList.remove('selected'));
+        document.getElementById('camposDinamicos').innerHTML = '';
 
         // Mostrar último servicio
         document.getElementById('ultimoServicio').innerHTML = `
       <div style="padding:10px;background:var(--card2);border-radius:8px;border:1px solid var(--border)">
         <div style="color:var(--g1);font-weight:700">${res.tipo.toUpperCase()} — ${fmt(res.monto)}</div>
-        <div style="margin-top:4px">Registrado correctamente</div>
+        <div style="margin-top:4px">${descripcion || 'Registrado correctamente'}</div>
       </div>`;
 
-        await loadFlotaDisp(); // refrescar flota
+        await loadFlotaDisp();
     } else {
         showToast('❌ Error al registrar servicio', 'err');
     }
 }
 
+// ── Vistas: En Curso, Historial, Flota ───────────────
 async function loadActivos() {
     const data = await apiFetch('/servicios?estado=en_curso');
     if (!data) return;

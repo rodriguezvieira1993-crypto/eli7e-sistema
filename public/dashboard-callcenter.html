@@ -90,31 +90,8 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="field">
-                                <label>Cliente / Marca *</label>
-                                <select id="s_cliente" required>
-                                    <option value="">— Cargando clientes... —</option>
-                                </select>
-                            </div>
-
-                            <div class="field">
-                                <label>Motorizado *</label>
-                                <select id="s_motorizado" required>
-                                    <option value="">— Cargando disponibles... —</option>
-                                </select>
-                            </div>
-
-                            <div class="field">
-                                <label>Monto acordado (USD) *</label>
-                                <input type="number" id="s_monto" step="0.01" min="0.01" required placeholder="0.00">
-                            </div>
-
-                            <div class="field">
-                                <label>Descripción / Observaciones</label>
-                                <textarea id="s_desc" rows="3"
-                                    placeholder="Origen, destino, detalles del pedido..."></textarea>
-                            </div>
+                            <!-- Campos dinámicos según tipo de servicio -->
+                            <div id="camposDinamicos"></div>
 
                             <button type="submit" class="btn-primary" style="width:100%;padding:14px;font-size:1rem;">
                                 ✅ Registrar Servicio
