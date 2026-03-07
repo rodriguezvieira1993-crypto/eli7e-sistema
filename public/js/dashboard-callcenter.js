@@ -233,20 +233,25 @@ async function initCC() {
 }
 
 async function loadFlotaDisp() {
-    const motos = await apiFetch('/motorizados/disponibles');
+    const motos = await apiFetch('/motorizados');
     if (!motos) return;
-    motosDisponibles = motos;
+    motosDisponibles = motos.filter(m => m.estado === 'disponible');
 
-    // Panel lateral
+    // Panel lateral — muestra TODOS con su estado
     const el = document.getElementById('flotaDisp');
     el.innerHTML = motos.length
-        ? motos.map(m => `
-        <div class="moto-row">
-          <div class="moto-dot dot-verde"></div>
-          <span style="font-size:.88rem;font-weight:600">${m.nombre}</span>
-          <span class="badge badge-green" style="margin-left:auto;font-size:.7rem">Libre</span>
-        </div>`).join('')
-        : '<p style="color:var(--err);font-size:.85rem">⚠ Sin motos disponibles ahora</p>';
+        ? motos.filter(m => m.activo !== false).map(m => {
+            const libre = m.estado === 'disponible';
+            return `
+            <div class="moto-row">
+              <div class="moto-dot ${libre ? 'dot-verde' : 'dot-rojo'}"></div>
+              <span style="font-size:.88rem;font-weight:600">${m.nombre}</span>
+              <span class="badge ${libre ? 'badge-green' : 'badge-red'}" style="margin-left:auto;font-size:.7rem">
+                ${libre ? 'Libre' : 'En Servicio'}
+              </span>
+            </div>`;
+        }).join('')
+        : '<p style="color:var(--err);font-size:.85rem">⚠ Sin motorizados registrados</p>';
 }
 
 async function loadClientesCC() {
