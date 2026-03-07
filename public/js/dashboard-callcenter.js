@@ -241,14 +241,19 @@ async function loadFlotaDisp() {
     const el = document.getElementById('flotaDisp');
     el.innerHTML = motos.length
         ? motos.filter(m => m.activo !== false).map(m => {
-            const libre = m.estado === 'disponible';
+            let dotClass, badgeClass, label;
+            if (m.estado === 'disponible') {
+                dotClass = 'dot-verde'; badgeClass = 'badge-green'; label = 'Libre';
+            } else if (m.estado === 'en_servicio') {
+                dotClass = 'dot-amar'; badgeClass = 'badge-yellow'; label = 'En Servicio';
+            } else {
+                dotClass = 'dot-rojo'; badgeClass = 'badge-red'; label = 'Inactivo';
+            }
             return `
             <div class="moto-row">
-              <div class="moto-dot ${libre ? 'dot-verde' : 'dot-rojo'}"></div>
+              <div class="moto-dot ${dotClass}"></div>
               <span style="font-size:.88rem;font-weight:600">${m.nombre}</span>
-              <span class="badge ${libre ? 'badge-green' : 'badge-red'}" style="margin-left:auto;font-size:.7rem">
-                ${libre ? 'Libre' : 'En Servicio'}
-              </span>
+              <span class="badge ${badgeClass}" style="margin-left:auto;font-size:.7rem">${label}</span>
             </div>`;
         }).join('')
         : '<p style="color:var(--err);font-size:.85rem">⚠ Sin motorizados registrados</p>';
