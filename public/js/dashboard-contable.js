@@ -255,7 +255,7 @@ async function registrarPago(e) {
     const body = {
         cliente_id: clienteId,
         monto: parseFloat(document.getElementById('p_monto').value),
-        metodo: 'pago',
+        metodo: 'efectivo',
         referencia: document.getElementById('p_ref').value || null,
     };
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
@@ -300,7 +300,7 @@ async function confirmarPagoRapido() {
     const body = {
         cliente_id: document.getElementById('pr_clienteId').value,
         monto: parseFloat(document.getElementById('pr_monto').value),
-        metodo: 'pago',
+        metodo: 'efectivo',
     };
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
     if (res?.id) {
