@@ -54,7 +54,8 @@ async function generarNotaPago(clienteId, nombreMarca) {
     const numNota = 'NP-' + hoy.getFullYear() + String(hoy.getMonth() + 1).padStart(2, '0') + String(hoy.getDate()).padStart(2, '0') + '-' + clienteId.slice(0, 4).toUpperCase();
 
     const filasHTML = servicios.map(function (s, i) {
-        const fecha = s.fecha_inicio ? new Date(s.fecha_inicio).toLocaleDateString('es-VE') : '—';
+        const d = s.fecha_inicio ? new Date(s.fecha_inicio) : null;
+        const fecha = d ? d.toLocaleDateString('es-VE') + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '—';
         return '<tr>' +
             '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;">' + (i + 1) + '</td>' +
             '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;">' + fecha + '</td>' +
