@@ -97,10 +97,10 @@ function renderCampos(tipo) {
             </div>
 
             <div class="field">
-                <label>Ruta</label>
+                <label>${tipo === 'compras' ? 'Local / Destino' : 'Ruta'}</label>
                 <div style="display:flex;gap:10px;">
                     <div class="autocomplete-wrap" style="flex:1">
-                        <input type="text" id="s_ruta_de" placeholder="📍 De..." autocomplete="off">
+                        <input type="text" id="s_ruta_de" placeholder="${tipo === 'compras' ? '🏪 Local...' : '📍 De...'}" autocomplete="off">
                         <div class="autocomplete-list" id="ac_de"></div>
                     </div>
                     <div class="autocomplete-wrap" style="flex:1">
