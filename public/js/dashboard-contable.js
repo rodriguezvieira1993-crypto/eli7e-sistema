@@ -129,7 +129,7 @@ async function generarNotaPago(clienteId, nombreMarca) {
         '<table class="nota-table"><thead><tr>' +
         '<th>#</th><th>Fecha</th><th>Tipo</th><th>Motorizado</th><th>Detalle</th><th style="text-align:right;">Monto</th>' +
         '</tr></thead><tbody>' + filasHTML + '</tbody></table>' +
-        '<div class="nota-total"><span class="label">TOTAL A PAGAR</span><span class="amount">$' + total.toFixed(2) + '</span></div>' +
+        '<div class="nota-total"><span class="label">TOTAL PAGADO</span><span class="amount">$' + total.toFixed(2) + '</span></div>' +
         '<div class="nota-footer">Nota de pago generada por el sistema Eli7e &middot; ' + fechaNota + '<br>Este documento es un comprobante de servicios prestados.</div>' +
         '</div>' +
         '<div class="nota-actions">' +
