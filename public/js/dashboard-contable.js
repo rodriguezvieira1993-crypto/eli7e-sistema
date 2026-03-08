@@ -223,12 +223,15 @@ async function validarCierre() {
 }
 
 async function loadPagosForm() {
-    const clientes = await apiFetch('/clientes');
-    if (clientes) {
-        const sel = document.getElementById('p_cliente');
-        sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-            clientes.map(c => '<option value="' + c.id + '">' + c.nombre_marca + '</option>').join('');
-    }
+    // Cargar cobranza para tener la deuda de cada marca
+    const cobData = cobranzaData.length ? cobranzaData : await apiFetch('/cobranza') || [];
+    const sel = document.getElementById('p_cliente');
+    sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+        cobData
+            .filter(c => parseFloat(c.deuda_calculada) > 0)
+            .sort((a, b) => parseFloat(b.deuda_calculada) - parseFloat(a.deuda_calculada))
+            .map(c => '<option value="' + c.id + '">' + c.nombre_marca + ' — Deuda: ' + fmt(c.deuda_calculada) + '</option>')
+            .join('');
     await loadUltimosPagos();
 }
 
