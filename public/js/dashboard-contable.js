@@ -249,8 +249,11 @@ async function loadUltimosPagos() {
 
 async function registrarPago(e) {
     e.preventDefault();
+    const clienteId = document.getElementById('p_cliente').value;
+    const sel = document.getElementById('p_cliente');
+    const nombreMarca = sel.options[sel.selectedIndex].text.split(' — ')[0];
     const body = {
-        cliente_id: document.getElementById('p_cliente').value,
+        cliente_id: clienteId,
         monto: parseFloat(document.getElementById('p_monto').value),
         metodo: 'pago',
         referencia: document.getElementById('p_ref').value || null,
@@ -258,6 +261,8 @@ async function registrarPago(e) {
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
     if (res?.id) {
         showToast('✅ Pago registrado correctamente');
+        // Generar nota de pago automáticamente
+        generarNotaPago(clienteId, nombreMarca);
         document.getElementById('formPago').reset();
         document.getElementById('detalleDeuda').innerHTML = '';
         loadUltimosPagos();
