@@ -2,7 +2,21 @@
 let allClientesCC = [];
 let motosDisponibles = [];
 let serviciosRecientes = [];
-const TIPO_EMOJI = { mototaxi: '🛵', delivery: '📦', encomienda: '📬', compras: '🛒', flete: '🚛', viaje: '🗺️' };
+const TIPO_EMOJI = { mototaxi: '🛵', delivery: '📦', encomienda: '📬', compras: '🛒', flete: '🚛', transporte: '🚐' };
+
+// Helper: genera los chips de monto reutilizables
+function montoChipsHTML() {
+    return `<div class="tipo-chips">
+        <div class="monto-chip" data-monto="2" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$2</span></div>
+        <div class="monto-chip" data-monto="3" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$3</span></div>
+        <div class="monto-chip" data-monto="4" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$4</span></div>
+        <div class="monto-chip" data-monto="6" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$6</span></div>
+        <div class="monto-chip" data-monto="8" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$8</span></div>
+        <div class="monto-chip monto-custom" data-monto="custom" onclick="selectMonto(this)"><span class="tipo-icon">✏️</span><span class="tipo-label">Otro</span></div>
+    </div>
+    <input type="number" id="s_monto_custom" step="0.01" min="0.01" placeholder="Monto personalizado..."
+        style="display:none;margin-top:10px;" oninput="document.getElementById('s_monto').value=this.value">`;
+}
 
 // ── Zonas de Puerto Ordaz y San Félix ────────────────
 const ZONAS = [
@@ -62,7 +76,7 @@ function selectTipo(el) {
 function renderCampos(tipo) {
     const container = document.getElementById('camposDinamicos');
 
-    if (['mototaxi', 'encomienda', 'compras'].includes(tipo)) {
+    if (['mototaxi', 'encomienda', 'compras', 'transporte'].includes(tipo)) {
         container.innerHTML = `
             <div class="field">
                 <label>Cliente *</label>
@@ -79,30 +93,7 @@ function renderCampos(tipo) {
             <div class="field">
                 <label>Monto (USD) *</label>
                 <input type="hidden" id="s_monto">
-                <div class="tipo-chips">
-                    <div class="monto-chip" data-monto="2" onclick="selectMonto(this)">
-                        <span class="tipo-icon">💵</span>
-                        <span class="tipo-label">$2</span>
-                    </div>
-                    <div class="monto-chip" data-monto="4" onclick="selectMonto(this)">
-                        <span class="tipo-icon">💵</span>
-                        <span class="tipo-label">$4</span>
-                    </div>
-                    <div class="monto-chip" data-monto="6" onclick="selectMonto(this)">
-                        <span class="tipo-icon">💵</span>
-                        <span class="tipo-label">$6</span>
-                    </div>
-                    <div class="monto-chip" data-monto="8" onclick="selectMonto(this)">
-                        <span class="tipo-icon">💵</span>
-                        <span class="tipo-label">$8</span>
-                    </div>
-                    <div class="monto-chip monto-custom" data-monto="custom" onclick="selectMonto(this)">
-                        <span class="tipo-icon">✏️</span>
-                        <span class="tipo-label">Otro</span>
-                    </div>
-                </div>
-                <input type="number" id="s_monto_custom" step="0.01" min="0.01" placeholder="Monto personalizado..."
-                    style="display:none;margin-top:10px;" oninput="document.getElementById('s_monto').value=this.value">
+                ${montoChipsHTML()}
             </div>
 
             <div class="field">
@@ -145,30 +136,7 @@ function renderCampos(tipo) {
             <div class="field">
                 <label>Monto (USD) *</label>
                 <input type="hidden" id="s_monto">
-                <div class="tipo-chips">
-                    <div class="monto-chip" data-monto="2" onclick="selectMonto(this)">
-                        <span class="tipo-icon">💵</span>
-                        <span class="tipo-label">$2</span>
-                    </div>
-                    <div class="monto-chip" data-monto="4" onclick="selectMonto(this)">
-                        <span class="tipo-icon">💵</span>
-                        <span class="tipo-label">$4</span>
-                    </div>
-                    <div class="monto-chip" data-monto="6" onclick="selectMonto(this)">
-                        <span class="tipo-icon">💵</span>
-                        <span class="tipo-label">$6</span>
-                    </div>
-                    <div class="monto-chip" data-monto="8" onclick="selectMonto(this)">
-                        <span class="tipo-icon">💵</span>
-                        <span class="tipo-label">$8</span>
-                    </div>
-                    <div class="monto-chip monto-custom" data-monto="custom" onclick="selectMonto(this)">
-                        <span class="tipo-icon">✏️</span>
-                        <span class="tipo-label">Otro</span>
-                    </div>
-                </div>
-                <input type="number" id="s_monto_custom" step="0.01" min="0.01" placeholder="Monto personalizado..."
-                    style="display:none;margin-top:10px;" oninput="document.getElementById('s_monto').value=this.value">
+                ${montoChipsHTML()}
             </div>
 
             <div class="field">
@@ -383,7 +351,7 @@ async function crearServicio(e) {
 
     // Construir descripción con ruta según tipo
     let descripcion = document.getElementById('s_desc')?.value || '';
-    if (['mototaxi', 'encomienda', 'compras'].includes(tipo)) {
+    if (['mototaxi', 'encomienda', 'compras', 'transporte'].includes(tipo)) {
         const de = document.getElementById('s_ruta_de')?.value || '';
         const hasta = document.getElementById('s_ruta_hasta')?.value || '';
         const clienteNombre = document.getElementById('s_cliente_nombre')?.value || '';
