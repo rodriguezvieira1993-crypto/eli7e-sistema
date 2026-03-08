@@ -383,8 +383,10 @@ async function crearServicio(e) {
 
         // Agregar al historial reciente
         serviciosRecientes.unshift({
+            id: res.id,
             tipo: res.tipo,
             monto: res.monto,
+            estado: res.estado || 'pendiente',
             descripcion: descripcion || '',
             hora: new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
             motorizado_nombre: motosDisponibles.find(m => m.id === body.motorizado_id)?.nombre || '—'
@@ -416,7 +418,8 @@ function renderUltimos() {
           ${s.motorizado_nombre ? '🛵 ' + s.motorizado_nombre : ''}
           ${s.hora ? ' · ' + s.hora : ''}
         </div>
-        ${s.descripcion ? `<div class="ultimo-desc">${s.descripcion}</div>` : ''}
+        ${s.descripcion ? '<div class="ultimo-desc">' + s.descripcion + '</div>' : ''}
+        ${s.estado === 'pendiente' ? '<button class="btn-icon" style="margin-top:6px;width:100%;font-size:.78rem;" onclick="cerrarDesdeUltimos(\'' + s.id + '\')">✅ Cerrar servicio</button>' : '<span class="badge badge-green" style="margin-top:6px;font-size:.7rem;">Completado</span>'}
       </div>`).join('');
 }
 
@@ -424,13 +427,31 @@ async function loadUltimos() {
     const data = await apiFetch('/servicios?hoy=1&limit=10');
     if (!data || !data.length) return;
     serviciosRecientes = data.map(s => ({
+        id: s.id,
         tipo: s.tipo,
         monto: s.monto,
+        estado: s.estado,
         descripcion: s.descripcion || '',
         hora: s.fecha_inicio ? new Date(s.fecha_inicio).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '',
         motorizado_nombre: s.motorizado_nombre || '—'
     }));
     renderUltimos();
+}
+
+// ── Cerrar servicio desde últimos registrados ─────────
+async function cerrarDesdeUltimos(id) {
+    const res = await apiFetch('/servicios/' + id + '/cerrar', { method: 'PATCH' });
+    if (res?.ok) {
+        showToast('✅ Servicio cerrado — reflejado en cobranza');
+        // Actualizar la tarjeta en el array local
+        const s = serviciosRecientes.find(x => x.id === id);
+        if (s) s.estado = 'completado';
+        renderUltimos();
+        await loadFlotaDisp();
+        fillMotosSelect();
+    } else {
+        showToast('❌ Error al cerrar servicio', 'err');
+    }
 }
 
 // ── Vistas: En Curso, Historial, Flota ───────────────
