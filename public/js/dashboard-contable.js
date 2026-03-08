@@ -54,7 +54,7 @@ async function loadCobranza() {
 }
 
 // ── GENERAR NOTA DE PAGO (HTML imprimible) ──────────
-async function generarNotaPago(clienteId, nombreMarca) {
+async function generarNotaPago(clienteId, nombreMarca, montoPagado) {
     showToast('📄 Generando nota de pago...');
 
     const servicios = await apiFetch('/servicios/cliente/' + clienteId);
@@ -128,8 +128,22 @@ async function generarNotaPago(clienteId, nombreMarca) {
         '<div class="nota-cliente"><h3>Facturado a</h3><p>' + nombreMarca + '</p></div>' +
         '<table class="nota-table"><thead><tr>' +
         '<th>#</th><th>Fecha</th><th>Tipo</th><th>Motorizado</th><th>Detalle</th><th style="text-align:right;">Monto</th>' +
-        '</tr></thead><tbody>' + filasHTML + '</tbody></table>' +
-        '<div class="nota-total"><span class="label">TOTAL PAGADO</span><span class="amount">$' + total.toFixed(2) + '</span></div>' +
+        '</tr></thead><tbody>' + filasHTML + '</tbody></table>';
+
+    // Resumen: pago parcial vs total
+    var resumenHTML = '';
+    if (montoPagado && montoPagado < total) {
+        var pendiente = total - montoPagado;
+        resumenHTML = '<div class="nota-total" style="flex-direction:column;align-items:flex-end;gap:6px;">' +
+            '<div style="display:flex;gap:20px;align-items:center;"><span class="label">TOTAL DEUDA</span><span style="font-size:1.1rem;font-weight:700;color:#888;">$' + total.toFixed(2) + '</span></div>' +
+            '<div style="display:flex;gap:20px;align-items:center;"><span class="label">ABONADO</span><span style="font-size:1.1rem;font-weight:700;color:#00dd00;">$' + montoPagado.toFixed(2) + '</span></div>' +
+            '<div style="display:flex;gap:20px;align-items:center;border-top:1px solid #1a3a1a;padding-top:8px;"><span class="label" style="color:#ff6b6b;">DEUDA PENDIENTE</span><span class="amount" style="color:#ff6b6b;">$' + pendiente.toFixed(2) + '</span></div>' +
+            '</div>';
+    } else {
+        resumenHTML = '<div class="nota-total"><span class="label">TOTAL PAGADO</span><span class="amount">$' + (montoPagado || total).toFixed(2) + '</span></div>';
+    }
+
+    html += resumenHTML +
         '<div class="nota-footer">Nota de pago generada por el sistema Eli7e &middot; ' + fechaNota + '<br>Este documento es un comprobante de servicios prestados.</div>' +
         '</div>' +
         '<div class="nota-actions">' +
@@ -262,7 +276,7 @@ async function registrarPago(e) {
     if (res?.id) {
         showToast('✅ Pago registrado correctamente');
         // Generar nota de pago automáticamente
-        generarNotaPago(clienteId, nombreMarca);
+        generarNotaPago(clienteId, nombreMarca, body.monto);
         document.getElementById('formPago').reset();
         document.getElementById('detalleDeuda').innerHTML = '';
         loadUltimosPagos();
