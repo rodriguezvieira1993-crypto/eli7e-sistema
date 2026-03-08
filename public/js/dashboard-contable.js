@@ -6,17 +6,32 @@ async function loadCobranza() {
     if (!data) return;
     cobranzaData = data;
 
+    // Llenar filtro de marcas (una sola vez)
+    const selMarca = document.getElementById('filtroMarca');
+    if (selMarca && selMarca.options.length <= 1) {
+        data.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.nombre_marca;
+            selMarca.appendChild(opt);
+        });
+    }
+
     // KPIs
     const deudaTotal = data.reduce((a, c) => a + parseFloat(c.deuda_calculada || 0), 0);
     const criticas = data.filter(c => parseFloat(c.deuda_calculada) > 50).length;
     document.getElementById('kpi-totalDeuda').textContent = fmt(deudaTotal);
     document.getElementById('kpi-criticas').textContent = criticas;
 
-    const filtro = document.getElementById('filtroDeuda')?.value || 'todas';
+    // Filtros
+    const filtroDeuda = document.getElementById('filtroDeuda')?.value || 'todas';
+    const filtroMarca = document.getElementById('filtroMarca')?.value || 'todas';
     let lista = [...data];
-    if (filtro === 'critica') lista = lista.filter(c => parseFloat(c.deuda_calculada) > 50);
-    if (filtro === 'alerta') lista = lista.filter(c => parseFloat(c.deuda_calculada) > 20 && parseFloat(c.deuda_calculada) <= 50);
-    if (filtro === 'normal') lista = lista.filter(c => parseFloat(c.deuda_calculada) <= 20 && parseFloat(c.deuda_calculada) > 0);
+
+    if (filtroMarca !== 'todas') lista = lista.filter(c => c.id === filtroMarca);
+    if (filtroDeuda === 'critica') lista = lista.filter(c => parseFloat(c.deuda_calculada) > 50);
+    if (filtroDeuda === 'alerta') lista = lista.filter(c => parseFloat(c.deuda_calculada) > 20 && parseFloat(c.deuda_calculada) <= 50);
+    if (filtroDeuda === 'normal') lista = lista.filter(c => parseFloat(c.deuda_calculada) <= 20 && parseFloat(c.deuda_calculada) > 0);
 
     lista.sort((a, b) => parseFloat(b.deuda_calculada) - parseFloat(a.deuda_calculada));
 
@@ -31,8 +46,8 @@ async function loadCobranza() {
       <td>${semaforoDeuda(c.deuda_calculada)}</td>
       <td style="display:flex;gap:6px;">
         ${parseFloat(c.deuda_calculada) > 0
-            ? `<button class="btn-icon" onclick="abrirPagoRapido('${c.id}','${c.nombre_marca}',${c.deuda_calculada})">💰 Pagar</button>
-               <button class="btn-icon" onclick="generarNotaPago('${c.id}','${c.nombre_marca}')">📄 Nota</button>`
+            ? '<button class="btn-icon" onclick="abrirPagoRapido(\'' + c.id + '\',\'' + c.nombre_marca + '\',' + c.deuda_calculada + ')">💰 Pagar</button>' +
+            '<button class="btn-icon" onclick="generarNotaPago(\'' + c.id + '\',\'' + c.nombre_marca + '\')">📄 Nota</button>'
             : '—'}
       </td>
     </tr>`).join('') || '<tr><td colspan="7">Sin datos</td></tr>';
@@ -53,9 +68,9 @@ async function generarNotaPago(clienteId, nombreMarca) {
     const fechaNota = hoy.toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
     const numNota = 'NP-' + hoy.getFullYear() + String(hoy.getMonth() + 1).padStart(2, '0') + String(hoy.getDate()).padStart(2, '0') + '-' + clienteId.slice(0, 4).toUpperCase();
 
-    const filasHTML = servicios.map(function (s, i) {
-        const d = s.fecha_inicio ? new Date(s.fecha_inicio) : null;
-        const fecha = d ? d.toLocaleDateString('es-VE') + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '—';
+    var filasHTML = servicios.map(function (s, i) {
+        var d = s.fecha_inicio ? new Date(s.fecha_inicio) : null;
+        var fecha = d ? d.toLocaleDateString('es-VE') + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '—';
         return '<tr>' +
             '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;">' + (i + 1) + '</td>' +
             '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;">' + fecha + '</td>' +
@@ -127,6 +142,39 @@ async function generarNotaPago(clienteId, nombreMarca) {
     w.document.close();
 }
 
+// ── Detalle de deuda al seleccionar marca ────────────
+async function loadDetalleDeuda() {
+    const clienteId = document.getElementById('p_cliente').value;
+    const container = document.getElementById('detalleDeuda');
+    if (!clienteId) { container.innerHTML = ''; return; }
+
+    const servicios = await apiFetch('/servicios/cliente/' + clienteId);
+    if (!servicios || !servicios.length) {
+        container.innerHTML = '<p style="font-size:.82rem;color:var(--muted);padding:8px 0;">Sin servicios pendientes.</p>';
+        return;
+    }
+
+    const total = servicios.reduce((a, s) => a + parseFloat(s.monto || 0), 0);
+    container.innerHTML =
+        '<div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;max-height:200px;overflow-y:auto;">' +
+        '<div style="font-size:.72rem;color:var(--g1);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-weight:700;">Detalle de deuda (' + servicios.length + ' servicios)</div>' +
+        servicios.map(function (s) {
+            var d = s.fecha_inicio ? new Date(s.fecha_inicio) : null;
+            var fecha = d ? d.toLocaleDateString('es-VE') : '';
+            return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.04);">' +
+                '<span style="color:var(--muted)">' + fecha + ' · <span style="text-transform:capitalize">' + s.tipo + '</span></span>' +
+                '<strong style="color:var(--text)">$' + parseFloat(s.monto).toFixed(2) + '</strong>' +
+                '</div>';
+        }).join('') +
+        '<div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:6px;border-top:1px solid var(--border);">' +
+        '<strong style="color:var(--g1);font-size:.82rem;">TOTAL</strong>' +
+        '<strong style="color:var(--g1);font-size:.95rem;">$' + total.toFixed(2) + '</strong>' +
+        '</div></div>';
+
+    // Auto-llenar el monto
+    document.getElementById('p_monto').value = total.toFixed(2);
+}
+
 async function loadCierre() {
     const hoy = new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     document.getElementById('fechaCierre').textContent = hoy;
@@ -138,7 +186,6 @@ async function loadCierre() {
         document.getElementById('cs-pendiente').textContent = fmt(parseFloat(data.total_facturado || 0) - parseFloat(data.total_cobrado || 0));
     }
 
-    // Historial
     const hist = await apiFetch('/cierres');
     if (hist) {
         const tbody = document.getElementById('cierresHistBody');
@@ -179,7 +226,8 @@ async function loadPagosForm() {
     const clientes = await apiFetch('/clientes');
     if (clientes) {
         const sel = document.getElementById('p_cliente');
-        sel.innerHTML = clientes.map(c => `<option value="${c.id}">${c.nombre_marca}</option>`).join('');
+        sel.innerHTML = '<option value="">— Seleccionar —</option>' +
+            clientes.map(c => '<option value="' + c.id + '">' + c.nombre_marca + '</option>').join('');
     }
     await loadUltimosPagos();
 }
@@ -192,9 +240,8 @@ async function loadUltimosPagos() {
     <tr>
       <td>${p.nombre_marca}</td>
       <td>${fmt(p.monto)}</td>
-      <td>${p.metodo}</td>
       <td>${p.fecha}</td>
-    </tr>`).join('') || '<tr><td colspan="4" class="loading-txt">Sin pagos</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="3" class="loading-txt">Sin pagos</td></tr>';
 }
 
 async function registrarPago(e) {
@@ -202,23 +249,42 @@ async function registrarPago(e) {
     const body = {
         cliente_id: document.getElementById('p_cliente').value,
         monto: parseFloat(document.getElementById('p_monto').value),
-        metodo: document.getElementById('p_metodo').value,
+        metodo: 'pago',
         referencia: document.getElementById('p_ref').value || null,
     };
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
     if (res?.id) {
         showToast('✅ Pago registrado correctamente');
         document.getElementById('formPago').reset();
+        document.getElementById('detalleDeuda').innerHTML = '';
         loadUltimosPagos();
+        loadCobranza();
     } else {
         showToast('❌ Error al registrar pago', 'err');
     }
 }
 
-function abrirPagoRapido(clienteId, nombre, deuda) {
+async function abrirPagoRapido(clienteId, nombre, deuda) {
     document.getElementById('pr_clienteId').value = clienteId;
     document.getElementById('pr_label').textContent = 'Marca: ' + nombre + ' — Deuda: ' + fmt(deuda);
     document.getElementById('pr_monto').value = parseFloat(deuda).toFixed(2);
+
+    // Cargar detalle en modal
+    const container = document.getElementById('pr_detalleDeuda');
+    const servicios = await apiFetch('/servicios/cliente/' + clienteId);
+    if (servicios && servicios.length) {
+        container.innerHTML =
+            '<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;max-height:160px;overflow-y:auto;font-size:.8rem;">' +
+            servicios.map(function (s) {
+                var d = s.fecha_inicio ? new Date(s.fecha_inicio).toLocaleDateString('es-VE') : '';
+                return '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04);">' +
+                    '<span style="color:var(--muted)">' + d + ' · ' + s.tipo + '</span>' +
+                    '<strong>$' + parseFloat(s.monto).toFixed(2) + '</strong></div>';
+            }).join('') + '</div>';
+    } else {
+        container.innerHTML = '';
+    }
+
     openModal('modalPagoRapido');
 }
 
@@ -226,7 +292,7 @@ async function confirmarPagoRapido() {
     const body = {
         cliente_id: document.getElementById('pr_clienteId').value,
         monto: parseFloat(document.getElementById('pr_monto').value),
-        metodo: document.getElementById('pr_metodo').value,
+        metodo: 'pago',
     };
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
     if (res?.id) {

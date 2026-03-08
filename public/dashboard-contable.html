@@ -53,10 +53,14 @@
                         <h1 class="view-title">Panel de Cobranza</h1>
                         <span class="view-sub">Facturas pendientes en tiempo real</span>
                     </div>
-                    <div style="display:flex;gap:10px;">
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <select id="filtroMarca" onchange="loadCobranza()"
+                            style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-family:inherit;min-width:180px;">
+                            <option value="todas">Todas las marcas</option>
+                        </select>
                         <select id="filtroDeuda" onchange="loadCobranza()"
                             style="padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-family:inherit;">
-                            <option value="todas">Todas las marcas</option>
+                            <option value="todas">Todos los niveles</option>
                             <option value="critica">🔴 Deuda crítica (&gt;$50)</option>
                             <option value="alerta">🟡 En alerta ($20-$50)</option>
                             <option value="normal">🟢 Normal (&lt;$20)</option>
@@ -182,25 +186,19 @@
                         <form id="formPago" onsubmit="registrarPago(event)">
                             <div class="field">
                                 <label>Marca que paga *</label>
-                                <select id="p_cliente" required>
+                                <select id="p_cliente" required onchange="loadDetalleDeuda()">
                                     <option value="">— Seleccionar —</option>
                                 </select>
                             </div>
+                            <!-- Detalle de lo que debe -->
+                            <div id="detalleDeuda" style="margin-bottom:14px;"></div>
                             <div class="field">
                                 <label>Monto recibido (USD) *</label>
                                 <input type="number" id="p_monto" step="0.01" required placeholder="0.00">
                             </div>
                             <div class="field">
-                                <label>Método de pago *</label>
-                                <select id="p_metodo">
-                                    <option value="efectivo">💵 Efectivo (Divisas)</option>
-                                    <option value="binance">₿ Binance USDT</option>
-                                    <option value="transferencia">🏦 Transferencia</option>
-                                </select>
-                            </div>
-                            <div class="field">
-                                <label>Referencia</label>
-                                <input id="p_ref" placeholder="Nro. de transacción o referencia">
+                                <label>Nota / Observación</label>
+                                <input id="p_ref" placeholder="Observación del pago (opcional)">
                             </div>
                             <button type="submit" class="btn-primary" style="width:100%;">Registrar Pago ✅</button>
                         </form>
@@ -212,13 +210,12 @@
                                 <tr>
                                     <th>Marca</th>
                                     <th>Monto</th>
-                                    <th>Método</th>
                                     <th>Fecha</th>
                                 </tr>
                             </thead>
                             <tbody id="ultimosPagos">
                                 <tr>
-                                    <td colspan="4" class="loading-txt">Cargando...</td>
+                                    <td colspan="3" class="loading-txt">Cargando...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -268,17 +265,10 @@
             </div>
             <input type="hidden" id="pr_clienteId">
             <div class="field"><label id="pr_label">Marca</label></div>
+            <div id="pr_detalleDeuda" style="margin-bottom:12px;"></div>
             <div class="field">
-                <label>Monto (USD)</label>
+                <label>Monto a registrar (USD)</label>
                 <input type="number" id="pr_monto" step="0.01" placeholder="0.00">
-            </div>
-            <div class="field">
-                <label>Método</label>
-                <select id="pr_metodo">
-                    <option value="efectivo">💵 Efectivo</option>
-                    <option value="binance">₿ Binance</option>
-                    <option value="transferencia">🏦 Transferencia</option>
-                </select>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModal('modalPagoRapido')">Cancelar</button>
