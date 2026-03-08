@@ -36,6 +36,20 @@ router.get('/', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/servicios/cliente/:id — servicios de un cliente (para nota de pago)
+router.get('/cliente/:id', async (req, res) => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT s.*, m.nombre AS motorizado_nombre
+            FROM servicios s
+            LEFT JOIN motorizados m ON m.id = s.motorizado_id
+            WHERE s.cliente_id = $1 AND s.estado = 'completado'
+            ORDER BY s.fecha_inicio DESC
+        `, [req.params.id]);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // POST /api/servicios
 router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
     const { tipo, cliente_id, motorizado_id, monto, descripcion } = req.body;
