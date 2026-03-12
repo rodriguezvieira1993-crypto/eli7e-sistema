@@ -256,8 +256,18 @@ function selectMonto(el) {
 // ── Init ─────────────────────────────────────────────
 async function initCC() {
     await loadFlotaDisp();
-    await loadClientesCC();
+    await loadClientesRegistro(); // Carga todos para el select
+    await loadClientesCC();       // Carga cobranza para la tabla
     await loadUltimos();
+}
+
+async function loadClientesRegistro() {
+    const data = await apiFetch('/clientes');
+    if (data && Array.isArray(data)) {
+        allClientesCC = data;
+        // Si el formulario ya está visible (ej. en delivery), refrescar el select
+        fillClientesSelect();
+    }
 }
 
 async function loadFlotaDisp() {
@@ -313,9 +323,15 @@ async function cambiarEstadoMoto(id, estadoActual) {
 
 async function loadClientesCC() {
     const data = await apiFetch('/cobranza');
-    if (!data) return;
-    allClientesCC = data;
-    renderClientesCC(data);
+    if (data && Array.isArray(data)) {
+        renderClientesCC(data);
+    } else {
+        // Fallback: si cobranza falla, mostrar lista básica de clientes
+        const fallback = await apiFetch('/clientes');
+        if (fallback && Array.isArray(fallback)) {
+            renderClientesCC(fallback.map(c => ({ ...c, deuda_calculada: 0 })));
+        }
+    }
 }
 
 function filterClientesCC() {
