@@ -162,31 +162,48 @@ async function loadDetalleDeuda() {
     const container = document.getElementById('detalleDeuda');
     if (!clienteId) { container.innerHTML = ''; return; }
 
-    const servicios = await apiFetch('/servicios/cliente/' + clienteId);
-    if (!servicios || !servicios.length) {
-        container.innerHTML = '<p style="font-size:.82rem;color:var(--muted);padding:8px 0;">Sin servicios pendientes.</p>';
-        return;
-    }
+    // Obtener deuda real desde el texto del dropdown (ya viene de cobranza)
+    const sel = document.getElementById('p_cliente');
+    const textoOpcion = sel.options[sel.selectedIndex].text;
+    var deudaMatch = textoOpcion.match(/\$([0-9.]+)/);
+    var deudaReal = deudaMatch ? parseFloat(deudaMatch[1]) : 0;
 
-    const total = servicios.reduce((a, s) => a + parseFloat(s.monto || 0), 0);
-    container.innerHTML =
-        '<div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;max-height:200px;overflow-y:auto;">' +
-        '<div style="font-size:.72rem;color:var(--g1);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-weight:700;">Detalle de deuda (' + servicios.length + ' servicios)</div>' +
-        servicios.map(function (s) {
+    const servicios = await apiFetch('/servicios/cliente/' + clienteId);
+    const pagos = await apiFetch('/cobranza/pagos?cliente_id=' + clienteId) || [];
+
+    var totalServicios = servicios ? servicios.reduce(function(a, s) { return a + parseFloat(s.monto || 0); }, 0) : 0;
+    var totalPagado = pagos.filter(function(p) { return p.cliente_id === clienteId; }).reduce(function(a, p) { return a + parseFloat(p.monto || 0); }, 0);
+
+    var html = '<div style="background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:12px;max-height:250px;overflow-y:auto;">';
+
+    // Servicios
+    if (servicios && servicios.length) {
+        html += '<div style="font-size:.72rem;color:var(--g1);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-weight:700;">Servicios (' + servicios.length + ')</div>';
+        servicios.forEach(function(s) {
             var d = s.fecha_inicio ? new Date(s.fecha_inicio) : null;
             var fecha = d ? d.toLocaleDateString('es-VE') : '';
-            return '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.04);">' +
+            html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.8rem;border-bottom:1px solid rgba(255,255,255,.04);">' +
                 '<span style="color:var(--muted)">' + fecha + ' · <span style="text-transform:capitalize">' + s.tipo + '</span></span>' +
-                '<strong style="color:var(--text)">$' + parseFloat(s.monto).toFixed(2) + '</strong>' +
-                '</div>';
-        }).join('') +
-        '<div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:6px;border-top:1px solid var(--border);">' +
-        '<strong style="color:var(--g1);font-size:.82rem;">TOTAL</strong>' +
-        '<strong style="color:var(--g1);font-size:.95rem;">$' + total.toFixed(2) + '</strong>' +
+                '<strong style="color:var(--text)">$' + parseFloat(s.monto).toFixed(2) + '</strong></div>';
+        });
+        html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.82rem;"><span style="color:var(--muted)">Total servicios</span><span>$' + totalServicios.toFixed(2) + '</span></div>';
+    }
+
+    // Pagos previos
+    if (totalPagado > 0) {
+        html += '<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:.82rem;"><span style="color:#00dd00;">Pagado</span><strong style="color:#00dd00;">-$' + totalPagado.toFixed(2) + '</strong></div>';
+    }
+
+    // Deuda pendiente
+    html += '<div style="display:flex;justify-content:space-between;padding:8px 0 0;margin-top:6px;border-top:1px solid var(--border);">' +
+        '<strong style="color:var(--g1);font-size:.82rem;">DEUDA PENDIENTE</strong>' +
+        '<strong style="color:' + (deudaReal > 0 ? 'var(--warn)' : 'var(--g1)') + ';font-size:.95rem;">$' + deudaReal.toFixed(2) + '</strong>' +
         '</div></div>';
 
-    // Auto-llenar el monto
-    document.getElementById('p_monto').value = total.toFixed(2);
+    container.innerHTML = html;
+
+    // Auto-llenar con la deuda real
+    document.getElementById('p_monto').value = deudaReal.toFixed(2);
 }
 
 async function loadCierre() {
