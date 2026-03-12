@@ -312,7 +312,7 @@ async function cambiarEstadoMoto(id, estadoActual) {
 }
 
 async function loadClientesCC() {
-    const data = await apiFetch('/clientes');
+    const data = await apiFetch('/cobranza');
     if (!data) return;
     allClientesCC = data;
     renderClientesCC(data);
@@ -330,7 +330,7 @@ function renderClientesCC(list) {
       <td><strong style="color:var(--text)">${c.nombre_marca}</strong></td>
       <td>${c.email || '—'}</td>
       <td>${c.telefono || '—'}</td>
-      <td style="color:${parseFloat(c.saldo_pendiente) > 0 ? 'var(--warn)' : 'var(--g1)'}">${fmt(c.saldo_pendiente)}</td>
+      <td style="color:${parseFloat(c.deuda_calculada) > 0 ? 'var(--warn)' : 'var(--g1)'}">${fmt(c.deuda_calculada)}</td>
     </tr>`).join('') || '<tr><td colspan="4">Sin resultados</td></tr>';
 }
 
