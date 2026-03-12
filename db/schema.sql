@@ -172,7 +172,7 @@ CREATE INDEX idx_pagos_cliente ON pagos(cliente_id);
 CREATE INDEX idx_pagos_fecha ON pagos(fecha);
 
 -- ============================================================
--- 9. VIEW útil: deuda actual por cliente
+-- 9. VIEW útil: deuda actual por cliente (subqueries para evitar cross-product)
 -- ============================================================
 CREATE VIEW vista_cobranza AS
 SELECT
@@ -180,12 +180,22 @@ SELECT
     c.nombre_marca,
     c.email,
     c.saldo_pendiente,
-    COUNT(s.id) AS servicios_pendientes,
-    COALESCE(SUM(s.monto) FILTER (WHERE s.estado = 'completado'), 0) AS facturado_total,
-    COALESCE(SUM(p.monto), 0) AS pagado_total,
-    COALESCE(SUM(s.monto) FILTER (WHERE s.estado = 'completado'), 0) - COALESCE(SUM(p.monto), 0) AS deuda_calculada
+    COALESCE(sv.num_servicios, 0) AS servicios_pendientes,
+    COALESCE(sv.facturado_total, 0) AS facturado_total,
+    COALESCE(pv.pagado_total, 0) AS pagado_total,
+    COALESCE(sv.facturado_total, 0) - COALESCE(pv.pagado_total, 0) AS deuda_calculada
 FROM clientes c
-LEFT JOIN servicios s ON s.cliente_id = c.id
-LEFT JOIN pagos p ON p.cliente_id = c.id
-WHERE c.activo = TRUE
-GROUP BY c.id, c.nombre_marca, c.email, c.saldo_pendiente;
+LEFT JOIN (
+    SELECT cliente_id,
+           COUNT(*) AS num_servicios,
+           COALESCE(SUM(monto) FILTER (WHERE estado = 'completado'), 0) AS facturado_total
+    FROM servicios
+    GROUP BY cliente_id
+) sv ON sv.cliente_id = c.id
+LEFT JOIN (
+    SELECT cliente_id,
+           COALESCE(SUM(monto), 0) AS pagado_total
+    FROM pagos
+    GROUP BY cliente_id
+) pv ON pv.cliente_id = c.id
+WHERE c.activo = TRUE;
