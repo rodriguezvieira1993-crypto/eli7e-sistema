@@ -104,6 +104,7 @@ async function loadFlota() {
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','disponible')">✅</button>
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','en_servicio')">🔄</button>
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','inactivo')">⏸</button>
+        <button class="btn-icon" style="color:var(--err);" onclick="eliminarMoto('${m.id}','${m.nombre}')">🗑️</button>
       </div>
     </div>`).join('');
 }
@@ -112,6 +113,18 @@ async function cambiarEstado(id, estado) {
     const res = await apiFetch(`/motorizados/${id}/estado`, { method: 'PATCH', body: { estado } });
     if (res?.id) { showToast(`✅ ${res.nombre} → ${estado}`); loadFlota(); }
     else showToast('❌ Error', 'err');
+}
+
+async function eliminarMoto(id, nombre) {
+    if (!confirm('¿Eliminar a ' + nombre + ' de la flota?')) return;
+    const res = await apiFetch('/motorizados/' + id, { method: 'DELETE' });
+    if (res?.ok) {
+        showToast('🗑️ ' + nombre + ' eliminado de la flota');
+        loadFlota();
+        loadDashboard();
+    } else {
+        showToast('❌ Error al eliminar', 'err');
+    }
 }
 
 async function crearMoto(e) {

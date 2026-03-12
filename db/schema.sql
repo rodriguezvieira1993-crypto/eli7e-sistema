@@ -106,7 +106,7 @@ INSERT INTO motorizados (nombre) VALUES
 -- ============================================================
 CREATE TABLE IF NOT EXISTS servicios (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tipo            VARCHAR(30) NOT NULL CHECK (tipo IN ('mototaxi','delivery','encomienda','compras','flete','viaje')),
+    tipo            VARCHAR(30) NOT NULL CHECK (tipo IN ('mototaxi','delivery','encomienda','compras','transporte')),
     monto           NUMERIC(10,2) NOT NULL,
     cliente_id      UUID REFERENCES clientes(id) ON DELETE SET NULL,
     motorizado_id   UUID REFERENCES motorizados(id) ON DELETE SET NULL,

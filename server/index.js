@@ -23,6 +23,24 @@ app.use('/api/cobranza', require('./routes/cobranza'));
 app.use('/api/cierres', require('./routes/cierres'));
 app.use('/api/usuarios', require('./routes/usuarios'));
 
+// ── Reset DB (solo admin) ───────────────────────────────────
+app.post('/api/admin/reset-db', require('./middleware/auth'), (req, res, next) => {
+    if (req.user.rol !== 'admin') return res.status(403).json({ error: 'Solo admin' });
+    next();
+}, async (req, res) => {
+    const pool = require('./db');
+    const fs = require('fs');
+    try {
+        const resetSQL = fs.readFileSync(path.join(__dirname, '../db/reset.sql'), 'utf8');
+        const schemaSQL = fs.readFileSync(path.join(__dirname, '../db/schema.sql'), 'utf8');
+        await pool.query(resetSQL);
+        await pool.query(schemaSQL);
+        res.json({ ok: true, msg: 'Base de datos reiniciada correctamente' });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ── Health check ────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', sistema: 'Eli7e', hora: new Date().toISOString() });
