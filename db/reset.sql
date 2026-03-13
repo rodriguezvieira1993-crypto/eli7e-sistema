@@ -1,11 +1,14 @@
 -- ============================================================
--- RESET: Borra TODOS los datos y recrea desde schema.sql
+-- RESET: Borra solo DATOS DE PRUEBA (servicios, pagos, cierres)
+-- NO borra tablas, NO borra usuarios, clientes ni motorizados
 -- ============================================================
-DROP VIEW IF EXISTS vista_cobranza CASCADE;
-DROP TABLE IF EXISTS notas_entrega CASCADE;
-DROP TABLE IF EXISTS pagos CASCADE;
-DROP TABLE IF EXISTS cierres_diarios CASCADE;
-DROP TABLE IF EXISTS servicios CASCADE;
-DROP TABLE IF EXISTS motorizados CASCADE;
-DROP TABLE IF EXISTS clientes CASCADE;
-DROP TABLE IF EXISTS usuarios CASCADE;
+DELETE FROM notas_entrega;
+DELETE FROM pagos;
+DELETE FROM cierres_diarios;
+DELETE FROM servicios;
+
+-- Restaurar estado de motorizados a disponible
+UPDATE motorizados SET estado = 'disponible', activo = TRUE;
+
+-- Restaurar saldo pendiente de clientes
+UPDATE clientes SET saldo_pendiente = 0.00, activo = TRUE;

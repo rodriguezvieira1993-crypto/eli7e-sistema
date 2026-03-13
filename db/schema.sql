@@ -1,6 +1,6 @@
 -- ============================================================
 -- SCHEMA PostgreSQL — Sistema Eli7e
--- Semana 1: Levantamiento y Bases de Datos
+-- 100% IDEMPOTENTE — Se puede ejecutar muchas veces sin romper nada
 -- ============================================================
 
 -- EXTENSIONES
@@ -14,14 +14,13 @@ CREATE TABLE IF NOT EXISTS usuarios (
     id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     nombre      VARCHAR(100) NOT NULL,
     email       VARCHAR(150) NOT NULL UNIQUE,
-    password    TEXT NOT NULL,  -- bcrypt hash
+    password    TEXT NOT NULL,
     rol         VARCHAR(20) NOT NULL CHECK (rol IN ('admin','call_center','contable')),
     activo      BOOLEAN DEFAULT TRUE,
     creado_en   TIMESTAMP DEFAULT NOW(),
     ultimo_acceso TIMESTAMP
 );
 
--- Usuarios iniciales (passwords son bcrypt de "eli7e2026")
 INSERT INTO usuarios (nombre, email, password, rol) VALUES
 ('Administrador',   'admin@eli7e.com',      '$2a$10$xf.IGg7JlEedaSsfPnRewOkV4iiP5fIafMgwbZ5mfP4RG5IA8FWAy', 'admin'),
 ('Operador 1',      'callcenter@eli7e.com', '$2a$10$xf.IGg7JlEedaSsfPnRewOkV4iiP5fIafMgwbZ5mfP4RG5IA8FWAy', 'call_center'),
@@ -33,7 +32,7 @@ ON CONFLICT (email) DO UPDATE SET password = EXCLUDED.password;
 -- ============================================================
 CREATE TABLE IF NOT EXISTS clientes (
     id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    nombre_marca        VARCHAR(150) NOT NULL,
+    nombre_marca        VARCHAR(150) NOT NULL UNIQUE,
     email               VARCHAR(150),
     telefono            VARCHAR(30),
     rif                 VARCHAR(30),
@@ -43,40 +42,16 @@ CREATE TABLE IF NOT EXISTS clientes (
     creado_en           TIMESTAMP DEFAULT NOW()
 );
 
--- Seed: lista completa de marcas aliadas
 INSERT INTO clientes (nombre_marca) VALUES
-('Cometa'),
-('Coemca'),
-('Damiano'),
-('Echa Vaina'),
-('Civeta'),
-('Romanes'),
-('Titos'),
-('Nossa'),
-('Pan de Oro'),
-('D Oro'),
-('Babali'),
-('Topping Burguer'),
-('Burguer Studio'),
-('Happy Pizza'),
-('Pidan Pizza'),
-('2 Brothers'),
-('Empanadería'),
-('Don Pancito'),
-('Papali'),
-('Boogie'),
-('Mermelada Hot'),
-('Maiziao'),
-('Magic Details'),
-('Mango Biche'),
-('Mango Biche Plaza'),
-('Chocobites'),
-('Brasería'),
-('Toño'),
-('Carlos Luces'),
-('Caney'),
-('Roma'),
-('Pollo Cool');
+('Cometa'), ('Coemca'), ('Damiano'), ('Echa Vaina'), ('Civeta'),
+('Romanes'), ('Titos'), ('Nossa'), ('Pan de Oro'), ('D Oro'),
+('Babali'), ('Topping Burguer'), ('Burguer Studio'), ('Happy Pizza'),
+('Pidan Pizza'), ('2 Brothers'), ('Empanadería'), ('Don Pancito'),
+('Papali'), ('Boogie'), ('Mermelada Hot'), ('Maiziao'),
+('Magic Details'), ('Mango Biche'), ('Mango Biche Plaza'),
+('Chocobites'), ('Brasería'), ('Toño'), ('Carlos Luces'),
+('Caney'), ('Roma'), ('Pollo Cool')
+ON CONFLICT (nombre_marca) DO NOTHING;
 
 -- ============================================================
 -- 3. FLOTA DE MOTORIZADOS
@@ -91,15 +66,13 @@ CREATE TABLE IF NOT EXISTS motorizados (
     creado_en   TIMESTAMP DEFAULT NOW()
 );
 
--- Seed: flota actual
-INSERT INTO motorizados (nombre) VALUES
-('Manuel'),
-('Raimon'),
-('Gustavo'),
-('Luis'),
-('Orlando'),
-('Alejandro'),
-('Elvis');
+-- Solo insertar si la tabla está vacía (para no duplicar)
+INSERT INTO motorizados (nombre)
+SELECT nombre FROM (VALUES
+    ('Manuel'), ('Raimon'), ('Gustavo'), ('Luis'),
+    ('Orlando'), ('Alejandro'), ('Elvis')
+) AS seed(nombre)
+WHERE NOT EXISTS (SELECT 1 FROM motorizados LIMIT 1);
 
 -- ============================================================
 -- 4. SERVICIOS
@@ -162,19 +135,19 @@ CREATE TABLE IF NOT EXISTS pagos (
 );
 
 -- ============================================================
--- 8. ÍNDICES para performance
+-- 8. ÍNDICES para performance (IF NOT EXISTS)
 -- ============================================================
-CREATE INDEX idx_servicios_cliente ON servicios(cliente_id);
-CREATE INDEX idx_servicios_motorizado ON servicios(motorizado_id);
-CREATE INDEX idx_servicios_estado ON servicios(estado);
-CREATE INDEX idx_servicios_fecha ON servicios(fecha_inicio);
-CREATE INDEX idx_pagos_cliente ON pagos(cliente_id);
-CREATE INDEX idx_pagos_fecha ON pagos(fecha);
+CREATE INDEX IF NOT EXISTS idx_servicios_cliente ON servicios(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_servicios_motorizado ON servicios(motorizado_id);
+CREATE INDEX IF NOT EXISTS idx_servicios_estado ON servicios(estado);
+CREATE INDEX IF NOT EXISTS idx_servicios_fecha ON servicios(fecha_inicio);
+CREATE INDEX IF NOT EXISTS idx_pagos_cliente ON pagos(cliente_id);
+CREATE INDEX IF NOT EXISTS idx_pagos_fecha ON pagos(fecha);
 
 -- ============================================================
--- 9. VIEW útil: deuda actual por cliente (subqueries para evitar cross-product)
+-- 9. VIEW: deuda actual por cliente (subqueries para evitar cross-product)
 -- ============================================================
-CREATE VIEW vista_cobranza AS
+CREATE OR REPLACE VIEW vista_cobranza AS
 SELECT
     c.id,
     c.nombre_marca,
