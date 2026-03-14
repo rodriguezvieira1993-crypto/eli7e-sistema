@@ -181,27 +181,14 @@
             <!-- ══ SERVICIOS VIEW ═══════════════════════════════════ -->
             <div class="view" id="view-servicios">
                 <div class="view-header">
-                    <h1 class="view-title">Servicios</h1>
-                    <span class="view-sub">Historial completo de servicios</span>
+                    <div>
+                        <h1 class="view-title">Tipos de Servicio</h1>
+                        <span class="view-sub">Catálogo de servicios que ofrece Eli7e</span>
+                    </div>
+                    <button class="btn-primary" onclick="abrirModalTipoServicio()">+ Nuevo Tipo</button>
                 </div>
-                <div class="card">
-                    <table class="data-table" id="serviciosTable">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Tipo</th>
-                                <th>Cliente</th>
-                                <th>Motorizado</th>
-                                <th>Monto</th>
-                                <th>Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="serviciosBody">
-                            <tr>
-                                <td colspan="6" class="loading-txt">Cargando servicios...</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <div class="moto-cards" id="tiposServicioGrid">
+                    <p class="loading-txt">Cargando...</p>
                 </div>
             </div>
 
@@ -401,6 +388,27 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('modalMoto')">Cancelar</button>
                     <button type="submit" class="btn-primary">Agregar Motorizado</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL TIPO SERVICIO -->
+    <div class="modal-overlay" id="modalTipoServicio">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span id="tsModeTitle">+ Nuevo Tipo de Servicio</span>
+                <button onclick="closeModal('modalTipoServicio')">✕</button>
+            </div>
+            <form id="formTipoServicio" onsubmit="guardarTipoServicio(event)">
+                <input type="hidden" id="ts_id">
+                <div class="field"><label>Icono (emoji)</label><input id="ts_icono" placeholder="📦" maxlength="4"></div>
+                <div class="field"><label>Nombre *</label><input required id="ts_nombre" placeholder="Ej: delivery"></div>
+                <div class="field"><label>Descripción</label><input id="ts_desc" placeholder="Qué incluye este servicio"></div>
+                <div class="field"><label>Precio Base (USD)</label><input type="number" step="0.01" id="ts_precio" placeholder="2.00"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalTipoServicio')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar</button>
                 </div>
             </form>
         </div>

@@ -19,6 +19,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/clientes', require('./routes/clientes'));
 app.use('/api/motorizados', require('./routes/motorizados'));
 app.use('/api/servicios', require('./routes/servicios'));
+app.use('/api/tipos-servicio', require('./routes/tipos-servicio'));
 app.use('/api/cobranza', require('./routes/cobranza'));
 app.use('/api/cierres', require('./routes/cierres'));
 app.use('/api/reportes', require('./routes/reportes'));

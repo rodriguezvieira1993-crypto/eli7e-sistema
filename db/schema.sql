@@ -75,6 +75,30 @@ SELECT nombre FROM (VALUES
 WHERE NOT EXISTS (SELECT 1 FROM motorizados LIMIT 1);
 
 -- ============================================================
+-- 3b. CATÁLOGO DE TIPOS DE SERVICIO
+-- ============================================================
+CREATE TABLE IF NOT EXISTS tipos_servicio (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    nombre          VARCHAR(50) NOT NULL UNIQUE,
+    descripcion     TEXT,
+    icono           VARCHAR(10) DEFAULT '📋',
+    precio_base     NUMERIC(10,2) DEFAULT 0.00,
+    activo          BOOLEAN DEFAULT TRUE,
+    creado_en       TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO tipos_servicio (nombre, icono, descripcion, precio_base) VALUES
+('delivery',    '📦', 'Entrega de pedidos para marcas aliadas', 2.00),
+('mototaxi',    '🛵', 'Servicio de transporte de pasajeros en moto', 2.00),
+('encomienda',  '📬', 'Envío de paquetes y documentos', 3.00),
+('compras',     '🛒', 'Compras y recogida de productos', 4.00),
+('transporte',  '🚐', 'Transporte especial de carga', 5.00)
+ON CONFLICT (nombre) DO UPDATE SET
+    icono = EXCLUDED.icono,
+    descripcion = EXCLUDED.descripcion,
+    precio_base = EXCLUDED.precio_base;
+
+-- ============================================================
 -- 4. SERVICIOS
 -- ============================================================
 CREATE TABLE IF NOT EXISTS servicios (

@@ -217,29 +217,69 @@ function exportarReporte(tipo) {
     window.open('/api/reportes/' + tipo + '?token=' + getToken(), '_blank');
 }
 
-// ── Servicios ───────────────────────────────────────────
+// ── Tipos de Servicio (catálogo) ────────────────────────
 async function loadServicios() {
-    const data = await apiFetch('/servicios');
+    const data = await apiFetch('/tipos-servicio');
     if (!data) return;
-    const tbody = document.getElementById('serviciosBody');
+    const grid = document.getElementById('tiposServicioGrid');
     if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin servicios registrados</td></tr>';
+        grid.innerHTML = '<p class="loading-txt">Sin tipos de servicio registrados</p>';
         return;
     }
-    const estadoBadges = {
-        pendiente: '<span class="badge badge-yellow">⏳ Pendiente</span>',
-        completado: '<span class="badge badge-green">✅ Completado</span>',
-        cancelado: '<span class="badge badge-red">❌ Cancelado</span>',
+    grid.innerHTML = data.map(t => `
+    <div class="moto-card ${t.activo ? '' : 'inactivo'}" style="text-align:center;">
+        <div style="font-size:2.5rem;margin-bottom:8px;">${t.icono || '📋'}</div>
+        <div class="moto-name" style="text-transform:capitalize;">${t.nombre}</div>
+        <div style="color:var(--muted);font-size:.78rem;margin:4px 0;">${t.descripcion || '—'}</div>
+        <div style="font-size:1.2rem;font-weight:700;color:var(--g1);margin:8px 0;">${fmt(t.precio_base)}</div>
+        <div>${t.activo
+            ? '<span class="badge badge-green">Activo</span>'
+            : '<span class="badge badge-red">Inactivo</span>'}</div>
+        <div style="margin-top:10px;">
+            <button class="btn-icon" onclick="editarTipoServicio('${t.id}')">✏️</button>
+        </div>
+    </div>`).join('');
+}
+
+function abrirModalTipoServicio() {
+    document.getElementById('tsModeTitle').textContent = '+ Nuevo Tipo de Servicio';
+    document.getElementById('formTipoServicio').reset();
+    document.getElementById('ts_id').value = '';
+    openModal('modalTipoServicio');
+}
+
+async function editarTipoServicio(id) {
+    const tipos = await apiFetch('/tipos-servicio');
+    const t = tipos?.find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('tsModeTitle').textContent = '✏️ Editar Tipo de Servicio';
+    document.getElementById('ts_id').value = t.id;
+    document.getElementById('ts_icono').value = t.icono || '';
+    document.getElementById('ts_nombre').value = t.nombre || '';
+    document.getElementById('ts_desc').value = t.descripcion || '';
+    document.getElementById('ts_precio').value = t.precio_base || '';
+    openModal('modalTipoServicio');
+}
+
+async function guardarTipoServicio(e) {
+    e.preventDefault();
+    const id = document.getElementById('ts_id').value;
+    const body = {
+        nombre: document.getElementById('ts_nombre').value,
+        icono: document.getElementById('ts_icono').value || '📋',
+        descripcion: document.getElementById('ts_desc').value || null,
+        precio_base: parseFloat(document.getElementById('ts_precio').value) || 0,
     };
-    tbody.innerHTML = data.map(s => `
-    <tr>
-      <td>${fmtDate(s.fecha_inicio)}</td>
-      <td style="text-transform:capitalize;">${s.tipo}</td>
-      <td>${s.cliente_nombre || '—'}</td>
-      <td>${s.motorizado_nombre || '—'}</td>
-      <td style="color:var(--g1);">${fmt(s.monto)}</td>
-      <td>${estadoBadges[s.estado] || s.estado}</td>
-    </tr>`).join('');
+    const url = id ? '/tipos-servicio/' + id : '/tipos-servicio';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body });
+    if (res?.id) {
+        showToast('✅ ' + (id ? 'Actualizado' : 'Creado'));
+        closeModal('modalTipoServicio');
+        loadServicios();
+    } else {
+        showToast('❌ Error: ' + (res?.error || 'desconocido'), 'err');
+    }
 }
 
 // ── Cierres (vista admin) ───────────────────────────────
