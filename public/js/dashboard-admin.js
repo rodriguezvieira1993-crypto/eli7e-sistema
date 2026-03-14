@@ -405,6 +405,17 @@ async function cambiarClaveUsuario(id, nombre) {
     }
 }
 
+async function resetDatos() {
+    if (!confirm('⚠️ ¿Seguro que quieres borrar TODOS los servicios, pagos, cierres y notas?\n\nEsta acción NO se puede deshacer.')) return;
+    const res = await apiFetch('/admin/reset-db', { method: 'POST', body: {} });
+    if (res?.ok) {
+        showToast('✅ Datos de prueba limpiados');
+        loadDashboard();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al limpiar'), 'err');
+    }
+}
+
 // ── Init
 loadDashboard();
 document.addEventListener('viewChange', ({ detail: { view } }) => {
