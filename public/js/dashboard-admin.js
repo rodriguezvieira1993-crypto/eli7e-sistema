@@ -339,6 +339,7 @@ async function loadUsuarios() {
       <td>
         <button class="btn-icon" onclick="editarUsuario('${u.id}','${u.nombre}','${u.email}','${u.rol}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="cambiarClaveUsuario('${u.id}','${u.nombre}')" title="Cambiar clave">🔑</button>
+        <button class="btn-icon" style="color:#FF4444;" onclick="eliminarUsuario('${u.id}','${u.nombre}')" title="Eliminar">🗑️</button>
       </td>
     </tr>`).join('') || '<tr><td colspan="6" class="loading-txt">Sin usuarios</td></tr>';
 }
@@ -402,6 +403,17 @@ async function cambiarClaveUsuario(id, nombre) {
         showToast('✅ Contraseña actualizada para ' + nombre);
     } else {
         showToast('❌ Error al cambiar contraseña', 'err');
+    }
+}
+
+async function eliminarUsuario(id, nombre) {
+    if (!confirm('⚠️ ¿Seguro que quieres eliminar al usuario "' + nombre + '"?\n\nEl usuario será desactivado.')) return;
+    const res = await apiFetch('/usuarios/' + id, { method: 'DELETE' });
+    if (res?.ok) {
+        showToast('🗑️ Usuario ' + nombre + ' eliminado');
+        loadUsuarios();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al eliminar'), 'err');
     }
 }
 
