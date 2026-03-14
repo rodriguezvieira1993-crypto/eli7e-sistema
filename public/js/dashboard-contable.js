@@ -283,7 +283,7 @@ async function loadServiciosHoy() {
         return `
         <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background .15s;"
                onmouseover="this.style.background='rgba(0,255,100,0.04)'" onmouseout="this.style.background='transparent'">
-            <input type="checkbox" class="srv-check" data-monto="${s.monto}" onchange="recalcCobrados()" checked
+            <input type="checkbox" class="srv-check" data-monto="${s.monto}" onchange="recalcCobrados()"
                    style="width:18px;height:18px;accent-color:var(--g1);cursor:pointer;">
             <span style="flex:1;display:flex;align-items:center;gap:8px;">
                 <span style="font-size:1.1rem;">${icono}</span>
