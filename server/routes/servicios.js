@@ -86,4 +86,40 @@ router.patch('/:id/cerrar', requireRol('admin', 'call_center'), async (req, res)
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// PUT /api/servicios/:id — editar servicio
+router.put('/:id', requireRol('admin', 'call_center'), async (req, res) => {
+    const { tipo, cliente_id, motorizado_id, monto, descripcion } = req.body;
+    try {
+        const { rows } = await pool.query(
+            `UPDATE servicios SET tipo=COALESCE($1,tipo), cliente_id=COALESCE($2,cliente_id),
+             motorizado_id=COALESCE($3,motorizado_id), monto=COALESCE($4,monto),
+             descripcion=COALESCE($5,descripcion) WHERE id=$6
+             RETURNING *`,
+            [tipo, cliente_id, motorizado_id, monto, descripcion, req.params.id]
+        );
+        if (!rows[0]) return res.status(404).json({ error: 'Servicio no encontrado' });
+        res.json(rows[0]);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// DELETE /api/servicios/:id — eliminar servicio
+router.delete('/:id', requireRol('admin', 'call_center'), async (req, res) => {
+    try {
+        // Obtener el servicio antes de borrar para liberar moto
+        const { rows: srv } = await pool.query('SELECT * FROM servicios WHERE id=$1', [req.params.id]);
+        if (!srv[0]) return res.status(404).json({ error: 'Servicio no encontrado' });
+
+        // Borrar notas de entrega asociadas
+        await pool.query('DELETE FROM notas_entrega WHERE servicio_id=$1', [req.params.id]);
+        // Borrar servicio
+        await pool.query('DELETE FROM servicios WHERE id=$1', [req.params.id]);
+
+        // Liberar motorizado si estaba en servicio
+        if (srv[0].motorizado_id && srv[0].estado === 'pendiente') {
+            await pool.query("UPDATE motorizados SET estado='disponible' WHERE id=$1", [srv[0].motorizado_id]);
+        }
+        res.json({ ok: true });
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

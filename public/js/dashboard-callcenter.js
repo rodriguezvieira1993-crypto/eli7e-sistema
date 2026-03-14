@@ -482,7 +482,18 @@ function renderUltimos() {
         container.innerHTML = '<p class="loading-txt" style="font-size:.82rem;">Sin registros aún.</p>';
         return;
     }
-    container.innerHTML = serviciosRecientes.map(s => `
+    container.innerHTML = serviciosRecientes.map(s => {
+        const btns = s.estado === 'pendiente'
+            ? `<div style="display:flex;gap:4px;margin-top:6px;">
+                 <button class="btn-icon" style="flex:1;font-size:.72rem;padding:5px;background:rgba(0,221,0,.1);border:1px solid rgba(0,221,0,.2);border-radius:6px;color:#00dd00;" onclick="cerrarDesdeUltimos('${s.id}')">✅ Cerrar</button>
+                 <button class="btn-icon" style="flex:1;font-size:.72rem;padding:5px;background:rgba(0,150,255,.1);border:1px solid rgba(0,150,255,.2);border-radius:6px;color:#0096ff;" onclick="editarServicio('${s.id}')">✏️ Editar</button>
+                 <button class="btn-icon" style="flex:1;font-size:.72rem;padding:5px;background:rgba(255,68,68,.1);border:1px solid rgba(255,68,68,.2);border-radius:6px;color:#FF4444;" onclick="eliminarServicio('${s.id}')">🗑️ Borrar</button>
+               </div>`
+            : `<div style="display:flex;gap:4px;margin-top:6px;align-items:center;">
+                 <span class="badge badge-green" style="font-size:.7rem;">Completado</span>
+                 <button class="btn-icon" style="margin-left:auto;font-size:.72rem;padding:5px;background:rgba(255,68,68,.1);border:1px solid rgba(255,68,68,.2);border-radius:6px;color:#FF4444;" onclick="eliminarServicio('${s.id}')">🗑️</button>
+               </div>`;
+        return `
       <div class="ultimo-card">
         <div class="ultimo-top">
           <span class="ultimo-tipo">${TIPO_EMOJI[s.tipo] || '📋'} ${s.tipo.toUpperCase()}</span>
@@ -493,8 +504,9 @@ function renderUltimos() {
           ${s.hora ? ' · ' + s.hora : ''}
         </div>
         ${s.descripcion ? '<div class="ultimo-desc">' + s.descripcion + '</div>' : ''}
-        ${s.estado === 'pendiente' ? '<button class="btn-icon" style="margin-top:6px;width:100%;font-size:.78rem;" onclick="cerrarDesdeUltimos(\'' + s.id + '\')">✅ Cerrar servicio</button>' : '<span class="badge badge-green" style="margin-top:6px;font-size:.7rem;">Completado</span>'}
-      </div>`).join('');
+        ${btns}
+      </div>`;
+    }).join('');
 }
 
 async function loadUltimos() {
@@ -505,6 +517,8 @@ async function loadUltimos() {
         tipo: s.tipo,
         monto: s.monto,
         estado: s.estado,
+        cliente_id: s.cliente_id,
+        motorizado_id: s.motorizado_id,
         descripcion: s.descripcion || '',
         hora: s.fecha_inicio ? new Date(s.fecha_inicio).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '',
         motorizado_nombre: s.motorizado_nombre || '—'
@@ -517,7 +531,6 @@ async function cerrarDesdeUltimos(id) {
     const res = await apiFetch('/servicios/' + id + '/cerrar', { method: 'PATCH' });
     if (res?.ok) {
         showToast('✅ Servicio cerrado — reflejado en cobranza');
-        // Actualizar la tarjeta en el array local
         const s = serviciosRecientes.find(x => x.id === id);
         if (s) s.estado = 'completado';
         renderUltimos();
@@ -525,6 +538,61 @@ async function cerrarDesdeUltimos(id) {
         fillMotosSelect();
     } else {
         showToast('❌ Error al cerrar servicio', 'err');
+    }
+}
+
+// ── Editar servicio ───────────────────────────────────
+async function editarServicio(id) {
+    const s = serviciosRecientes.find(x => x.id === id);
+    if (!s) return;
+
+    // Llenar modal de edición
+    document.getElementById('es_id').value = id;
+    document.getElementById('es_monto').value = s.monto;
+    document.getElementById('es_desc').value = s.descripcion || '';
+
+    // Llenar select de motorizado
+    const selMoto = document.getElementById('es_motorizado');
+    const activos = allMotosCC.filter(m => m.activo !== false && m.estado !== 'inactivo');
+    selMoto.innerHTML = activos.map(m => {
+        const tag = m.estado === 'en_servicio' ? ' ⚡' : '';
+        return `<option value="${m.id}" ${m.id === s.motorizado_id ? 'selected' : ''}>🛵 ${m.nombre}${tag}</option>`;
+    }).join('');
+
+    openModal('modalEditServicio');
+}
+
+async function guardarEdicionServicio(e) {
+    e.preventDefault();
+    const id = document.getElementById('es_id').value;
+    const body = {
+        motorizado_id: document.getElementById('es_motorizado').value,
+        monto: parseFloat(document.getElementById('es_monto').value),
+        descripcion: document.getElementById('es_desc').value,
+    };
+    const res = await apiFetch('/servicios/' + id, { method: 'PUT', body });
+    if (res?.id) {
+        showToast('✅ Servicio actualizado');
+        closeModal('modalEditServicio');
+        await loadUltimos();
+        await loadFlotaDisp();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al editar'), 'err');
+    }
+}
+
+// ── Eliminar servicio ─────────────────────────────────
+async function eliminarServicio(id) {
+    if (!confirm('⚠️ ¿Seguro que quieres eliminar este servicio?\n\nEsta acción no se puede deshacer.')) return;
+    const res = await apiFetch('/servicios/' + id, { method: 'DELETE' });
+    if (res?.ok) {
+        showToast('🗑️ Servicio eliminado');
+        serviciosRecientes = serviciosRecientes.filter(x => x.id !== id);
+        renderUltimos();
+        await loadFlotaDisp();
+        fillMotosSelect();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al eliminar'), 'err');
     }
 }
 

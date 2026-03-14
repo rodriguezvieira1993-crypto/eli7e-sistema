@@ -223,6 +223,35 @@
         </div>
     </div>
 
+    <!-- MODAL EDITAR SERVICIO -->
+    <div class="modal-overlay" id="modalEditServicio">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>✏️ Editar Servicio</span>
+                <button onclick="closeModal('modalEditServicio')">✕</button>
+            </div>
+            <form onsubmit="guardarEdicionServicio(event)">
+                <input type="hidden" id="es_id">
+                <div class="field">
+                    <label>Motorizado</label>
+                    <select id="es_motorizado" required style="width:100%;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;"></select>
+                </div>
+                <div class="field">
+                    <label>Monto (USD) *</label>
+                    <input type="number" id="es_monto" step="0.01" min="0.01" required>
+                </div>
+                <div class="field">
+                    <label>Descripción</label>
+                    <textarea id="es_desc" rows="2" style="width:100%;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;resize:vertical;"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalEditServicio')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div class="toast" id="toast"></div>
     <script src="js/api.js"></script>
     <script src="js/dashboard-callcenter.js"></script>
