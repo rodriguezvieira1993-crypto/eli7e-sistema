@@ -288,15 +288,16 @@
                         <thead>
                             <tr>
                                 <th>Nombre</th>
-                                <th>Email</th>
+                                <th>Usuario</th>
                                 <th>Rol</th>
                                 <th>Último Acceso</th>
                                 <th>Estado</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="usuariosBody">
                             <tr>
-                                <td colspan="5" class="loading-txt">Cargando...</td>
+                                <td colspan="6" class="loading-txt">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -402,7 +403,7 @@
             </div>
             <form id="formUsuario" onsubmit="crearUsuario(event)">
                 <div class="field"><label>Nombre completo *</label><input required id="u_nombre" placeholder="Ej: María García"></div>
-                <div class="field"><label>Email *</label><input required type="email" id="u_email" placeholder="usuario@eli7e.com"></div>
+                <div class="field"><label>Usuario (email) *</label><input required type="email" id="u_email" placeholder="usuario@eli7e.com"></div>
                 <div class="field"><label>Contraseña *</label><input required type="password" id="u_pass" placeholder="Mínimo 6 caracteres" minlength="6"></div>
                 <div class="field">
                     <label>Rol *</label>
@@ -415,6 +416,32 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('modalUsuario')">Cancelar</button>
                     <button type="submit" class="btn-primary">Crear Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR USUARIO -->
+    <div class="modal-overlay" id="modalEditUsuario">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>✏️ Editar Usuario</span>
+                <button onclick="closeModal('modalEditUsuario')">✕</button>
+            </div>
+            <form id="formEditUsuario" onsubmit="guardarEdicionUsuario(event)">
+                <input type="hidden" id="eu_id">
+                <div class="field"><label>Nombre completo *</label><input required id="eu_nombre"></div>
+                <div class="field">
+                    <label>Rol *</label>
+                    <select id="eu_rol" required style="width:100%;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;">
+                        <option value="admin">Administrador</option>
+                        <option value="call_center">Call Center</option>
+                        <option value="contable">Contable</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalEditUsuario')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Cambios</button>
                 </div>
             </form>
         </div>

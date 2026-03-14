@@ -332,11 +332,15 @@ async function loadUsuarios() {
     tbody.innerHTML = data.map(u => `
     <tr>
       <td><strong>${u.nombre}</strong></td>
-      <td>${u.email}</td>
+      <td style="color:var(--muted);">${u.email}</td>
       <td>${rolBadges[u.rol] || u.rol}</td>
       <td>${u.ultimo_acceso ? fmtDate(u.ultimo_acceso) : '—'}</td>
       <td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
-    </tr>`).join('') || '<tr><td colspan="5" class="loading-txt">Sin usuarios</td></tr>';
+      <td>
+        <button class="btn-icon" onclick="editarUsuario('${u.id}','${u.nombre}','${u.rol}')" title="Editar">✏️</button>
+        <button class="btn-icon" onclick="cambiarClaveUsuario('${u.id}','${u.nombre}')" title="Cambiar clave">🔑</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" class="loading-txt">Sin usuarios</td></tr>';
 }
 
 async function crearUsuario(e) {
@@ -355,6 +359,47 @@ async function crearUsuario(e) {
         loadUsuarios();
     } else {
         showToast('❌ ' + (res?.error || 'Error al crear usuario'), 'err');
+    }
+}
+
+function editarUsuario(id, nombre, rol) {
+    document.getElementById('eu_id').value = id;
+    document.getElementById('eu_nombre').value = nombre;
+    document.getElementById('eu_rol').value = rol;
+    openModal('modalEditUsuario');
+}
+
+async function guardarEdicionUsuario(e) {
+    e.preventDefault();
+    const id = document.getElementById('eu_id').value;
+    const body = {
+        nombre: document.getElementById('eu_nombre').value,
+        rol: document.getElementById('eu_rol').value,
+    };
+    const res = await apiFetch('/usuarios/' + id, { method: 'PUT', body });
+    if (res?.id || res?.ok) {
+        showToast('✅ Usuario actualizado');
+        closeModal('modalEditUsuario');
+        loadUsuarios();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error'), 'err');
+    }
+}
+
+async function cambiarClaveUsuario(id, nombre) {
+    const newPass = prompt('🔑 Nueva contraseña para ' + nombre + ':');
+    if (!newPass || newPass.length < 6) {
+        if (newPass !== null) showToast('❌ La contraseña debe tener al menos 6 caracteres', 'err');
+        return;
+    }
+    const res = await apiFetch('/usuarios/' + id + '/password', {
+        method: 'PUT',
+        body: { password: newPass }
+    });
+    if (res?.ok) {
+        showToast('✅ Contraseña actualizada para ' + nombre);
+    } else {
+        showToast('❌ Error al cambiar contraseña', 'err');
     }
 }
 
