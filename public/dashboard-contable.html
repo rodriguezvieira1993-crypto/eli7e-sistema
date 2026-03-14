@@ -8,7 +8,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="css/dashboard.css">
-</head>
+    <style>
+        .metodo-chip:has(input:checked) {
+            border-color: var(--g1) !important;
+            background: rgba(0, 221, 0, .08);
+            box-shadow: 0 0 8px rgba(0, 221, 0, .15);
+        }
+    </style></head>
 
 <body>
 
@@ -228,6 +234,23 @@
                                 <input type="number" id="p_monto" step="0.01" required placeholder="0.00">
                             </div>
                             <div class="field">
+                                <label>Método de Pago *</label>
+                                <div style="display:flex;gap:8px;">
+                                    <label class="metodo-chip" style="flex:1;text-align:center;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s;">
+                                        <input type="radio" name="p_metodo" value="pago_movil" style="display:none;" checked>
+                                        <div>📱</div><div style="font-size:.75rem;">Pago Móvil</div>
+                                    </label>
+                                    <label class="metodo-chip" style="flex:1;text-align:center;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s;">
+                                        <input type="radio" name="p_metodo" value="efectivo" style="display:none;">
+                                        <div>💵</div><div style="font-size:.75rem;">Efectivo</div>
+                                    </label>
+                                    <label class="metodo-chip" style="flex:1;text-align:center;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s;">
+                                        <input type="radio" name="p_metodo" value="divisas" style="display:none;">
+                                        <div>💲</div><div style="font-size:.75rem;">Divisas</div>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="field">
                                 <label>Nota / Observación</label>
                                 <input id="p_ref" placeholder="Observación del pago (opcional)">
                             </div>
@@ -328,6 +351,23 @@
             <div class="field">
                 <label>Monto a registrar (USD)</label>
                 <input type="number" id="pr_monto" step="0.01" placeholder="0.00">
+            </div>
+            <div class="field">
+                <label style="font-size:.82rem;">Método de Pago</label>
+                <div style="display:flex;gap:6px;">
+                    <label class="metodo-chip" style="flex:1;text-align:center;padding:8px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem;">
+                        <input type="radio" name="pr_metodo" value="pago_movil" style="display:none;" checked>
+                        📱 Pago Móvil
+                    </label>
+                    <label class="metodo-chip" style="flex:1;text-align:center;padding:8px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem;">
+                        <input type="radio" name="pr_metodo" value="efectivo" style="display:none;">
+                        💵 Efectivo
+                    </label>
+                    <label class="metodo-chip" style="flex:1;text-align:center;padding:8px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.8rem;">
+                        <input type="radio" name="pr_metodo" value="divisas" style="display:none;">
+                        💲 Divisas
+                    </label>
+                </div>
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModal('modalPagoRapido')">Cancelar</button>
