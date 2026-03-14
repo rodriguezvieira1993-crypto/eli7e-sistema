@@ -69,7 +69,7 @@ function renderClientes(list) {
       <td style="color:${parseFloat(c.saldo_pendiente) > 0 ? 'var(--warn)' : 'var(--g1)'}">${fmt(c.saldo_pendiente)}</td>
       <td>${c.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
       <td>
-        <button class="btn-icon" onclick="editarCliente('${c.id}','${c.nombre_marca}')">✏️</button>
+        <button class="btn-icon" onclick="editarCliente('${c.id}')">✏️</button>
       </td>
     </tr>`).join('');
 }
@@ -95,6 +95,37 @@ async function crearCliente(e) {
         loadClientes();
     } else {
         showToast('❌ Error al crear cliente', 'err');
+    }
+}
+
+async function editarCliente(id) {
+    const data = await apiFetch('/clientes/' + id);
+    if (!data?.cliente) { showToast('❌ No se pudo cargar el cliente', 'err'); return; }
+    const c = data.cliente;
+    document.getElementById('ec_id').value = c.id;
+    document.getElementById('ec_nombre').value = c.nombre_marca || '';
+    document.getElementById('ec_email').value = c.email || '';
+    document.getElementById('ec_tel').value = c.telefono || '';
+    document.getElementById('ec_rif').value = c.rif || '';
+    openModal('modalEditCliente');
+}
+
+async function guardarEdicionCliente(e) {
+    e.preventDefault();
+    const id = document.getElementById('ec_id').value;
+    const body = {
+        nombre_marca: document.getElementById('ec_nombre').value,
+        email: document.getElementById('ec_email').value || null,
+        telefono: document.getElementById('ec_tel').value || null,
+        rif: document.getElementById('ec_rif').value || null,
+    };
+    const res = await apiFetch('/clientes/' + id, { method: 'PUT', body });
+    if (res?.id) {
+        showToast('✅ Cliente actualizado');
+        closeModal('modalEditCliente');
+        loadClientes();
+    } else {
+        showToast('❌ Error al actualizar', 'err');
     }
 }
 
