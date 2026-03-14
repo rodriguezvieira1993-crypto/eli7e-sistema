@@ -147,6 +147,7 @@ CREATE INDEX IF NOT EXISTS idx_pagos_fecha ON pagos(fecha);
 -- ============================================================
 -- 9. VIEW: deuda actual por cliente (subqueries para evitar cross-product)
 -- ============================================================
+DROP VIEW IF EXISTS vista_cobranza CASCADE;
 CREATE OR REPLACE VIEW vista_cobranza AS
 SELECT
     c.id,
