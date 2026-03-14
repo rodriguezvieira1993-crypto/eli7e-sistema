@@ -482,7 +482,7 @@ async function confirmarPagoRapido() {
 }
 
 function exportarReporte(tipo) {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('eli7e_token');
     window.open('/api/reportes/' + tipo + '?token=' + token, '_blank');
 }
 
