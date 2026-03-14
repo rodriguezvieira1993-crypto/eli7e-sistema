@@ -39,12 +39,16 @@ const estilos = `
         .section { margin-bottom:24px; }
         .section-title { font-size:1rem; font-weight:700; color:#00dd00; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid rgba(0,221,0,.18); }
         .footer { text-align:center; color:#7a9a7a; font-size:.75rem; margin-top:30px; border-top:1px solid rgba(0,221,0,.18); padding-top:12px; }
-        @media print { body { background:#fff; color:#000; } th { background:#f0f0f0; color:#000; border-bottom:2px solid #000; } td { border-bottom:1px solid #ddd; } .kpi { border:1px solid #ddd; } .kpi-val, h1, .section-title, .green { color:#000; } }
+        .print-bar { display:flex; justify-content:flex-end; gap:8px; margin-bottom:16px; }
+        .print-bar button { padding:8px 18px; border-radius:8px; border:1px solid rgba(0,221,0,.3); background:#0f180f; color:#00dd00; font-family:inherit; font-size:.85rem; cursor:pointer; transition:all .2s; }
+        .print-bar button:hover { background:#00dd00; color:#000; }
+        @media print { body { background:#fff; color:#000; } th { background:#f0f0f0; color:#000; border-bottom:2px solid #000; } td { border-bottom:1px solid #ddd; } .kpi { border:1px solid #ddd; } .kpi-val, h1, .section-title, .green { color:#000; } .print-bar { display:none !important; } }
     </style>
 `;
 
 const fmt = v => '$' + parseFloat(v || 0).toFixed(2);
 const hoy = () => new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+const printBar = `<div class="print-bar"><button onclick="window.print()">🖨️ Imprimir</button><button onclick="window.close()">✕ Cerrar</button></div>`;
 
 // ══ REPORTE SEMANAL ══════════════════════════════════════
 router.get('/semanal', async (req, res) => {
@@ -91,6 +95,7 @@ router.get('/semanal', async (req, res) => {
 
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reporte Semanal — Eli7e</title>${estilos}</head><body>
         <div class="report">
+            ${printBar}
             <h1>📊 Reporte Semanal</h1>
             <div class="sub">Semana del ${new Date(Date.now() - new Date().getDay() * 86400000).toLocaleDateString('es-VE')} al ${new Date().toLocaleDateString('es-VE')} — Generado: ${hoy()}</div>
 
@@ -166,6 +171,7 @@ router.get('/pendientes', async (req, res) => {
 
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Cobranzas Pendientes — Eli7e</title>${estilos}</head><body>
         <div class="report">
+            ${printBar}
             <h1>💰 Cobranzas Pendientes</h1>
             <div class="sub">Generado: ${hoy()}</div>
 
@@ -215,6 +221,7 @@ router.get('/cierres', async (req, res) => {
 
         const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Historial de Cierres — Eli7e</title>${estilos}</head><body>
         <div class="report">
+            ${printBar}
             <h1>📅 Historial de Cierres Diarios</h1>
             <div class="sub">Últimos 30 cierres — Generado: ${hoy()}</div>
 
