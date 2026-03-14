@@ -393,6 +393,33 @@
         </div>
     </div>
 
+    <!-- MODAL USUARIO -->
+    <div class="modal-overlay" id="modalUsuario">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>+ Nuevo Usuario</span>
+                <button onclick="closeModal('modalUsuario')">✕</button>
+            </div>
+            <form id="formUsuario" onsubmit="crearUsuario(event)">
+                <div class="field"><label>Nombre completo *</label><input required id="u_nombre" placeholder="Ej: María García"></div>
+                <div class="field"><label>Email *</label><input required type="email" id="u_email" placeholder="usuario@eli7e.com"></div>
+                <div class="field"><label>Contraseña *</label><input required type="password" id="u_pass" placeholder="Mínimo 6 caracteres" minlength="6"></div>
+                <div class="field">
+                    <label>Rol *</label>
+                    <select id="u_rol" required style="width:100%;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;">
+                        <option value="admin">Administrador</option>
+                        <option value="call_center">Call Center</option>
+                        <option value="contable">Contable</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalUsuario')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Crear Usuario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- MODAL TIPO SERVICIO -->
     <div class="modal-overlay" id="modalTipoServicio">
         <div class="modal">

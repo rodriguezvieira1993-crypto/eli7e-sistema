@@ -319,6 +319,45 @@ function verFactura(clienteId) {
     window.open('/api/reportes/factura/' + clienteId + '?token=' + getToken(), '_blank');
 }
 
+// ── Usuarios ────────────────────────────────────────────
+async function loadUsuarios() {
+    const data = await apiFetch('/usuarios');
+    if (!data) return;
+    const tbody = document.getElementById('usuariosBody');
+    const rolBadges = {
+        admin: '<span class="badge badge-green">Administrador</span>',
+        call_center: '<span class="badge badge-yellow">Call Center</span>',
+        contable: '<span class="badge badge-blue" style="background:rgba(0,150,255,.15);color:#0096ff;">Contable</span>',
+    };
+    tbody.innerHTML = data.map(u => `
+    <tr>
+      <td><strong>${u.nombre}</strong></td>
+      <td>${u.email}</td>
+      <td>${rolBadges[u.rol] || u.rol}</td>
+      <td>${u.ultimo_acceso ? fmtDate(u.ultimo_acceso) : '—'}</td>
+      <td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="loading-txt">Sin usuarios</td></tr>';
+}
+
+async function crearUsuario(e) {
+    e.preventDefault();
+    const body = {
+        nombre: document.getElementById('u_nombre').value,
+        email: document.getElementById('u_email').value,
+        password: document.getElementById('u_pass').value,
+        rol: document.getElementById('u_rol').value,
+    };
+    const res = await apiFetch('/usuarios', { method: 'POST', body });
+    if (res?.id) {
+        showToast('✅ Usuario creado: ' + res.nombre);
+        closeModal('modalUsuario');
+        document.getElementById('formUsuario').reset();
+        loadUsuarios();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al crear usuario'), 'err');
+    }
+}
+
 // ── Init
 loadDashboard();
 document.addEventListener('viewChange', ({ detail: { view } }) => {
@@ -327,5 +366,6 @@ document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'servicios') loadServicios();
     if (view === 'cobranza') loadCobranza();
     if (view === 'cierres') loadCierresAdmin();
+    if (view === 'usuarios') loadUsuarios();
     if (view === 'dashboard') loadDashboard();
 });
