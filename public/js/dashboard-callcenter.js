@@ -1,8 +1,11 @@
 // dashboard-callcenter.js
 let allClientesCC = [];
-let motosDisponibles = [];
+let allMotosCC = [];
 let serviciosRecientes = [];
 const TIPO_EMOJI = { mototaxi: '🛵', delivery: '📦', encomienda: '📬', compras: '🛒', flete: '🚛', transporte: '🚐' };
+
+// Cargar zonas custom guardadas en localStorage
+const zonasCustom = JSON.parse(localStorage.getItem('eli7e_zonas_custom') || '[]');
 
 // Helper: genera los chips de monto reutilizables
 function montoChipsHTML() {
@@ -121,9 +124,11 @@ function renderCampos(tipo) {
         container.innerHTML = `
             <div class="field">
                 <label>Cliente / Marca *</label>
-                <select id="s_cliente" required>
-                    <option value="">— Seleccionar —</option>
-                </select>
+                <input type="hidden" id="s_cliente">
+                <div class="autocomplete-wrap">
+                    <input type="text" id="s_cliente_search" placeholder="Escriba el nombre de la marca..." autocomplete="off">
+                    <div class="autocomplete-list" id="ac_cliente"></div>
+                </div>
             </div>
 
             <div class="field">
@@ -152,16 +157,18 @@ function renderCampos(tipo) {
                 <textarea id="s_desc" rows="2" placeholder="Detalles del pedido..."></textarea>
             </div>`;
         fillMotosSelect();
-        fillClientesSelect();
+        initClienteAutocomplete();
         initAutocomplete('s_ruta_hasta', 'ac_hasta');
     } else {
         // Campos por defecto para los demás tipos
         container.innerHTML = `
             <div class="field">
                 <label>Cliente / Marca *</label>
-                <select id="s_cliente" required>
-                    <option value="">— Seleccionar —</option>
-                </select>
+                <input type="hidden" id="s_cliente">
+                <div class="autocomplete-wrap">
+                    <input type="text" id="s_cliente_search" placeholder="Escriba el nombre de la marca..." autocomplete="off">
+                    <div class="autocomplete-list" id="ac_cliente"></div>
+                </div>
             </div>
 
             <div class="field">
@@ -181,24 +188,52 @@ function renderCampos(tipo) {
                 <textarea id="s_desc" rows="3" placeholder="Origen, destino, detalles del pedido..."></textarea>
             </div>`;
         fillMotosSelect();
-        fillClientesSelect();
+        initClienteAutocomplete();
     }
 }
 
 function fillMotosSelect() {
     const sel = document.getElementById('s_motorizado');
     if (!sel) return;
-    sel.innerHTML = motosDisponibles.length
-        ? '<option value="">— Seleccionar —</option>' + motosDisponibles.map(m => `<option value="${m.id}">🛵 ${m.nombre}</option>`).join('')
-        : '<option value="">Sin motorizados disponibles</option>';
+    const activos = allMotosCC.filter(m => m.activo !== false && m.estado !== 'inactivo');
+    sel.innerHTML = activos.length
+        ? '<option value="">— Seleccionar —</option>' + activos.map(m => {
+            const tag = m.estado === 'en_servicio' ? ' ⚡ (En servicio)' : '';
+            return `<option value="${m.id}">🛵 ${m.nombre}${tag}</option>`;
+          }).join('')
+        : '<option value="">Sin motorizados</option>';
 }
 
-function fillClientesSelect() {
-    const sel = document.getElementById('s_cliente');
-    if (!sel) return;
-    sel.innerHTML = allClientesCC.length
-        ? '<option value="">— Seleccionar —</option>' + allClientesCC.map(c => `<option value="${c.id}">${c.nombre_marca}</option>`).join('')
-        : '<option value="">Sin clientes</option>';
+// ── Autocompletado predictivo de clientes ─────────────
+function initClienteAutocomplete() {
+    const input = document.getElementById('s_cliente_search');
+    const list = document.getElementById('ac_cliente');
+    const hidden = document.getElementById('s_cliente');
+    if (!input || !list) return;
+
+    input.addEventListener('input', () => {
+        const val = input.value.toLowerCase().trim();
+        if (val.length < 1) { list.innerHTML = ''; list.style.display = 'none'; hidden.value = ''; return; }
+        const matches = allClientesCC.filter(c => c.nombre_marca.toLowerCase().includes(val)).slice(0, 8);
+        if (!matches.length) { list.innerHTML = '<div class="ac-item" style="color:var(--muted)">Sin resultados</div>'; list.style.display = 'block'; return; }
+        list.innerHTML = matches.map(c => `<div class="ac-item" onmousedown="selectCliente('${c.id}','${c.nombre_marca.replace(/'/g, "\\'")}')"><strong>${c.nombre_marca.replace(
+            new RegExp('(' + val + ')', 'gi'), '<u>$1</u>'
+        )}</strong></div>`).join('');
+        list.style.display = 'block';
+    });
+
+    input.addEventListener('focus', () => {
+        if (input.value.length >= 1) input.dispatchEvent(new Event('input'));
+    });
+    input.addEventListener('blur', () => {
+        setTimeout(() => { list.style.display = 'none'; }, 150);
+    });
+}
+
+function selectCliente(id, nombre) {
+    document.getElementById('s_cliente').value = id;
+    document.getElementById('s_cliente_search').value = nombre;
+    document.getElementById('ac_cliente').style.display = 'none';
 }
 
 // ── Autocompletado de zonas ──────────────────────────
@@ -207,14 +242,20 @@ function initAutocomplete(inputId, listId) {
     const list = document.getElementById(listId);
     if (!input || !list) return;
 
+    const allZonas = () => [...ZONAS, ...zonasCustom.filter(z => !ZONAS.includes(z))];
+
     input.addEventListener('input', () => {
         const val = input.value.toLowerCase().trim();
         if (val.length < 1) { list.innerHTML = ''; list.style.display = 'none'; return; }
 
-        const matches = ZONAS.filter(z => z.toLowerCase().includes(val)).slice(0, 8);
-        if (matches.length === 0) { list.innerHTML = ''; list.style.display = 'none'; return; }
+        const matches = allZonas().filter(z => z.toLowerCase().includes(val)).slice(0, 8);
+        if (matches.length === 0) {
+            list.innerHTML = `<div class="ac-item" style="color:var(--g1)" onmousedown="selectZona('${inputId}','${listId}','${input.value.replace(/'/g, "\\'")}')">➕ Guardar "${input.value}"</div>`;
+            list.style.display = 'block';
+            return;
+        }
 
-        list.innerHTML = matches.map(z => `<div class="ac-item" onmousedown="selectZona('${inputId}','${listId}','${z.replace(/'/g, "\\'")}')">${z.replace(
+        list.innerHTML = matches.map(z => `<div class="ac-item" onmousedown="selectZona('${inputId}','${listId}','${z.replace(/'/g, "\\'")}')"> ${z.replace(
             new RegExp(`(${val})`, 'gi'), '<strong>$1</strong>'
         )}</div>`).join('');
         list.style.display = 'block';
@@ -225,13 +266,32 @@ function initAutocomplete(inputId, listId) {
     });
 
     input.addEventListener('blur', () => {
-        setTimeout(() => { list.style.display = 'none'; }, 150);
+        setTimeout(() => {
+            list.style.display = 'none';
+            // Si el usuario escribió algo que no está en la lista, guardarlo
+            const typed = input.value.trim();
+            if (typed && !allZonas().some(z => z.toLowerCase() === typed.toLowerCase())) {
+                saveCustomZona(typed);
+            }
+        }, 200);
     });
 }
 
 function selectZona(inputId, listId, zona) {
     document.getElementById(inputId).value = zona;
     document.getElementById(listId).style.display = 'none';
+    // Guardar si es nueva
+    const allZonas = [...ZONAS, ...zonasCustom];
+    if (!allZonas.some(z => z.toLowerCase() === zona.toLowerCase())) {
+        saveCustomZona(zona);
+    }
+}
+
+function saveCustomZona(zona) {
+    if (!zonasCustom.some(z => z.toLowerCase() === zona.toLowerCase())) {
+        zonasCustom.push(zona);
+        localStorage.setItem('eli7e_zonas_custom', JSON.stringify(zonasCustom));
+    }
 }
 
 // ── Seleccionar monto chip ───────────────────────────
@@ -273,7 +333,7 @@ async function loadClientesRegistro() {
 async function loadFlotaDisp() {
     const motos = await apiFetch('/motorizados');
     if (!motos) return;
-    motosDisponibles = motos.filter(m => m.estado === 'disponible');
+    allMotosCC = motos;
 
     // Panel lateral — muestra TODOS con su estado
     const el = document.getElementById('flotaDisp');
