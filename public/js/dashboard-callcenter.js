@@ -325,8 +325,6 @@ async function loadClientesRegistro() {
     const data = await apiFetch('/clientes');
     if (data && Array.isArray(data)) {
         allClientesCC = data;
-        // Si el formulario ya está visible (ej. en delivery), refrescar el select
-        fillClientesSelect();
     }
 }
 
@@ -465,7 +463,7 @@ async function crearServicio(e) {
             estado: res.estado || 'pendiente',
             descripcion: descripcion || '',
             hora: new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
-            motorizado_nombre: motosDisponibles.find(m => m.id === body.motorizado_id)?.nombre || '—'
+            motorizado_nombre: allMotosCC.find(m => m.id === body.motorizado_id)?.nombre || '—'
         });
         if (serviciosRecientes.length > 10) serviciosRecientes.pop();
         renderUltimos();
