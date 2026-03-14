@@ -1036,3 +1036,26 @@ textarea::placeholder {
   filter: brightness(1.3);
   box-shadow: 0 0 8px rgba(255, 255, 255, .15);
 }
+
+/* Chip filters – cierre diario */
+.chip-filter {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: all .2s;
+}
+.chip-filter:hover {
+  border-color: var(--g1);
+  color: var(--text);
+}
+.chip-filter.active {
+  background: var(--g1);
+  color: #000;
+  border-color: var(--g1);
+  font-weight: 600;
+}

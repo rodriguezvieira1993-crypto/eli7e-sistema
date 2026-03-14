@@ -166,13 +166,17 @@
 
                 <!-- Servicios individuales con checkbox -->
                 <div class="card" style="margin-top:20px;">
-                    <div class="card-hdr" style="display:flex;justify-content:space-between;align-items:center;">
+                    <div class="card-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
                         <span>📋 Servicios del Día — Marcar pagados</span>
                         <div style="display:flex;gap:8px;align-items:center;">
                             <button class="btn-icon" onclick="toggleAllServicios(true)" style="font-size:.75rem;">☑ Todos</button>
                             <button class="btn-icon" onclick="toggleAllServicios(false)" style="font-size:.75rem;">☐ Ninguno</button>
                             <strong style="color:var(--g1);font-size:.9rem;">Cobrado: <span id="sumaCobrados">$0.00</span></strong>
                         </div>
+                    </div>
+                    <!-- Filtros por tipo -->
+                    <div id="filtrosTipoServ" style="display:flex;gap:6px;padding:8px 12px;flex-wrap:wrap;border-bottom:1px solid var(--border);">
+                        <button class="chip-filter active" onclick="filtrarServiciosTipo('todos')" data-filtro="todos">📊 Todos</button>
                     </div>
                     <div id="serviciosHoyList" style="max-height:320px;overflow-y:auto;">
                         <p class="loading-txt">Cargando...</p>

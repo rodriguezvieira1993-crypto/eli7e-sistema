@@ -267,38 +267,94 @@ const iconosTipo = {
     compras: '🛒', transporte: '🚐'
 };
 
+let serviciosHoyData = [];
+let filtroTipoActivo = 'todos';
+
 async function loadServiciosHoy() {
-    const servicios = await apiFetch('/cierres/servicios-hoy');
+    serviciosHoyData = await apiFetch('/cierres/servicios-hoy') || [];
     const container = document.getElementById('serviciosHoyList');
-    if (!servicios || servicios.length === 0) {
+
+    if (serviciosHoyData.length === 0) {
         container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:16px;">Sin servicios completados hoy</p>';
+        document.getElementById('filtrosTipoServ').innerHTML = '';
         return;
     }
 
-    container.innerHTML = servicios.map(s => {
-        const hora = new Date(s.fecha_inicio).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
-        const icono = iconosTipo[s.tipo] || '📋';
-        const cliente = s.cliente_nombre || '—';
-        const moto = s.motorizado_nombre || '—';
-        return `
-        <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background .15s;"
-               onmouseover="this.style.background='rgba(0,255,100,0.04)'" onmouseout="this.style.background='transparent'">
-            <input type="checkbox" class="srv-check" data-monto="${s.monto}" onchange="recalcCobrados()"
-                   style="width:18px;height:18px;accent-color:var(--g1);cursor:pointer;">
-            <span style="flex:1;display:flex;align-items:center;gap:8px;">
-                <span style="font-size:1.1rem;">${icono}</span>
-                <span>
-                    <strong style="text-transform:capitalize;">${s.tipo}</strong>
-                    <span style="color:var(--muted);font-size:.78rem;margin-left:4px;">${hora}</span>
-                    <br>
-                    <span style="color:var(--muted);font-size:.78rem;">🏍 ${moto} · 🏪 ${cliente}</span>
-                </span>
-            </span>
-            <strong style="color:var(--g1);min-width:60px;text-align:right;">${fmt(s.monto)}</strong>
-        </label>`;
-    }).join('');
+    // Generar chips de filtro
+    const tipos = [...new Set(serviciosHoyData.map(s => s.tipo))];
+    const filtrosEl = document.getElementById('filtrosTipoServ');
+    filtrosEl.innerHTML = `
+        <button class="chip-filter ${filtroTipoActivo === 'todos' ? 'active' : ''}" onclick="filtrarServiciosTipo('todos')">📊 Todos (${serviciosHoyData.length})</button>
+        ${tipos.map(t => {
+            const cnt = serviciosHoyData.filter(s => s.tipo === t).length;
+            return `<button class="chip-filter ${filtroTipoActivo === t ? 'active' : ''}" onclick="filtrarServiciosTipo('${t}')">${iconosTipo[t] || '📋'} ${t.charAt(0).toUpperCase() + t.slice(1)} (${cnt})</button>`;
+        }).join('')}
+    `;
 
+    renderServiciosHoy();
+}
+
+function renderServiciosHoy() {
+    const container = document.getElementById('serviciosHoyList');
+    let lista = serviciosHoyData;
+    if (filtroTipoActivo !== 'todos') {
+        lista = lista.filter(s => s.tipo === filtroTipoActivo);
+    }
+
+    // Agrupar por tipo
+    const grupos = {};
+    lista.forEach(s => {
+        if (!grupos[s.tipo]) grupos[s.tipo] = [];
+        grupos[s.tipo].push(s);
+    });
+
+    let html = '';
+    for (const tipo in grupos) {
+        const servicios = grupos[tipo];
+        const subtotal = servicios.reduce((a, s) => a + parseFloat(s.monto), 0);
+        const icono = iconosTipo[tipo] || '📋';
+
+        html += `
+        <div style="border-bottom:2px solid rgba(0,255,100,0.15);margin-bottom:2px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:rgba(0,255,100,0.04);">
+                <span style="font-weight:700;font-size:.9rem;">
+                    ${icono} ${tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                    <span style="color:var(--muted);font-weight:400;">(${servicios.length})</span>
+                </span>
+                <strong style="color:var(--g1);font-size:.9rem;">${fmt(subtotal)}</strong>
+            </div>`;
+
+        servicios.forEach(s => {
+            const hora = new Date(s.fecha_inicio).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+            const cliente = s.cliente_nombre || '—';
+            const moto = s.motorizado_nombre || '—';
+            html += `
+            <label style="display:flex;align-items:center;gap:10px;padding:7px 12px 7px 20px;border-bottom:1px solid rgba(255,255,255,0.03);cursor:pointer;transition:background .15s;"
+                   onmouseover="this.style.background='rgba(0,255,100,0.04)'" onmouseout="this.style.background='transparent'">
+                <input type="checkbox" class="srv-check" data-monto="${s.monto}" onchange="recalcCobrados()"
+                       style="width:18px;height:18px;accent-color:var(--g1);cursor:pointer;">
+                <span style="flex:1;">
+                    <span style="color:var(--muted);font-size:.78rem;">${hora}</span>
+                    <span style="font-size:.82rem;margin-left:6px;">🏍 ${moto}</span>
+                    <span style="font-size:.82rem;margin-left:4px;">· 🏪 ${cliente}</span>
+                </span>
+                <strong style="color:var(--g1);min-width:55px;text-align:right;font-size:.9rem;">${fmt(s.monto)}</strong>
+            </label>`;
+        });
+
+        html += '</div>';
+    }
+
+    container.innerHTML = html;
     recalcCobrados();
+}
+
+function filtrarServiciosTipo(tipo) {
+    filtroTipoActivo = tipo;
+    // Update active chip
+    document.querySelectorAll('.chip-filter').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    renderServiciosHoy();
 }
 
 function recalcCobrados() {
