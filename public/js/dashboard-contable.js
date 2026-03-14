@@ -482,7 +482,8 @@ async function confirmarPagoRapido() {
 }
 
 function exportarReporte(tipo) {
-    window.open('/api/reportes/' + tipo + '?token=' + getToken(), '_blank');
+    const token = localStorage.getItem('token');
+    window.open('/api/reportes/' + tipo + '?token=' + token, '_blank');
 }
 
 // ── Init

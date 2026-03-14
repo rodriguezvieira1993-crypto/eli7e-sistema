@@ -21,6 +21,7 @@ app.use('/api/motorizados', require('./routes/motorizados'));
 app.use('/api/servicios', require('./routes/servicios'));
 app.use('/api/cobranza', require('./routes/cobranza'));
 app.use('/api/cierres', require('./routes/cierres'));
+app.use('/api/reportes', require('./routes/reportes'));
 app.use('/api/usuarios', require('./routes/usuarios'));
 
 // ── Reset DB: limpiar datos de prueba (solo admin) ──────────
