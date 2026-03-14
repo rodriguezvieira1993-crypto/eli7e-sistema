@@ -362,4 +362,147 @@ router.get('/factura/:clienteId', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ══ REPORTE PERSONALIZADO ════════════════════════════════
+router.get('/personalizado', async (req, res) => {
+    try {
+        const { cliente_id, desde, hasta } = req.query;
+        if (!desde || !hasta) return res.status(400).json({ error: 'desde y hasta son requeridos' });
+
+        const isAll = !cliente_id || cliente_id === 'todos';
+
+        // Servicios en el rango
+        let srvQuery = `
+            SELECT s.*, c.nombre_marca AS cliente_nombre, m.nombre AS motorizado_nombre
+            FROM servicios s
+            LEFT JOIN clientes c ON c.id = s.cliente_id
+            LEFT JOIN motorizados m ON m.id = s.motorizado_id
+            WHERE DATE(s.fecha_inicio) >= $1 AND DATE(s.fecha_inicio) <= $2
+        `;
+        const srvParams = [desde, hasta];
+        if (!isAll) {
+            srvQuery += ' AND s.cliente_id = $3';
+            srvParams.push(cliente_id);
+        }
+        srvQuery += ' ORDER BY s.fecha_inicio DESC';
+        const { rows: servicios } = await pool.query(srvQuery, srvParams);
+
+        // Pagos en el rango
+        let pagQuery = `SELECT p.*, c.nombre_marca AS cliente_nombre FROM pagos p LEFT JOIN clientes c ON c.id = p.cliente_id WHERE DATE(p.fecha) >= $1 AND DATE(p.fecha) <= $2`;
+        const pagParams = [desde, hasta];
+        if (!isAll) {
+            pagQuery += ' AND p.cliente_id = $3';
+            pagParams.push(cliente_id);
+        }
+        pagQuery += ' ORDER BY p.fecha DESC';
+        const { rows: pagos } = await pool.query(pagQuery, pagParams);
+
+        // Cliente info
+        let clienteNombre = 'Todas las marcas';
+        if (!isAll) {
+            const { rows: cli } = await pool.query('SELECT nombre_marca FROM clientes WHERE id=$1', [cliente_id]);
+            clienteNombre = cli[0]?.nombre_marca || 'Cliente';
+        }
+
+        const totalServicios = servicios.length;
+        const totalFacturado = servicios.reduce((a, s) => a + parseFloat(s.monto || 0), 0);
+        const totalPagado = pagos.reduce((a, p) => a + parseFloat(p.monto || 0), 0);
+        const saldo = totalFacturado - totalPagado;
+
+        // Resumen por marca (si es "todos")
+        let resumenMarcas = '';
+        if (isAll && servicios.length) {
+            const marcas = {};
+            servicios.forEach(s => {
+                const m = s.cliente_nombre || 'Sin marca';
+                if (!marcas[m]) marcas[m] = { servicios: 0, facturado: 0 };
+                marcas[m].servicios++;
+                marcas[m].facturado += parseFloat(s.monto || 0);
+            });
+            resumenMarcas = `
+            <div class="section">
+                <div class="section-title">📊 Resumen por Marca</div>
+                <table>
+                    <thead><tr><th>Marca</th><th>Servicios</th><th>Facturado</th></tr></thead>
+                    <tbody>
+                        ${Object.entries(marcas).sort((a, b) => b[1].facturado - a[1].facturado).map(([nombre, d]) =>
+                            `<tr><td><strong>${nombre}</strong></td><td>${d.servicios}</td><td class="green">${fmt(d.facturado)}</td></tr>`
+                        ).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+        }
+
+        const fmtFecha = d => new Date(d + 'T12:00:00').toLocaleDateString('es-VE', { day: 'numeric', month: 'short', year: 'numeric' });
+
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Reporte ${clienteNombre} — ${fmtFecha(desde)} a ${fmtFecha(hasta)}</title>${estilos}</head><body>
+        <div class="report">
+            ${printBar}
+            <h1>📊 Reporte Personalizado</h1>
+            <div class="sub">${clienteNombre} — ${fmtFecha(desde)} al ${fmtFecha(hasta)}</div>
+
+            <div class="kpi-row">
+                <div class="kpi"><div class="kpi-val">${totalServicios}</div><div class="kpi-lbl">Servicios</div></div>
+                <div class="kpi"><div class="kpi-val">${fmt(totalFacturado)}</div><div class="kpi-lbl">Facturado</div></div>
+                <div class="kpi"><div class="kpi-val green">${fmt(totalPagado)}</div><div class="kpi-lbl">Pagado</div></div>
+                <div class="kpi"><div class="kpi-val ${saldo > 0 ? 'warn' : 'green'}">${fmt(saldo)}</div><div class="kpi-lbl">Saldo</div></div>
+            </div>
+
+            ${resumenMarcas}
+
+            <div class="section">
+                <div class="section-title">📦 Detalle de Servicios (${totalServicios})</div>
+                <table>
+                    <thead><tr><th>#</th><th>Fecha</th>${isAll ? '<th>Marca</th>' : ''}<th>Tipo</th><th>Motorizado</th><th>Monto</th><th>Estado</th></tr></thead>
+                    <tbody>
+                        ${servicios.map((s, i) => `<tr>
+                            <td>${i + 1}</td>
+                            <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
+                            ${isAll ? '<td>' + (s.cliente_nombre || '—') + '</td>' : ''}
+                            <td style="text-transform:capitalize;">${s.tipo}</td>
+                            <td>${s.motorizado_nombre || '—'}</td>
+                            <td class="green">${fmt(s.monto)}</td>
+                            <td>${s.estado === 'completado' ? '<span class="badge badge-green">✓</span>' : '<span class="badge badge-yellow">Pend</span>'}</td>
+                        </tr>`).join('') || '<tr><td colspan="7">Sin servicios en este rango</td></tr>'}
+                        <tr class="total-row">
+                            <td colspan="${isAll ? 5 : 4}"><strong>TOTAL</strong></td>
+                            <td class="green"><strong>${fmt(totalFacturado)}</strong></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            ${pagos.length ? `
+            <div class="section">
+                <div class="section-title">💰 Pagos Registrados (${pagos.length})</div>
+                <table>
+                    <thead><tr><th>Fecha</th>${isAll ? '<th>Marca</th>' : ''}<th>Monto</th><th>Referencia</th></tr></thead>
+                    <tbody>
+                        ${pagos.map(p => `<tr>
+                            <td>${new Date(p.fecha).toLocaleDateString('es-VE')}</td>
+                            ${isAll ? '<td>' + (p.cliente_nombre || '—') + '</td>' : ''}
+                            <td class="green">${fmt(p.monto)}</td>
+                            <td style="color:#7a9a7a;">${p.referencia || '—'}</td>
+                        </tr>`).join('')}
+                        <tr class="total-row">
+                            <td ${isAll ? 'colspan="2"' : ''}><strong>TOTAL PAGADO</strong></td>
+                            <td class="green"><strong>${fmt(totalPagado)}</strong></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>` : ''}
+
+            <div style="text-align:center;padding:20px;background:#0f180f;border-radius:10px;border:1px solid rgba(0,221,0,.18);margin-bottom:20px;">
+                <div style="font-size:.85rem;color:#7a9a7a;margin-bottom:4px;">BALANCE DEL PERÍODO</div>
+                <div style="font-size:2rem;font-weight:800;color:${saldo > 0 ? '#FFB800' : '#00dd00'};">${fmt(saldo)}</div>
+            </div>
+
+            <div class="footer">Eli7e Sistema de Gestión — Reporte personalizado generado automáticamente</div>
+        </div></body></html>`;
+
+        res.send(html);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

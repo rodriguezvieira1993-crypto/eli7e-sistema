@@ -510,10 +510,52 @@ function exportarReporte(tipo) {
     window.open('/api/reportes/' + tipo + '?token=' + token, '_blank');
 }
 
+// ── Reporte Personalizado ─────────────────────────────
+async function loadReportesView() {
+    // Llenar select de clientes
+    const sel = document.getElementById('rp_cliente');
+    if (sel && sel.options.length <= 1) {
+        const clientes = await apiFetch('/clientes');
+        if (clientes && Array.isArray(clientes)) {
+            clientes.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.nombre_marca;
+                sel.appendChild(opt);
+            });
+        }
+    }
+    // Defaults: desde = inicio del mes, hasta = hoy
+    const hoy = new Date();
+    const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    document.getElementById('rp_desde').value = inicio.toISOString().split('T')[0];
+    document.getElementById('rp_hasta').value = hoy.toISOString().split('T')[0];
+}
+
+function generarReportePersonalizado() {
+    const cliente = document.getElementById('rp_cliente').value;
+    const desde = document.getElementById('rp_desde').value;
+    const hasta = document.getElementById('rp_hasta').value;
+
+    if (!desde || !hasta) {
+        showToast('⚠️ Selecciona las fechas desde y hasta', 'err');
+        return;
+    }
+    if (desde > hasta) {
+        showToast('⚠️ La fecha "desde" no puede ser mayor que "hasta"', 'err');
+        return;
+    }
+
+    const token = localStorage.getItem('eli7e_token');
+    const url = `/api/reportes/personalizado?cliente_id=${cliente}&desde=${desde}&hasta=${hasta}&token=${token}`;
+    window.open(url, '_blank');
+}
+
 // ── Init
 loadCobranza();
 document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'cobranza') loadCobranza();
     if (view === 'cierre') loadCierre();
     if (view === 'pagos') loadPagosForm();
+    if (view === 'reportes') loadReportesView();
 });

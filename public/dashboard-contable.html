@@ -282,6 +282,34 @@
                         <button class="btn-primary" onclick="exportarReporte('cierres')">Descargar</button>
                     </div>
                 </div>
+
+                <!-- Reporte Personalizado -->
+                <div class="card" style="padding:28px;margin-top:20px;">
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                        <span style="font-size:2rem;">🔍</span>
+                        <div>
+                            <div style="font-weight:700;font-size:1.05rem;">Reporte Personalizado</div>
+                            <p style="font-size:0.82rem;color:var(--muted);margin-top:2px;">Selecciona el cliente y el rango de fechas</p>
+                        </div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;">
+                        <div class="field">
+                            <label style="font-size:.78rem;color:var(--muted);">Cliente / Marca</label>
+                            <select id="rp_cliente" style="width:100%;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;">
+                                <option value="todos">📋 Todas las marcas</option>
+                            </select>
+                        </div>
+                        <div class="field">
+                            <label style="font-size:.78rem;color:var(--muted);">Desde</label>
+                            <input type="date" id="rp_desde" style="width:100%;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;">
+                        </div>
+                        <div class="field">
+                            <label style="font-size:.78rem;color:var(--muted);">Hasta</label>
+                            <input type="date" id="rp_hasta" style="width:100%;padding:10px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;">
+                        </div>
+                    </div>
+                    <button class="btn-primary" style="width:100%;" onclick="generarReportePersonalizado()">📊 Generar Reporte</button>
+                </div>
             </div>
 
         </main>
