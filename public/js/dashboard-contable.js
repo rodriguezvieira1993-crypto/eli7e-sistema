@@ -212,9 +212,33 @@ async function loadCierre() {
 
     const data = await apiFetch('/cierres/resumen-hoy');
     if (data) {
+        // Iconos por tipo
+        const iconos = {
+            mototaxi: '🛵', delivery: '📦', encomienda: '📬',
+            compras: '🛒', transporte: '🚐'
+        };
+
+        // Desglose por tipo
+        const desglose = document.getElementById('cierreDesglose');
+        if (data.por_tipo && data.por_tipo.length > 0) {
+            desglose.innerHTML = data.por_tipo.map(t => `
+                <div class="stat-row" style="padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+                    <span>
+                        <span style="font-size:1.1rem;">${iconos[t.tipo] || '📋'}</span>
+                        <strong style="text-transform:capitalize;margin-left:4px;">${t.tipo}</strong>
+                        <span style="color:var(--muted);margin-left:4px;">(${t.cantidad})</span>
+                    </span>
+                    <strong style="color:var(--g1);">${fmt(t.subtotal)}</strong>
+                </div>
+            `).join('');
+        } else {
+            desglose.innerHTML = '<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:12px 0;">Sin servicios completados hoy</p>';
+        }
+
+        // Totales
         document.getElementById('cs-servicios').textContent = data.total_servicios || 0;
         document.getElementById('cs-facturado').textContent = fmt(data.total_facturado);
-        document.getElementById('cs-pendiente').textContent = fmt(parseFloat(data.total_facturado || 0) - parseFloat(data.total_cobrado || 0));
+        document.getElementById('cs-pagosHoy').textContent = fmt(data.pagos_hoy);
     }
 
     const hist = await apiFetch('/cierres');
