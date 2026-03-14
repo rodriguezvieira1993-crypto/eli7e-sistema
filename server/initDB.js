@@ -4,21 +4,54 @@ const fs = require('fs');
 const path = require('path');
 
 async function initDB() {
+    const sql = fs.readFileSync(
+        path.join(__dirname, '../db/schema.sql'),
+        'utf8'
+    );
+
     try {
         console.log('🔄 Inicializando base de datos...');
-
-        // Siempre recrear la vista (DROP + CREATE)
-        // Necesario porque CREATE OR REPLACE VIEW no permite cambiar columnas
-        await pool.query('DROP VIEW IF EXISTS vista_cobranza CASCADE');
-
-        const sql = fs.readFileSync(
-            path.join(__dirname, '../db/schema.sql'),
-            'utf8'
-        );
         await pool.query(sql);
         console.log('✅ Schema aplicado correctamente');
     } catch (err) {
-        console.error('❌ Error aplicando schema:', err.message);
+        // Ignorar errores de tablas/indices que ya existen
+        console.log('⚠️ Schema parcial:', err.message);
+    }
+
+    // SIEMPRE recrear la vista de cobranza (independiente del schema)
+    try {
+        console.log('🔄 Recreando vista de cobranza...');
+        await pool.query('DROP VIEW IF EXISTS vista_cobranza CASCADE');
+        await pool.query(`
+            CREATE VIEW vista_cobranza AS
+            SELECT
+                c.id,
+                c.nombre_marca,
+                c.email,
+                c.saldo_pendiente,
+                COALESCE(sv.num_servicios, 0) AS servicios_pendientes,
+                COALESCE(sv.facturado_total, 0) AS facturado_total,
+                COALESCE(pv.pagado_total, 0) AS pagado_total,
+                COALESCE(sv.facturado_total, 0) - COALESCE(pv.pagado_total, 0) AS deuda_calculada
+            FROM clientes c
+            LEFT JOIN (
+                SELECT cliente_id,
+                       COUNT(*) AS num_servicios,
+                       COALESCE(SUM(monto) FILTER (WHERE estado = 'completado'), 0) AS facturado_total
+                FROM servicios
+                GROUP BY cliente_id
+            ) sv ON sv.cliente_id = c.id
+            LEFT JOIN (
+                SELECT cliente_id,
+                       COALESCE(SUM(monto), 0) AS pagado_total
+                FROM pagos
+                GROUP BY cliente_id
+            ) pv ON pv.cliente_id = c.id
+            WHERE c.activo = TRUE
+        `);
+        console.log('✅ Vista de cobranza creada correctamente');
+    } catch (err) {
+        console.error('❌ Error creando vista:', err.message);
     }
 }
 
