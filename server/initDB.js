@@ -18,6 +18,15 @@ async function initDB() {
         console.log('⚠️ Schema parcial:', err.message);
     }
 
+    // Migración: actualizar constraint de metodo de pago
+    try {
+        await pool.query(`ALTER TABLE pagos DROP CONSTRAINT IF EXISTS pagos_metodo_check`);
+        await pool.query(`ALTER TABLE pagos ADD CONSTRAINT pagos_metodo_check CHECK (metodo IN ('efectivo','pago_movil','divisas','binance','transferencia'))`);
+        console.log('✅ Constraint metodo actualizado');
+    } catch (err) {
+        console.log('⚠️ Migración metodo:', err.message);
+    }
+
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {
         console.log('🔄 Recreando vista de cobranza...');

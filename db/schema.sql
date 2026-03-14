@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS pagos (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     cliente_id      UUID REFERENCES clientes(id) ON DELETE SET NULL,
     monto           NUMERIC(10,2) NOT NULL,
-    metodo          VARCHAR(30) DEFAULT 'efectivo' CHECK (metodo IN ('efectivo','binance','transferencia')),
+    metodo          VARCHAR(30) DEFAULT 'efectivo' CHECK (metodo IN ('efectivo','pago_movil','divisas','binance','transferencia')),
     referencia      VARCHAR(100),
     fecha           DATE DEFAULT CURRENT_DATE,
     registrado_por  UUID REFERENCES usuarios(id),
