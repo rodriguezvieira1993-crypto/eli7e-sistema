@@ -3,7 +3,14 @@ let todosClientes = [];
 let todosMoto = [];
 
 async function loadDashboard() {
-    // KPIs básicos desde cobranza
+    // KPIs del día desde resumen de cierre
+    const resumen = await apiFetch('/cierres/resumen-hoy');
+    if (resumen) {
+        document.getElementById('kpi-ingresos').textContent = fmt(resumen.total_facturado);
+        document.getElementById('kpi-servicios').textContent = resumen.total_servicios || 0;
+    }
+
+    // KPIs de deuda desde cobranza
     const cob = await apiFetch('/cobranza');
     if (cob) {
         const deudaTotal = cob.reduce((a, c) => a + parseFloat(c.deuda_calculada || 0), 0);
