@@ -217,11 +217,71 @@ function exportarReporte(tipo) {
     window.open('/api/reportes/' + tipo + '?token=' + getToken(), '_blank');
 }
 
+// ── Servicios ───────────────────────────────────────────
+async function loadServicios() {
+    const data = await apiFetch('/servicios');
+    if (!data) return;
+    const tbody = document.getElementById('serviciosBody');
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin servicios registrados</td></tr>';
+        return;
+    }
+    const estadoBadges = {
+        pendiente: '<span class="badge badge-yellow">⏳ Pendiente</span>',
+        completado: '<span class="badge badge-green">✅ Completado</span>',
+        cancelado: '<span class="badge badge-red">❌ Cancelado</span>',
+    };
+    tbody.innerHTML = data.map(s => `
+    <tr>
+      <td>${fmtDate(s.fecha_inicio)}</td>
+      <td style="text-transform:capitalize;">${s.tipo}</td>
+      <td>${s.cliente_nombre || '—'}</td>
+      <td>${s.motorizado_nombre || '—'}</td>
+      <td style="color:var(--g1);">${fmt(s.monto)}</td>
+      <td>${estadoBadges[s.estado] || s.estado}</td>
+    </tr>`).join('');
+}
+
+// ── Cierres (vista admin) ───────────────────────────────
+async function loadCierresAdmin() {
+    const data = await apiFetch('/cierres');
+    if (!data) return;
+    const tbody = document.getElementById('cierresBody');
+    tbody.innerHTML = data.map(c => `
+    <tr>
+      <td>${c.fecha}</td>
+      <td>${c.total_servicios}</td>
+      <td>${fmt(c.total_facturado)}</td>
+      <td>${fmt(c.total_cobrado)}</td>
+      <td style="color:${parseFloat(c.diferencia) < 0 ? 'var(--err)' : 'var(--g1)'}">${fmt(c.diferencia)}</td>
+      <td>${c.estado === 'validado' ? '<span class="badge badge-green">✅ Validado</span>' : '<span class="badge badge-yellow">⏳ Pendiente</span>'}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="loading-txt">Sin cierres</td></tr>';
+}
+
+// ── Cobranza (vista admin) ──────────────────────────────
+async function loadCobranza() {
+    const data = await apiFetch('/cobranza');
+    if (!data) return;
+    const tbody = document.getElementById('cobranzaBody');
+    tbody.innerHTML = data.map(c => `
+    <tr>
+      <td><strong>${c.nombre_marca}</strong></td>
+      <td>${c.servicios_pendientes || 0}</td>
+      <td>${fmt(c.facturado_total)}</td>
+      <td>${fmt(c.pagado_total)}</td>
+      <td style="color:var(--warn);">${fmt(c.deuda_calculada)}</td>
+      <td>${semaforoDeuda(c.deuda_calculada)}</td>
+      <td>—</td>
+    </tr>`).join('') || '<tr><td colspan="7" class="loading-txt">Sin datos</td></tr>';
+}
+
 // ── Init
 loadDashboard();
 document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'clientes') loadClientes();
     if (view === 'flota') loadFlota();
+    if (view === 'servicios') loadServicios();
     if (view === 'cobranza') loadCobranza();
+    if (view === 'cierres') loadCierresAdmin();
     if (view === 'dashboard') loadDashboard();
 });
