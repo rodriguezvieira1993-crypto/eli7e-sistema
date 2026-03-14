@@ -543,23 +543,33 @@ async function cerrarDesdeUltimos(id) {
 
 // ── Editar servicio ───────────────────────────────────
 async function editarServicio(id) {
-    const s = serviciosRecientes.find(x => x.id === id);
-    if (!s) return;
+    try {
+        let s = serviciosRecientes.find(x => x.id === id);
+        // Si no se encontró localmente, buscar en API
+        if (!s) {
+            const all = await apiFetch('/servicios?hoy=1&limit=20');
+            s = all?.find(x => x.id === id);
+            if (!s) { showToast('❌ Servicio no encontrado', 'err'); return; }
+        }
 
-    // Llenar modal de edición
-    document.getElementById('es_id').value = id;
-    document.getElementById('es_monto').value = s.monto;
-    document.getElementById('es_desc').value = s.descripcion || '';
+        // Llenar modal de edición
+        document.getElementById('es_id').value = id;
+        document.getElementById('es_monto').value = s.monto || 0;
+        document.getElementById('es_desc').value = s.descripcion || '';
 
-    // Llenar select de motorizado
-    const selMoto = document.getElementById('es_motorizado');
-    const activos = allMotosCC.filter(m => m.activo !== false && m.estado !== 'inactivo');
-    selMoto.innerHTML = activos.map(m => {
-        const tag = m.estado === 'en_servicio' ? ' ⚡' : '';
-        return `<option value="${m.id}" ${m.id === s.motorizado_id ? 'selected' : ''}>🛵 ${m.nombre}${tag}</option>`;
-    }).join('');
+        // Llenar select de motorizado
+        const selMoto = document.getElementById('es_motorizado');
+        const activos = allMotosCC.filter(m => m.activo !== false && m.estado !== 'inactivo');
+        selMoto.innerHTML = activos.map(m => {
+            const tag = m.estado === 'en_servicio' ? ' ⚡' : '';
+            const sel = (m.id === s.motorizado_id) ? 'selected' : '';
+            return `<option value="${m.id}" ${sel}>🛵 ${m.nombre}${tag}</option>`;
+        }).join('');
 
-    openModal('modalEditServicio');
+        openModal('modalEditServicio');
+    } catch (err) {
+        showToast('❌ Error al abrir edición: ' + err.message, 'err');
+    }
 }
 
 async function guardarEdicionServicio(e) {
