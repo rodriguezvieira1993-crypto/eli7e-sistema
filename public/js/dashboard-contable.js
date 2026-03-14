@@ -256,6 +256,64 @@ async function loadCierre() {
                 : '<span class="badge badge-yellow">⏳ Pendiente</span>'}</td>
       </tr>`).join('') || '<tr><td colspan="6" class="loading-txt">Sin cierres</td></tr>';
     }
+
+    // Cargar lista individual con checkboxes
+    loadServiciosHoy();
+}
+
+// ── SERVICIOS DEL DÍA CON CHECKBOXES ──────────────────
+const iconosTipo = {
+    mototaxi: '🛵', delivery: '📦', encomienda: '📬',
+    compras: '🛒', transporte: '🚐'
+};
+
+async function loadServiciosHoy() {
+    const servicios = await apiFetch('/cierres/servicios-hoy');
+    const container = document.getElementById('serviciosHoyList');
+    if (!servicios || servicios.length === 0) {
+        container.innerHTML = '<p style="color:var(--muted);text-align:center;padding:16px;">Sin servicios completados hoy</p>';
+        return;
+    }
+
+    container.innerHTML = servicios.map(s => {
+        const hora = new Date(s.fecha_inicio).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
+        const icono = iconosTipo[s.tipo] || '📋';
+        const cliente = s.cliente_nombre || '—';
+        const moto = s.motorizado_nombre || '—';
+        return `
+        <label style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.04);cursor:pointer;transition:background .15s;"
+               onmouseover="this.style.background='rgba(0,255,100,0.04)'" onmouseout="this.style.background='transparent'">
+            <input type="checkbox" class="srv-check" data-monto="${s.monto}" onchange="recalcCobrados()" checked
+                   style="width:18px;height:18px;accent-color:var(--g1);cursor:pointer;">
+            <span style="flex:1;display:flex;align-items:center;gap:8px;">
+                <span style="font-size:1.1rem;">${icono}</span>
+                <span>
+                    <strong style="text-transform:capitalize;">${s.tipo}</strong>
+                    <span style="color:var(--muted);font-size:.78rem;margin-left:4px;">${hora}</span>
+                    <br>
+                    <span style="color:var(--muted);font-size:.78rem;">🏍 ${moto} · 🏪 ${cliente}</span>
+                </span>
+            </span>
+            <strong style="color:var(--g1);min-width:60px;text-align:right;">${fmt(s.monto)}</strong>
+        </label>`;
+    }).join('');
+
+    recalcCobrados();
+}
+
+function recalcCobrados() {
+    const checks = document.querySelectorAll('.srv-check');
+    let total = 0;
+    checks.forEach(cb => {
+        if (cb.checked) total += parseFloat(cb.dataset.monto || 0);
+    });
+    document.getElementById('sumaCobrados').textContent = fmt(total);
+    document.getElementById('efectivoCobrado').value = total.toFixed(2);
+}
+
+function toggleAllServicios(checked) {
+    document.querySelectorAll('.srv-check').forEach(cb => cb.checked = checked);
+    recalcCobrados();
 }
 
 async function validarCierre() {

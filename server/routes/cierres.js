@@ -58,6 +58,25 @@ router.get('/resumen-hoy', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/cierres/servicios-hoy — lista individual de servicios completados hoy
+router.get('/servicios-hoy', async (req, res) => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT s.id, s.tipo, s.monto, s.descripcion,
+                   s.fecha_inicio, s.estado,
+                   c.nombre_marca AS cliente_nombre,
+                   m.nombre AS motorizado_nombre
+            FROM servicios s
+            LEFT JOIN clientes c ON c.id = s.cliente_id
+            LEFT JOIN motorizados m ON m.id = s.motorizado_id
+            WHERE DATE(s.fecha_inicio) = CURRENT_DATE
+              AND s.estado = 'completado'
+            ORDER BY s.fecha_inicio DESC
+        `);
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // POST /api/cierres/validar
 router.post('/validar', requireRol('admin', 'contable'), async (req, res) => {
     const { total_cobrado, notas } = req.body;
