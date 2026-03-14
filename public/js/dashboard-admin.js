@@ -337,7 +337,7 @@ async function loadUsuarios() {
       <td>${u.ultimo_acceso ? fmtDate(u.ultimo_acceso) : '—'}</td>
       <td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
       <td>
-        <button class="btn-icon" onclick="editarUsuario('${u.id}','${u.nombre}','${u.rol}')" title="Editar">✏️</button>
+        <button class="btn-icon" onclick="editarUsuario('${u.id}','${u.nombre}','${u.email}','${u.rol}')" title="Editar">✏️</button>
         <button class="btn-icon" onclick="cambiarClaveUsuario('${u.id}','${u.nombre}')" title="Cambiar clave">🔑</button>
       </td>
     </tr>`).join('') || '<tr><td colspan="6" class="loading-txt">Sin usuarios</td></tr>';
@@ -362,9 +362,10 @@ async function crearUsuario(e) {
     }
 }
 
-function editarUsuario(id, nombre, rol) {
+function editarUsuario(id, nombre, email, rol) {
     document.getElementById('eu_id').value = id;
     document.getElementById('eu_nombre').value = nombre;
+    document.getElementById('eu_email').value = email;
     document.getElementById('eu_rol').value = rol;
     openModal('modalEditUsuario');
 }
@@ -374,6 +375,7 @@ async function guardarEdicionUsuario(e) {
     const id = document.getElementById('eu_id').value;
     const body = {
         nombre: document.getElementById('eu_nombre').value,
+        email: document.getElementById('eu_email').value,
         rol: document.getElementById('eu_rol').value,
     };
     const res = await apiFetch('/usuarios/' + id, { method: 'PUT', body });

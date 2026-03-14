@@ -47,17 +47,20 @@ router.put('/:id/password', requireRol('admin'), async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PUT /api/usuarios/:id — editar nombre y rol
+// PUT /api/usuarios/:id — editar nombre, usuario y rol
 router.put('/:id', requireRol('admin'), async (req, res) => {
-    const { nombre, rol } = req.body;
+    const { nombre, email, rol } = req.body;
     if (!nombre || !rol) return res.status(400).json({ error: 'nombre y rol requeridos' });
     try {
         const { rows } = await pool.query(
-            'UPDATE usuarios SET nombre=$1, rol=$2 WHERE id=$3 RETURNING id, nombre, email, rol, activo',
-            [nombre, rol, req.params.id]
+            'UPDATE usuarios SET nombre=$1, email=$2, rol=$3 WHERE id=$4 RETURNING id, nombre, email, rol, activo',
+            [nombre, email?.toLowerCase() || null, rol, req.params.id]
         );
         res.json(rows[0]);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+        if (err.code === '23505') return res.status(400).json({ error: 'Ese usuario ya existe' });
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // DELETE /api/usuarios/:id — desactivar
