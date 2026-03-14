@@ -259,4 +259,107 @@ router.get('/cierres', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ══ FACTURA POR CLIENTE ══════════════════════════════════
+router.get('/factura/:clienteId', async (req, res) => {
+    try {
+        const { clienteId } = req.params;
+
+        // Datos del cliente
+        const { rows: cli } = await pool.query('SELECT * FROM clientes WHERE id = $1', [clienteId]);
+        if (!cli[0]) return res.status(404).json({ error: 'Cliente no encontrado' });
+        const cliente = cli[0];
+
+        // Servicios completados
+        const { rows: servicios } = await pool.query(`
+            SELECT s.*, m.nombre AS motorizado_nombre
+            FROM servicios s
+            LEFT JOIN motorizados m ON m.id = s.motorizado_id
+            WHERE s.cliente_id = $1 AND s.estado = 'completado'
+            ORDER BY s.fecha_inicio DESC
+        `, [clienteId]);
+
+        // Pagos realizados
+        const { rows: pagos } = await pool.query(`
+            SELECT * FROM pagos WHERE cliente_id = $1 ORDER BY fecha DESC
+        `, [clienteId]);
+
+        const totalFacturado = servicios.reduce((a, s) => a + parseFloat(s.monto || 0), 0);
+        const totalPagado = pagos.reduce((a, p) => a + parseFloat(p.monto || 0), 0);
+        const deuda = totalFacturado - totalPagado;
+
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Factura — ${cliente.nombre_marca}</title>${estilos}</head><body>
+        <div class="report">
+            ${printBar}
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+                <div>
+                    <h1>🧾 Estado de Cuenta</h1>
+                    <div class="sub">${cliente.nombre_marca} — Generado: ${hoy()}</div>
+                </div>
+                <div style="text-align:right;font-size:.82rem;color:#7a9a7a;">
+                    <div><strong style="color:#00dd00;">Eli7e Delivery</strong></div>
+                    ${cliente.email ? '<div>📧 ' + cliente.email + '</div>' : ''}
+                    ${cliente.telefono ? '<div>📞 ' + cliente.telefono + '</div>' : ''}
+                    ${cliente.rif ? '<div>RIF: ' + cliente.rif + '</div>' : ''}
+                </div>
+            </div>
+
+            <div class="kpi-row">
+                <div class="kpi"><div class="kpi-val">${servicios.length}</div><div class="kpi-lbl">Servicios</div></div>
+                <div class="kpi"><div class="kpi-val">${fmt(totalFacturado)}</div><div class="kpi-lbl">Total Facturado</div></div>
+                <div class="kpi"><div class="kpi-val green">${fmt(totalPagado)}</div><div class="kpi-lbl">Total Pagado</div></div>
+                <div class="kpi"><div class="kpi-val ${deuda > 0 ? 'warn' : 'green'}">${fmt(deuda)}</div><div class="kpi-lbl">Saldo Pendiente</div></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📦 Detalle de Servicios</div>
+                <table>
+                    <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Motorizado</th><th>Monto</th></tr></thead>
+                    <tbody>
+                        ${servicios.map((s, i) => `<tr>
+                            <td>${i + 1}</td>
+                            <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
+                            <td style="text-transform:capitalize;">${s.tipo}</td>
+                            <td>${s.motorizado_nombre || '—'}</td>
+                            <td class="green">${fmt(s.monto)}</td>
+                        </tr>`).join('')}
+                        <tr class="total-row">
+                            <td colspan="4"><strong>TOTAL FACTURADO</strong></td>
+                            <td class="green"><strong>${fmt(totalFacturado)}</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            ${pagos.length ? `
+            <div class="section">
+                <div class="section-title">💰 Pagos Registrados</div>
+                <table>
+                    <thead><tr><th>Fecha</th><th>Monto</th><th>Referencia</th></tr></thead>
+                    <tbody>
+                        ${pagos.map(p => `<tr>
+                            <td>${new Date(p.fecha).toLocaleDateString('es-VE')}</td>
+                            <td class="green">${fmt(p.monto)}</td>
+                            <td style="color:#7a9a7a;">${p.referencia || '—'}</td>
+                        </tr>`).join('')}
+                        <tr class="total-row">
+                            <td><strong>TOTAL PAGADO</strong></td>
+                            <td class="green"><strong>${fmt(totalPagado)}</strong></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>` : ''}
+
+            <div style="text-align:center;padding:20px;background:#0f180f;border-radius:10px;border:1px solid rgba(0,221,0,.18);margin-bottom:20px;">
+                <div style="font-size:.85rem;color:#7a9a7a;margin-bottom:4px;">SALDO PENDIENTE</div>
+                <div style="font-size:2rem;font-weight:800;color:${deuda > 0 ? '#FFB800' : '#00dd00'};">${fmt(deuda)}</div>
+            </div>
+
+            <div class="footer">Eli7e Sistema de Gestión — Estado de cuenta generado automáticamente</div>
+        </div></body></html>`;
+
+        res.send(html);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

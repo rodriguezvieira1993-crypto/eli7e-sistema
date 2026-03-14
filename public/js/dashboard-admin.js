@@ -311,8 +311,12 @@ async function loadCobranza() {
       <td>${fmt(c.pagado_total)}</td>
       <td style="color:var(--warn);">${fmt(c.deuda_calculada)}</td>
       <td>${semaforoDeuda(c.deuda_calculada)}</td>
-      <td>—</td>
+      <td><button class="btn-icon" onclick="verFactura('${c.id}')" title="Ver factura">🧾</button></td>
     </tr>`).join('') || '<tr><td colspan="7" class="loading-txt">Sin datos</td></tr>';
+}
+
+function verFactura(clienteId) {
+    window.open('/api/reportes/factura/' + clienteId + '?token=' + getToken(), '_blank');
 }
 
 // ── Init
