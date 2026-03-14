@@ -63,10 +63,12 @@ router.put('/:id', requireRol('admin'), async (req, res) => {
     }
 });
 
-// DELETE /api/usuarios/:id — desactivar
+// DELETE /api/usuarios/:id — eliminar permanentemente
 router.delete('/:id', requireRol('admin'), async (req, res) => {
     try {
-        await pool.query('UPDATE usuarios SET activo=FALSE WHERE id=$1', [req.params.id]);
+        // No permitir eliminarse a sí mismo
+        if (req.params.id === req.user.id) return res.status(400).json({ error: 'No puedes eliminarte a ti mismo' });
+        await pool.query('DELETE FROM usuarios WHERE id=$1', [req.params.id]);
         res.json({ ok: true });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });

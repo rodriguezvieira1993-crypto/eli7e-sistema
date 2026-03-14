@@ -407,7 +407,7 @@ async function cambiarClaveUsuario(id, nombre) {
 }
 
 async function eliminarUsuario(id, nombre) {
-    if (!confirm('⚠️ ¿Seguro que quieres eliminar al usuario "' + nombre + '"?\n\nEl usuario será desactivado.')) return;
+    if (!confirm('⚠️ ¿Seguro que quieres ELIMINAR al usuario "' + nombre + '"?\n\nEsta acción NO se puede deshacer.')) return;
     const res = await apiFetch('/usuarios/' + id, { method: 'DELETE' });
     if (res?.ok) {
         showToast('🗑️ Usuario ' + nombre + ' eliminado');
