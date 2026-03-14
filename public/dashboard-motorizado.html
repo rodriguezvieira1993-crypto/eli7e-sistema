@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eli7e — Motorizados (En Construcción)</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --g1: #00DD00;
+            --g2: #00BB00;
+            --bg: #060B06;
+            --card: #0F180F;
+            --border: rgba(0, 221, 0, 0.2);
+            --text: #E4F5E4;
+            --muted: #7A9A7A;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Fondo animado */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 60% 50% at 20% 80%, rgba(0, 119, 0, 0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 50% 40% at 80% 20%, rgba(0, 221, 0, 0.07) 0%, transparent 60%);
+            pointer-events: none;
+        }
+
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: radial-gradient(rgba(0, 221, 0, 0.06) 1px, transparent 1px);
+            background-size: 32px 32px;
+            pointer-events: none;
+        }
+
+        .construction-container {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            padding: 40px;
+        }
+
+        /* Imagen animada */
+        .mechanic-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 32px;
+        }
+
+        .mechanic-img {
+            width: 280px;
+            height: 280px;
+            object-fit: contain;
+            animation: float 3s ease-in-out infinite;
+            filter: drop-shadow(0 20px 40px rgba(0, 221, 0, 0.2));
+            border-radius: 20px;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            25% { transform: translateY(-12px) rotate(1deg); }
+            50% { transform: translateY(-6px) rotate(0deg); }
+            75% { transform: translateY(-14px) rotate(-1deg); }
+        }
+
+        /* Partículas de chispas */
+        .sparks {
+            position: absolute;
+            top: 40%;
+            right: 10%;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--g1);
+            animation: spark 1.5s ease-in-out infinite;
+            box-shadow: 0 0 10px var(--g1);
+        }
+
+        .sparks:nth-child(2) {
+            top: 35%;
+            right: 15%;
+            animation-delay: 0.3s;
+            width: 4px;
+            height: 4px;
+        }
+
+        .sparks:nth-child(3) {
+            top: 50%;
+            right: 8%;
+            animation-delay: 0.6s;
+            width: 5px;
+            height: 5px;
+        }
+
+        .sparks:nth-child(4) {
+            top: 45%;
+            right: 20%;
+            animation-delay: 0.9s;
+            width: 3px;
+            height: 3px;
+        }
+
+        @keyframes spark {
+            0% { opacity: 0; transform: scale(0) translateY(0); }
+            50% { opacity: 1; transform: scale(1.5) translateY(-15px); }
+            100% { opacity: 0; transform: scale(0) translateY(-30px); }
+        }
+
+        /* Wrench animation */
+        .wrench-icon {
+            position: absolute;
+            bottom: 15%;
+            right: 5%;
+            font-size: 1.6rem;
+            animation: wrench 2s ease-in-out infinite;
+        }
+
+        @keyframes wrench {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(-20deg); }
+            50% { transform: rotate(15deg); }
+            75% { transform: rotate(-10deg); }
+        }
+
+        /* Texto */
+        .title {
+            font-size: 2.2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--g1) 0%, #CCFFCC 50%, var(--g1) 100%);
+            background-size: 200% 200%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: shimmer 3s ease-in-out infinite;
+            margin-bottom: 12px;
+        }
+
+        @keyframes shimmer {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            color: var(--muted);
+            margin-bottom: 8px;
+            max-width: 360px;
+        }
+
+        .emoji-row {
+            font-size: 1.5rem;
+            margin-bottom: 28px;
+            animation: tools 2s ease-in-out infinite;
+        }
+
+        @keyframes tools {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Progress bar */
+        .progress-container {
+            width: 300px;
+            height: 8px;
+            background: rgba(0, 221, 0, 0.1);
+            border-radius: 999px;
+            margin: 20px auto;
+            overflow: hidden;
+            border: 1px solid rgba(0, 221, 0, 0.15);
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 35%;
+            background: linear-gradient(90deg, var(--g2), var(--g1));
+            border-radius: 999px;
+            animation: progress 3s ease-in-out infinite;
+            box-shadow: 0 0 12px rgba(0, 221, 0, 0.4);
+        }
+
+        @keyframes progress {
+            0% { width: 25%; }
+            50% { width: 45%; }
+            100% { width: 25%; }
+        }
+
+        .progress-label {
+            font-size: 0.78rem;
+            color: var(--g1);
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        /* Back button */
+        .btn-back {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 32px;
+            padding: 12px 28px;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+
+        .btn-back:hover {
+            border-color: var(--g1);
+            box-shadow: 0 0 20px rgba(0, 221, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        /* Floating gears */
+        .gear {
+            position: fixed;
+            color: rgba(0, 221, 0, 0.06);
+            font-size: 4rem;
+            animation: gearSpin 8s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .gear:nth-child(1) { top: 10%; left: 5%; animation-duration: 10s; font-size: 5rem; }
+        .gear:nth-child(2) { top: 70%; right: 8%; animation-duration: 12s; font-size: 3.5rem; animation-direction: reverse; }
+        .gear:nth-child(3) { bottom: 15%; left: 15%; animation-duration: 15s; font-size: 6rem; }
+        .gear:nth-child(4) { top: 20%; right: 20%; animation-duration: 9s; font-size: 3rem; animation-direction: reverse; }
+
+        @keyframes gearSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Background gears -->
+    <div class="gear">⚙️</div>
+    <div class="gear">⚙️</div>
+    <div class="gear">⚙️</div>
+    <div class="gear">⚙️</div>
+
+    <div class="construction-container">
+
+        <div class="mechanic-wrapper">
+            <img src="img/mechanic_girl.png" alt="Técnica reparando moto" class="mechanic-img">
+            <div class="sparks"></div>
+            <div class="sparks"></div>
+            <div class="sparks"></div>
+            <div class="sparks"></div>
+            <span class="wrench-icon">🔧</span>
+        </div>
+
+        <div class="title">🛵 Módulo Motorizados</div>
+        <div class="subtitle">Estamos construyendo algo increíble para ti</div>
+        <div class="emoji-row">🔧 🛵 ⚡ 🔩 🛠️</div>
+
+        <div class="progress-container">
+            <div class="progress-bar"></div>
+        </div>
+        <div class="progress-label">En construcción... 35%</div>
+
+        <a href="/" class="btn-back">
+            ← Volver al inicio
+        </a>
+    </div>
+
+</body>
+
+</html>
