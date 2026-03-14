@@ -239,6 +239,28 @@ async function loadCierre() {
         document.getElementById('cs-servicios').textContent = data.total_servicios || 0;
         document.getElementById('cs-facturado').textContent = fmt(data.total_facturado);
         document.getElementById('cs-pagosHoy').textContent = fmt(data.pagos_hoy);
+
+        // Si ya fue validado — bloquear todo
+        const validarCard = document.querySelector('#view-cierre .grid-2 .card:last-child');
+        const checkCard = document.querySelector('#view-cierre .card:nth-child(3)');
+        if (data.cierre_validado && data.cierre) {
+            const c = data.cierre;
+            if (validarCard) {
+                validarCard.innerHTML = `
+                    <div class="card-hdr">✅ Día Cerrado</div>
+                    <div style="text-align:center;padding:20px;">
+                        <div style="font-size:2.5rem;margin-bottom:8px;">✅</div>
+                        <h3 style="color:var(--g1);margin-bottom:12px;">Cierre Validado</h3>
+                        <div class="stat-row" style="margin-bottom:6px;"><span>Cobrado:</span><strong style="color:var(--g1);">${fmt(c.total_cobrado)}</strong></div>
+                        <div class="stat-row" style="margin-bottom:6px;"><span>Facturado:</span><strong>${fmt(c.total_facturado)}</strong></div>
+                        <div class="stat-row"><span>Diferencia:</span><strong style="color:${parseFloat(c.diferencia) < 0 ? 'var(--err)' : 'var(--g1)'};">${fmt(c.diferencia)}</strong></div>
+                        ${c.notas ? '<p style="color:var(--muted);font-size:.8rem;margin-top:10px;border-top:1px solid var(--border);padding-top:8px;">📝 ' + c.notas + '</p>' : ''}
+                    </div>`;
+            }
+            if (checkCard) checkCard.style.display = 'none';
+        } else {
+            if (checkCard) checkCard.style.display = '';
+        }
     }
 
     const hist = await apiFetch('/cierres');
@@ -257,8 +279,10 @@ async function loadCierre() {
       </tr>`).join('') || '<tr><td colspan="6" class="loading-txt">Sin cierres</td></tr>';
     }
 
-    // Cargar lista individual con checkboxes
-    loadServiciosHoy();
+    // Solo cargar checkboxes si NO está validado
+    if (!data?.cierre_validado) {
+        loadServiciosHoy();
+    }
 }
 
 // ── SERVICIOS DEL DÍA CON CHECKBOXES ──────────────────

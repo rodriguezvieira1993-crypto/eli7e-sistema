@@ -49,11 +49,18 @@ router.get('/resumen-hoy', async (req, res) => {
             WHERE fecha = CURRENT_DATE
         `);
 
+        // Verificar si hoy ya está cerrado
+        const { rows: cierreHoy } = await pool.query(`
+            SELECT * FROM cierres_diarios WHERE fecha = CURRENT_DATE AND estado = 'validado'
+        `);
+
         res.json({
             total_servicios: totales[0].total_servicios,
             total_facturado: totales[0].total_facturado,
             pagos_hoy: pagosHoy[0].pagos_hoy,
-            por_tipo: porTipo
+            por_tipo: porTipo,
+            cierre_validado: cierreHoy.length > 0,
+            cierre: cierreHoy[0] || null
         });
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
