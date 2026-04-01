@@ -239,23 +239,10 @@ body {
 /* ─── VIEWS ───────────────────────────────────── */
 .view {
   display: none;
-  animation: fadeIn .25s ease;
 }
 
 .view.active {
   display: block;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px)
-  }
-
-  to {
-    opacity: 1;
-    transform: none
-  }
 }
 
 .view-header {
@@ -294,11 +281,6 @@ body {
   display: flex;
   align-items: center;
   gap: 16px;
-  transition: transform .2s;
-}
-
-.kpi-card:hover {
-  transform: translateY(-2px);
 }
 
 .kpi-card.kpi-warn {
@@ -459,13 +441,7 @@ textarea::placeholder {
   font-size: .88rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all .2s;
   white-space: nowrap;
-}
-
-.btn-primary:hover {
-  box-shadow: 0 0 16px rgba(0, 221, 0, .35);
-  transform: translateY(-1px);
 }
 
 .btn-secondary {
@@ -671,7 +647,6 @@ textarea::placeholder {
   padding: 28px;
   width: 100%;
   max-width: 460px;
-  animation: fadeIn .2s ease;
 }
 
 .modal-hdr {
@@ -736,16 +711,13 @@ textarea::placeholder {
   padding: 12px 20px;
   font-size: .85rem;
   color: var(--text);
-  transform: translateY(80px);
   opacity: 0;
-  transition: all .3s;
   pointer-events: none;
   max-width: 320px;
 }
 
 .toast.show {
-  transform: translateY(0);
-  opacity: 1;
+  pointer-events: auto;
 }
 
 .toast.ok {
@@ -885,7 +857,6 @@ textarea::placeholder {
 .monto-chip:hover {
   border-color: var(--g2);
   background: rgba(0, 221, 0, .06);
-  transform: translateY(-2px);
 }
 
 .tipo-chip.selected,
@@ -975,24 +946,6 @@ textarea::placeholder {
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 10px 14px;
-  transition: all .2s;
-  animation: slideIn .25s ease;
-}
-
-.ultimo-card:hover {
-  border-color: rgba(0, 221, 0, .35);
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-8px)
-  }
-
-  to {
-    opacity: 1;
-    transform: none
-  }
 }
 
 .ultimo-top {

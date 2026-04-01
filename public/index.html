@@ -334,6 +334,7 @@
         <footer>Eli7e © 2026 · Sistema de Gestión Operativa</footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
     <script>
         const DEMO = {
             admin: { email: 'admin@eli7e.com', password: 'eli7e2026' },
@@ -359,6 +360,85 @@
             const u = JSON.parse(sesion);
             if (DASHBOARD[u.rol]) window.location.href = DASHBOARD[u.rol];
         }
+
+        // ─── GSAP Entrance Animation ────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof gsap === 'undefined') return;
+            const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+            // Hide everything initially
+            gsap.set(['.logo-img', '.logo-name', '.logo-sub', '.card', '.roles-hint', 'footer'], { opacity: 0 });
+
+            // Logo sequence
+            tl.fromTo('.logo-img',
+                { y: -20, opacity: 0, scale: 0.8, rotation: -10 },
+                { y: 0, opacity: 1, scale: 1, rotation: 0, duration: 0.6 }
+            )
+            .fromTo('.logo-name',
+                { y: 15, opacity: 0, scale: 0.9 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.4 }, '-=0.2'
+            )
+            .fromTo('.logo-sub',
+                { y: 8, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.3 }, '-=0.15'
+            )
+            // Card entrance
+            .fromTo('.card',
+                { y: 30, opacity: 0, scale: 0.95 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.5, ease: 'back.out(1.2)' }, '-=0.1'
+            )
+            // Form fields stagger
+            .fromTo('.card .field',
+                { y: 12, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.3, stagger: 0.08 }, '-=0.2'
+            )
+            // Button
+            .fromTo('.btn-login',
+                { y: 10, opacity: 0 },
+                { y: 0, opacity: 1, duration: 0.3 }, '-=0.1'
+            )
+            // Role pills stagger
+            .fromTo('.roles-hint',
+                { opacity: 0 },
+                { opacity: 1, duration: 0.2 }, '-=0.05'
+            )
+            .fromTo('.role-pill',
+                { y: 8, opacity: 0, scale: 0.9 },
+                { y: 0, opacity: 1, scale: 1, duration: 0.25, stagger: 0.06, ease: 'back.out(1.4)' }, '-=0.1'
+            )
+            // Footer
+            .fromTo('footer',
+                { opacity: 0 },
+                { opacity: 1, duration: 0.4 }, '-=0.1'
+            );
+
+            // Logo glow breathing
+            gsap.to('.logo-img', {
+                filter: 'drop-shadow(0 0 28px rgba(0,221,0,0.6))',
+                duration: 1.5, ease: 'sine.inOut', yoyo: true, repeat: -1, delay: 1.5,
+            });
+
+            // Button hover
+            const btn = document.querySelector('.btn-login');
+            if (btn) {
+                btn.addEventListener('mouseenter', () =>
+                    gsap.to(btn, { y: -2, boxShadow: '0 0 28px rgba(0,221,0,0.45)', duration: 0.25, ease: 'power2.out' })
+                );
+                btn.addEventListener('mouseleave', () =>
+                    gsap.to(btn, { y: 0, boxShadow: 'none', duration: 0.2, ease: 'power2.out' })
+                );
+            }
+
+            // Role pill hovers
+            document.querySelectorAll('.role-pill').forEach(pill => {
+                pill.addEventListener('mouseenter', () =>
+                    gsap.to(pill, { y: -2, scale: 1.06, duration: 0.2, ease: 'power2.out' })
+                );
+                pill.addEventListener('mouseleave', () =>
+                    gsap.to(pill, { y: 0, scale: 1, duration: 0.2, ease: 'power2.out' })
+                );
+            });
+        });
 
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
