@@ -510,30 +510,86 @@
         }
 
         /* ─── RESPONSIVE ───────────────────────── */
-        @media (max-width: 900px) {
-            .moto-img { height: 240px; }
-            .specs-panel { right: 24px; gap: 20px; }
-            .brand { top: 20px; left: 24px; }
-            .bottom-info { bottom: 20px; left: 24px; }
-            .go-btn { width: 60px; height: 60px; font-size: 0.95rem; }
+
+        /* Tablet landscape / pantallas medianas */
+        @media (max-width: 1024px) {
+            .moto-img { height: 280px; }
+            .specs-panel { right: 30px; gap: 24px; }
+            .spec-val { font-size: 0.95rem; }
+            .go-btn { width: 64px; height: 64px; font-size: 1rem; }
         }
 
-        @media (max-width: 600px) {
-            .moto-img { height: 180px; }
+        /* Tablet portrait */
+        @media (max-width: 768px) {
+            .moto-img { height: 220px; }
+
             .specs-panel {
                 position: absolute;
-                right: auto;
+                right: auto; top: auto;
                 left: 50%;
-                top: auto;
-                bottom: 100px;
+                bottom: 110px;
                 transform: translateX(-50%);
                 flex-direction: row;
-                gap: 16px;
+                gap: 20px;
             }
             .spec-lbl { display: none; }
-            .hero-screen { flex-direction: column; }
+            .spec-val { font-size: 0.85rem; }
+            .spec-dot { width: 12px; height: 12px; }
+            .spec-item { gap: 8px; }
+
+            .bottom-info { bottom: 16px; left: 20px; }
+            .bottom-tagline { font-size: 0.6rem; letter-spacing: 1.5px; }
+            .go-btn { width: 58px; height: 58px; font-size: 0.9rem; bottom: 16px; right: 16px; }
+
+            .login-container { max-width: 360px; padding: 20px; }
+            .login-card { padding: 24px; }
+            .login-title { font-size: 1.1rem; }
+            .back-btn { margin-bottom: 24px; }
+        }
+
+        /* Móvil */
+        @media (max-width: 480px) {
+            .moto-img { height: 160px; }
+
+            .specs-panel {
+                bottom: 90px;
+                gap: 14px;
+                flex-wrap: wrap;
+                justify-content: center;
+                max-width: 90vw;
+            }
+            .spec-val { font-size: 0.75rem; }
+            .spec-dot { width: 10px; height: 10px; }
+            .spec-item { gap: 6px; padding: 4px 0; }
+
             .bottom-info { display: none; }
-            .go-btn { width: 56px; height: 56px; }
+            .go-btn { width: 52px; height: 52px; font-size: 0.85rem; bottom: 12px; right: 12px; }
+
+            .smoke { display: none; }
+            .floor { height: 30%; }
+
+            .login-container { max-width: 100%; padding: 16px; }
+            .login-card { padding: 20px; border-radius: 16px; }
+            .login-brand-name { font-size: 1.2rem; }
+            .login-brand img { height: 22px; }
+            .login-title { font-size: 1rem; }
+            .login-sub { font-size: 0.75rem; margin-bottom: 18px; }
+            .back-btn { margin-bottom: 20px; font-size: 0.78rem; }
+            label { font-size: 0.68rem; }
+            input { padding: 11px 14px; font-size: 0.85rem; border-radius: 10px; }
+            .btn-login { padding: 12px; font-size: 0.9rem; border-radius: 10px; }
+            .login-footer { font-size: 0.6rem; margin-top: 18px; }
+            .role-tag { font-size: 0.7rem; padding: 4px 12px; }
+        }
+
+        /* Móvil pequeño (iPhone SE, etc) */
+        @media (max-width: 360px) {
+            .moto-img { height: 130px; }
+            .specs-panel { bottom: 80px; gap: 10px; }
+            .spec-val { font-size: 0.7rem; }
+            .go-btn { width: 46px; height: 46px; font-size: 0.8rem; }
+            .login-card { padding: 16px; }
+            input { padding: 10px 12px; }
         }
     </style>
 </head>
