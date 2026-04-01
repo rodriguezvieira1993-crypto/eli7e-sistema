@@ -117,25 +117,42 @@ function logout() {
 }
 
 // Toggle sidebar (mobile)
-function toggleSidebar() {
+function toggleSidebar(forceClose) {
     const sb = document.getElementById('sidebar');
+    const bd = document.getElementById('sidebarBackdrop');
     if (!sb) return;
 
-    if (_gsap()) {
-        const isOpen = sb.classList.contains('open');
-        if (isOpen) {
+    const isOpen = forceClose === true ? true : sb.classList.contains('open');
+
+    if (isOpen) {
+        // Cerrar
+        if (_gsap()) {
             gsap.to(sb, {
-                x: -260, duration: 0.3, ease: 'power3.in',
+                x: -260, duration: 0.25, ease: 'power3.in',
                 onComplete: () => { sb.classList.remove('open'); gsap.set(sb, { clearProps: 'x' }); },
             });
         } else {
-            sb.classList.add('open');
-            gsap.fromTo(sb, { x: -260 }, { x: 0, duration: 0.35, ease: 'power3.out' });
+            sb.classList.remove('open');
         }
+        if (bd) bd.classList.remove('visible');
     } else {
-        sb.classList.toggle('open');
+        // Abrir
+        sb.classList.add('open');
+        if (bd) bd.classList.add('visible');
+        if (_gsap()) {
+            gsap.fromTo(sb, { x: -260 }, { x: 0, duration: 0.3, ease: 'power3.out' });
+        }
     }
 }
+
+// Cerrar sidebar al seleccionar un link del menú (móvil)
+document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.sb-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (window.innerWidth <= 768) toggleSidebar(true);
+        });
+    });
+});
 
 // Formatear moneda
 function fmt(v) {

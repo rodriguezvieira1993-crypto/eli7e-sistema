@@ -803,13 +803,17 @@ textarea::placeholder {
     transform: translateX(0);
   }
 
-  /* Backdrop overlay cuando sidebar está abierto */
-  .sidebar.open ~ .main-wrap::before {
-    content: '';
+  /* Backdrop overlay */
+  .sidebar-backdrop {
+    display: none;
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.6);
-    z-index: 150;
+    z-index: 190;
+  }
+
+  .sidebar-backdrop.visible {
+    display: block;
   }
 
   .menu-toggle {
