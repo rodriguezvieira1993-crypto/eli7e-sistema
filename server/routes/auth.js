@@ -16,12 +16,8 @@ router.post('/login', async (req, res) => {
             [email.toLowerCase()]
         );
         const user = rows[0];
-        console.log('[AUTH] user encontrado:', !!user, user?.email);
         if (!user) return res.status(401).json({ error: 'Credenciales incorrectas' });
         const match = await bcrypt.compare(password, user.password);
-        console.log('[AUTH] hash en BD:', user.password?.substring(0, 20));
-        console.log('[AUTH] password recibido:', password?.length, 'chars');
-        console.log('[AUTH] bcrypt.compare result:', match);
         if (!match)
             return res.status(401).json({ error: 'Credenciales incorrectas' });
 

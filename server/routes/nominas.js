@@ -231,13 +231,6 @@ router.post('/cerrar-todas', requireRol('admin'), async (req, res) => {
         );
 
         const resultados = [];
-        for (const moto of motos) {
-            // Simular POST /cerrar para cada uno reutilizando lógica
-            req.body.motorizado_id = moto.id;
-            // Llamar internamente la misma lógica de cerrar
-        }
-
-        // Más eficiente: cerrar uno por uno
         const lunes = semana_inicio;
         const domingo = getDomingo(lunes);
         const { rows: params } = await pool.query('SELECT clave, valor FROM parametros_sistema');

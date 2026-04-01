@@ -2,6 +2,8 @@
 
 const motoUser = getUser();
 if (!motoUser || motoUser.rol !== 'motorizado') {
+    localStorage.removeItem('eli7e_token');
+    localStorage.removeItem('eli7e_user');
     window.location.href = '/';
 }
 

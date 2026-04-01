@@ -122,7 +122,7 @@ function toggleSidebar(forceClose) {
     const bd = document.getElementById('sidebarBackdrop');
     if (!sb) return;
 
-    const isOpen = forceClose === true ? true : sb.classList.contains('open');
+    const isOpen = forceClose === true || sb.classList.contains('open');
 
     if (isOpen) {
         // Cerrar

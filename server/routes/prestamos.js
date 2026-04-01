@@ -45,7 +45,7 @@ router.post('/', async (req, res) => {
     const { monto, cuotas, nota } = req.body;
     if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido' });
 
-    const numCuotas = cuotas && cuotas > 0 ? parseInt(cuotas) : 1;
+    const numCuotas = Math.min(Math.max(parseInt(cuotas) || 1, 1), 52);
     const cuotaSemanal = parseFloat((monto / numCuotas).toFixed(2));
 
     try {

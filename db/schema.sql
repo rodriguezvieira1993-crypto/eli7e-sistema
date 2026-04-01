@@ -61,6 +61,7 @@ CREATE TABLE IF NOT EXISTS motorizados (
     nombre      VARCHAR(100) NOT NULL,
     cedula      VARCHAR(20),
     telefono    VARCHAR(30),
+    password    TEXT,
     estado      VARCHAR(20) DEFAULT 'disponible' CHECK (estado IN ('disponible','en_servicio','inactivo')),
     activo      BOOLEAN DEFAULT TRUE,
     creado_en   TIMESTAMP DEFAULT NOW()

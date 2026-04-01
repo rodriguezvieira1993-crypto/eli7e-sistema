@@ -40,7 +40,9 @@ router.get('/', async (req, res) => {
         }
         if (where.length) query += ' WHERE ' + where.join(' AND ');
         query += ' ORDER BY s.fecha_inicio DESC';
-        query += ` LIMIT ${parseInt(limit) || 100}`;
+        const limiteSeguro = Math.min(Math.max(parseInt(limit) || 100, 1), 1000);
+        params.push(limiteSeguro);
+        query += ` LIMIT $${params.length}`;
 
         const { rows } = await pool.query(query, params);
         res.json(rows);
