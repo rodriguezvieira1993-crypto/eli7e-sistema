@@ -313,17 +313,18 @@ router.get('/factura/:clienteId', async (req, res) => {
             <div class="section">
                 <div class="section-title">📦 Detalle de Servicios</div>
                 <table>
-                    <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Motorizado</th><th>Monto</th></tr></thead>
+                    <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Ubicación / Destino</th><th>Motorizado</th><th>Monto</th></tr></thead>
                     <tbody>
                         ${servicios.map((s, i) => `<tr>
                             <td>${i + 1}</td>
                             <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
                             <td style="text-transform:capitalize;">${s.tipo}</td>
+                            <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
                             <td>${s.motorizado_nombre || '—'}</td>
                             <td class="green">${fmt(s.monto)}</td>
                         </tr>`).join('')}
                         <tr class="total-row">
-                            <td colspan="4"><strong>TOTAL FACTURADO</strong></td>
+                            <td colspan="5"><strong>TOTAL FACTURADO</strong></td>
                             <td class="green"><strong>${fmt(totalFacturado)}</strong></td>
                         </tr>
                     </tbody>
@@ -452,19 +453,20 @@ router.get('/personalizado', async (req, res) => {
             <div class="section">
                 <div class="section-title">📦 Detalle de Servicios (${totalServicios})</div>
                 <table>
-                    <thead><tr><th>#</th><th>Fecha</th>${isAll ? '<th>Marca</th>' : ''}<th>Tipo</th><th>Motorizado</th><th>Monto</th><th>Estado</th></tr></thead>
+                    <thead><tr><th>#</th><th>Fecha</th>${isAll ? '<th>Marca</th>' : ''}<th>Tipo</th><th>Ubicación / Destino</th><th>Motorizado</th><th>Monto</th><th>Estado</th></tr></thead>
                     <tbody>
                         ${servicios.map((s, i) => `<tr>
                             <td>${i + 1}</td>
                             <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
                             ${isAll ? '<td>' + (s.cliente_nombre || '—') + '</td>' : ''}
                             <td style="text-transform:capitalize;">${s.tipo}</td>
+                            <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
                             <td>${s.motorizado_nombre || '—'}</td>
                             <td class="green">${fmt(s.monto)}</td>
                             <td>${s.estado === 'completado' ? '<span class="badge badge-green">✓</span>' : '<span class="badge badge-yellow">Pend</span>'}</td>
-                        </tr>`).join('') || '<tr><td colspan="7">Sin servicios en este rango</td></tr>'}
+                        </tr>`).join('') || '<tr><td colspan="8">Sin servicios en este rango</td></tr>'}
                         <tr class="total-row">
-                            <td colspan="${isAll ? 5 : 4}"><strong>TOTAL</strong></td>
+                            <td colspan="${isAll ? 6 : 5}"><strong>TOTAL</strong></td>
                             <td class="green"><strong>${fmt(totalFacturado)}</strong></td>
                             <td></td>
                         </tr>

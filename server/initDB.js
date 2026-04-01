@@ -27,6 +27,32 @@ async function initDB() {
         console.log('⚠️ Migración metodo:', err.message);
     }
 
+    // Migración: crear tabla tarifas si no existe
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS tarifas (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                monto NUMERIC(10,2) NOT NULL,
+                etiqueta VARCHAR(100),
+                activo BOOLEAN DEFAULT TRUE,
+                creado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        // Seed tarifas por defecto si la tabla está vacía
+        const { rows: existentes } = await pool.query('SELECT COUNT(*)::int AS n FROM tarifas');
+        if (existentes[0].n === 0) {
+            await pool.query(`
+                INSERT INTO tarifas (monto, etiqueta) VALUES
+                (1.50, NULL), (2.00, NULL), (3.00, NULL),
+                (4.00, NULL), (6.00, NULL), (8.00, NULL)
+            `);
+            console.log('✅ Tarifas por defecto creadas');
+        }
+        console.log('✅ Tabla tarifas OK');
+    } catch (err) {
+        console.log('⚠️ Migración tarifas:', err.message);
+    }
+
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {
         console.log('🔄 Recreando vista de cobranza...');

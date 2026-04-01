@@ -69,7 +69,8 @@ function renderClientes(list) {
       <td style="color:${parseFloat(c.saldo_pendiente) > 0 ? 'var(--warn)' : 'var(--g1)'}">${fmt(c.saldo_pendiente)}</td>
       <td>${c.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
       <td>
-        <button class="btn-icon" onclick="editarCliente('${c.id}')">✏️</button>
+        <button class="btn-icon" onclick="editarCliente('${c.id}')" title="Editar">✏️</button>
+        <button class="btn-icon" style="color:#FF4444;" onclick="eliminarCliente('${c.id}','${c.nombre_marca.replace(/'/g, "\\\'")}')" title="Eliminar">🗑️</button>
       </td>
     </tr>`).join('');
 }
@@ -126,6 +127,18 @@ async function guardarEdicionCliente(e) {
         loadClientes();
     } else {
         showToast('❌ Error al actualizar', 'err');
+    }
+}
+
+async function eliminarCliente(id, nombre) {
+    if (!confirm('⚠️ ¿Seguro que quieres eliminar al cliente "' + nombre + '"?\n\nEsta acción NO se puede deshacer.')) return;
+    const res = await apiFetch('/clientes/' + id, { method: 'DELETE' });
+    if (res?.ok) {
+        showToast('🗑️ Cliente ' + nombre + ' eliminado');
+        loadClientes();
+        loadDashboard();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al eliminar cliente'), 'err');
     }
 }
 
@@ -428,12 +441,80 @@ async function resetDatos() {
     }
 }
 
+// ── Tarifas Rápidas ────────────────────────────────────────
+async function loadTarifas() {
+    const data = await apiFetch('/tarifas');
+    if (!data) return;
+    const grid = document.getElementById('tarifasGrid');
+    if (!data.length) {
+        grid.innerHTML = '<p class="loading-txt">Sin tarifas configuradas. Agrega una con el botón "+"</p>';
+        return;
+    }
+    grid.innerHTML = data.map(t => `
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;background:rgba(0,221,0,.06);border:1px solid rgba(0,221,0,.18);border-radius:10px;min-width:120px;">
+        <span style="font-size:1.3rem;font-weight:700;color:var(--g1);">$${parseFloat(t.monto).toFixed(2)}</span>
+        ${t.etiqueta ? '<span style="font-size:.75rem;color:var(--muted);">' + t.etiqueta + '</span>' : ''}
+        <div style="margin-left:auto;display:flex;gap:4px;">
+            <button class="btn-icon" onclick="editarTarifa('${t.id}')" title="Editar" style="font-size:.75rem;">✏️</button>
+            <button class="btn-icon" style="color:#FF4444;font-size:.75rem;" onclick="eliminarTarifa('${t.id}','${parseFloat(t.monto).toFixed(2)}')" title="Eliminar">🗑️</button>
+        </div>
+    </div>`).join('');
+}
+
+function abrirModalTarifa() {
+    document.getElementById('tarifaModeTitle').textContent = '+ Nueva Tarifa';
+    document.getElementById('formTarifa').reset();
+    document.getElementById('tar_id').value = '';
+    openModal('modalTarifa');
+}
+
+async function editarTarifa(id) {
+    const tarifas = await apiFetch('/tarifas');
+    const t = tarifas?.find(x => x.id === id);
+    if (!t) return;
+    document.getElementById('tarifaModeTitle').textContent = '✏️ Editar Tarifa';
+    document.getElementById('tar_id').value = t.id;
+    document.getElementById('tar_monto').value = t.monto;
+    document.getElementById('tar_label').value = t.etiqueta || '';
+    openModal('modalTarifa');
+}
+
+async function guardarTarifa(e) {
+    e.preventDefault();
+    const id = document.getElementById('tar_id').value;
+    const body = {
+        monto: parseFloat(document.getElementById('tar_monto').value),
+        etiqueta: document.getElementById('tar_label').value || null,
+    };
+    const url = id ? '/tarifas/' + id : '/tarifas';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body });
+    if (res?.id) {
+        showToast('✅ Tarifa ' + (id ? 'actualizada' : 'creada') + ': $' + parseFloat(res.monto).toFixed(2));
+        closeModal('modalTarifa');
+        loadTarifas();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al guardar tarifa'), 'err');
+    }
+}
+
+async function eliminarTarifa(id, monto) {
+    if (!confirm('¿Eliminar la tarifa de $' + monto + '?')) return;
+    const res = await apiFetch('/tarifas/' + id, { method: 'DELETE' });
+    if (res?.ok) {
+        showToast('🗑️ Tarifa $' + monto + ' eliminada');
+        loadTarifas();
+    } else {
+        showToast('❌ Error al eliminar', 'err');
+    }
+}
+
 // ── Init
 loadDashboard();
 document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'clientes') loadClientes();
     if (view === 'flota') loadFlota();
-    if (view === 'servicios') loadServicios();
+    if (view === 'servicios') { loadServicios(); loadTarifas(); }
     if (view === 'cobranza') loadCobranza();
     if (view === 'cierres') loadCierresAdmin();
     if (view === 'usuarios') loadUsuarios();

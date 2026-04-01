@@ -1,20 +1,25 @@
-// dashboard-callcenter.js
 let allClientesCC = [];
 let allMotosCC = [];
 let serviciosRecientes = [];
+let tarifasCC = []; // Tarifas dinámicas desde el backend
 const TIPO_EMOJI = { mototaxi: '🛵', delivery: '📦', encomienda: '📬', compras: '🛒', flete: '🚛', transporte: '🚐' };
 
 // Cargar zonas custom guardadas en localStorage
 const zonasCustom = JSON.parse(localStorage.getItem('eli7e_zonas_custom') || '[]');
 
-// Helper: genera los chips de monto reutilizables
+// Helper: genera los chips de monto desde tarifas dinámicas
 function montoChipsHTML() {
+    // Fallback si las tarifas aún no cargaron
+    const montos = tarifasCC.length
+        ? tarifasCC
+        : [{ monto: 1.5 }, { monto: 2 }, { monto: 3 }, { monto: 4 }, { monto: 6 }, { monto: 8 }];
+    const chips = montos.map(t => {
+        const m = parseFloat(t.monto);
+        const label = m % 1 === 0 ? '$' + m : '$' + m.toFixed(1);
+        return `<div class="monto-chip" data-monto="${m}" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">${label}</span></div>`;
+    }).join('');
     return `<div class="tipo-chips">
-        <div class="monto-chip" data-monto="2" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$2</span></div>
-        <div class="monto-chip" data-monto="3" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$3</span></div>
-        <div class="monto-chip" data-monto="4" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$4</span></div>
-        <div class="monto-chip" data-monto="6" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$6</span></div>
-        <div class="monto-chip" data-monto="8" onclick="selectMonto(this)"><span class="tipo-icon">💵</span><span class="tipo-label">$8</span></div>
+        ${chips}
         <div class="monto-chip monto-custom" data-monto="custom" onclick="selectMonto(this)"><span class="tipo-icon">✏️</span><span class="tipo-label">Otro</span></div>
     </div>
     <input type="number" id="s_monto_custom" step="0.01" min="0.01" placeholder="Monto personalizado..."
@@ -315,10 +320,18 @@ function selectMonto(el) {
 
 // ── Init ─────────────────────────────────────────────
 async function initCC() {
+    await loadTarifasCC();            // Cargar tarifas dinámicas
     await loadFlotaDisp();
     await loadClientesRegistro(); // Carga todos para el select
     await loadClientesCC();       // Carga cobranza para la tabla
     await loadUltimos();
+}
+
+async function loadTarifasCC() {
+    const data = await apiFetch('/tarifas');
+    if (data && Array.isArray(data)) {
+        tarifasCC = data;
+    }
 }
 
 async function loadClientesRegistro() {
