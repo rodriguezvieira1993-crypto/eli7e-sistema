@@ -155,6 +155,7 @@ async function loadFlota() {
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','disponible')">✅</button>
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','en_servicio')">🔄</button>
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','inactivo')">⏸</button>
+        <button class="btn-icon" onclick="cambiarClaveMoto('${m.id}','${m.nombre}')" title="Cambiar clave">🔑</button>
         <button class="btn-icon" style="color:var(--err);" onclick="eliminarMoto('${m.id}','${m.nombre}')">🗑️</button>
       </div>
     </div>`).join('');
@@ -182,18 +183,35 @@ async function crearMoto(e) {
     e.preventDefault();
     const data = {
         nombre: document.getElementById('m_nombre').value,
-        cedula: document.getElementById('m_cedula').value || null,
+        cedula: document.getElementById('m_cedula').value,
         telefono: document.getElementById('m_tel').value || null,
+        password: document.getElementById('m_pass').value || '123456',
     };
+    if (!data.cedula) { showToast('La cédula es obligatoria para login', 'err'); return; }
     const res = await apiFetch('/motorizados', { method: 'POST', body: data });
     if (res?.id) {
-        showToast('✅ Motorizado agregado: ' + res.nombre);
+        showToast('Motorizado agregado: ' + res.nombre);
         closeModal('modalMoto');
         document.getElementById('formMoto').reset();
+        document.getElementById('m_pass').value = '123456';
         loadFlota();
     } else {
-        showToast('❌ Error', 'err');
+        showToast(res?.error || 'Error', 'err');
     }
+}
+
+async function cambiarClaveMoto(id, nombre) {
+    const newPass = prompt('Nueva contraseña para ' + nombre + ':');
+    if (!newPass || newPass.length < 4) {
+        if (newPass !== null) showToast('La contraseña debe tener al menos 4 caracteres', 'err');
+        return;
+    }
+    const res = await apiFetch('/motorizados/' + id + '/password', {
+        method: 'PATCH',
+        body: { password: newPass }
+    });
+    if (res?.ok) showToast('Contraseña actualizada para ' + nombre);
+    else showToast(res?.error || 'Error al cambiar contraseña', 'err');
 }
 
 // ── Tipos de Servicio (catálogo) ────────────────────────

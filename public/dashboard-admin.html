@@ -499,8 +499,9 @@
             <form id="formMoto" onsubmit="crearMoto(event)">
                 <div class="field"><label>Nombre completo *</label><input required id="m_nombre"
                         placeholder="Ej: Manuel Pérez"></div>
-                <div class="field"><label>Cédula</label><input id="m_cedula" placeholder="V-00000000"></div>
+                <div class="field"><label>Cédula * (para login)</label><input required id="m_cedula" placeholder="V-00000000"></div>
                 <div class="field"><label>Teléfono</label><input id="m_tel" placeholder="+58 000 000 0000"></div>
+                <div class="field"><label>Contraseña * (por defecto: 123456)</label><input type="password" id="m_pass" placeholder="123456" value="123456" minlength="4"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('modalMoto')">Cancelar</button>
                     <button type="submit" class="btn-primary">Agregar Motorizado</button>
@@ -526,7 +527,6 @@
                         <option value="admin">Administrador</option>
                         <option value="call_center">Call Center</option>
                         <option value="contable">Contable</option>
-                        <option value="motorizado">Motorizado</option>
                     </select>
                 </div>
                 <div class="modal-footer">
@@ -554,7 +554,6 @@
                         <option value="admin">Administrador</option>
                         <option value="call_center">Call Center</option>
                         <option value="contable">Contable</option>
-                        <option value="motorizado">Motorizado</option>
                     </select>
                 </div>
                 <div class="modal-footer">

@@ -62,15 +62,33 @@ router.get('/:id', async (req, res) => {
 
 // POST /api/motorizados — crear (solo admin)
 router.post('/', requireRol('admin'), async (req, res) => {
-    const { nombre, cedula, telefono } = req.body;
+    const { nombre, cedula, telefono, password } = req.body;
     if (!nombre) return res.status(400).json({ error: 'nombre es requerido' });
+    if (!cedula) return res.status(400).json({ error: 'cédula es requerida para login' });
 
     try {
+        const bcrypt = require('bcryptjs');
+        const hash = await bcrypt.hash(password || '123456', 10);
         const { rows } = await pool.query(
-            `INSERT INTO motorizados (nombre, cedula, telefono) VALUES ($1,$2,$3) RETURNING *`,
-            [nombre, cedula, telefono]
+            `INSERT INTO motorizados (nombre, cedula, telefono, password) VALUES ($1,$2,$3,$4) RETURNING *`,
+            [nombre, cedula, telefono, hash]
         );
         res.status(201).json(rows[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// PATCH /api/motorizados/:id/password — cambiar contraseña (solo admin)
+router.patch('/:id/password', requireRol('admin'), async (req, res) => {
+    const { password } = req.body;
+    if (!password || password.length < 4) return res.status(400).json({ error: 'Contraseña mínimo 4 caracteres' });
+
+    try {
+        const bcrypt = require('bcryptjs');
+        const hash = await bcrypt.hash(password, 10);
+        await pool.query('UPDATE motorizados SET password = $1 WHERE id = $2', [hash, req.params.id]);
+        res.json({ ok: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
