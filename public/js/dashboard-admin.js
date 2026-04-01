@@ -325,6 +325,7 @@ async function loadUsuarios() {
         admin: '<span class="badge badge-green">Administrador</span>',
         call_center: '<span class="badge badge-yellow">Call Center</span>',
         contable: '<span class="badge badge-blue" style="background:rgba(0,150,255,.15);color:#0096ff;">Contable</span>',
+        motorizado: '<span class="badge badge-yellow" style="background:rgba(255,152,0,.15);color:#FF9800;">Motorizado</span>',
     };
     tbody.innerHTML = data.map(u => `
     <tr>

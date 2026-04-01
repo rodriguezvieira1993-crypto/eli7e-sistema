@@ -27,6 +27,15 @@ async function initDB() {
         console.log('⚠️ Migración metodo:', err.message);
     }
 
+    // Migración: actualizar constraint de rol para incluir 'motorizado'
+    try {
+        await pool.query(`ALTER TABLE usuarios DROP CONSTRAINT IF EXISTS usuarios_rol_check`);
+        await pool.query(`ALTER TABLE usuarios ADD CONSTRAINT usuarios_rol_check CHECK (rol IN ('admin','call_center','contable','motorizado'))`);
+        console.log('✅ Constraint rol actualizado');
+    } catch (err) {
+        console.log('⚠️ Migración rol:', err.message);
+    }
+
     // Migración: crear tabla tarifas si no existe
     try {
         await pool.query(`

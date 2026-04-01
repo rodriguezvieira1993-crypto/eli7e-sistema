@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     nombre      VARCHAR(100) NOT NULL,
     email       VARCHAR(150) NOT NULL UNIQUE,
     password    TEXT NOT NULL,
-    rol         VARCHAR(20) NOT NULL CHECK (rol IN ('admin','call_center','contable')),
+    rol         VARCHAR(20) NOT NULL CHECK (rol IN ('admin','call_center','contable','motorizado')),
     activo      BOOLEAN DEFAULT TRUE,
     creado_en   TIMESTAMP DEFAULT NOW(),
     ultimo_acceso TIMESTAMP
