@@ -669,7 +669,7 @@
         let selectedRole = null;
         let isAnimating = false;
 
-        // ─── MOTO SOUND ENGINE (Web Audio API) ──────
+        // ─── HARLEY V-TWIN SOUND ENGINE (Web Audio) ─
         let _audioCtx = null;
         function _ctx() {
             if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -677,124 +677,175 @@
             return _audioCtx;
         }
 
-        function _makeNoise(ctx, duration) {
-            const buf = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+        function _noise(ctx, dur) {
+            const buf = ctx.createBuffer(1, ctx.sampleRate * dur, ctx.sampleRate);
             const d = buf.getChannelData(0);
             for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-            const src = ctx.createBufferSource();
-            src.buffer = buf;
-            return src;
+            const s = ctx.createBufferSource(); s.buffer = buf; return s;
         }
 
-        // Sonido de encendido: click starter + rumble corto
+        // Distortion curve — da ese crunch de mufle pesado
+        function _distortion(ctx, amount) {
+            const ws = ctx.createWaveShaper();
+            const n = 44100, curve = new Float32Array(n);
+            for (let i = 0; i < n; i++) {
+                const x = (i * 2) / n - 1;
+                curve[i] = ((3 + amount) * x * 20 * (Math.PI / 180)) / (Math.PI + amount * Math.abs(x));
+            }
+            ws.curve = curve;
+            ws.oversample = '4x';
+            return ws;
+        }
+
+        // V-twin "potato-potato" — el sonido Harley con mufle
         function playIgnition() {
             try {
                 const ctx = _ctx(), t = ctx.currentTime;
+                const master = ctx.createGain();
+                master.gain.setValueAtTime(0.25, t);
+                master.gain.linearRampToValueAtTime(0.15, t + 0.5);
+                master.gain.exponentialRampToValueAtTime(0.001, t + 0.9);
+                master.connect(ctx.destination);
 
-                // Starter click
-                const click = ctx.createOscillator();
-                const clickG = ctx.createGain();
-                click.type = 'square';
-                click.frequency.setValueAtTime(180, t);
-                click.frequency.exponentialRampToValueAtTime(60, t + 0.08);
-                clickG.gain.setValueAtTime(0.18, t);
-                clickG.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
-                click.connect(clickG).connect(ctx.destination);
-                click.start(t); click.stop(t + 0.1);
+                const dist = _distortion(ctx, 20);
+                const lp = ctx.createBiquadFilter();
+                lp.type = 'lowpass'; lp.frequency.value = 250; // mufle heavy
+                dist.connect(lp).connect(master);
 
-                // Engine rumble burst
-                const eng = ctx.createOscillator();
-                const engG = ctx.createGain();
-                const engF = ctx.createBiquadFilter();
-                eng.type = 'sawtooth';
-                eng.frequency.setValueAtTime(55, t + 0.05);
-                eng.frequency.linearRampToValueAtTime(95, t + 0.25);
-                eng.frequency.linearRampToValueAtTime(70, t + 0.55);
-                engF.type = 'lowpass'; engF.frequency.value = 350;
-                engG.gain.setValueAtTime(0, t);
-                engG.gain.linearRampToValueAtTime(0.13, t + 0.1);
-                engG.gain.linearRampToValueAtTime(0.06, t + 0.35);
-                engG.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
-                eng.connect(engF).connect(engG).connect(ctx.destination);
-                eng.start(t + 0.05); eng.stop(t + 0.6);
+                // V-twin fundamental (~30Hz) — ese golpe grave
+                const v1 = ctx.createOscillator();
+                v1.type = 'sawtooth';
+                v1.frequency.setValueAtTime(28, t);
+                v1.frequency.linearRampToValueAtTime(38, t + 0.3);
+                v1.frequency.linearRampToValueAtTime(30, t + 0.7);
+                const v1g = ctx.createGain(); v1g.gain.value = 0.7;
+                v1.connect(v1g).connect(dist);
+                v1.start(t); v1.stop(t + 0.9);
 
-                // Noise texture
-                const noise = _makeNoise(ctx, 0.4);
-                const nG = ctx.createGain();
-                const nF = ctx.createBiquadFilter();
-                nF.type = 'bandpass'; nF.frequency.value = 400; nF.Q.value = 1;
-                nG.gain.setValueAtTime(0.02, t);
-                nG.gain.linearRampToValueAtTime(0.04, t + 0.15);
-                nG.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
-                noise.connect(nF).connect(nG).connect(ctx.destination);
-                noise.start(t + 0.05); noise.stop(t + 0.5);
+                // Second cylinder — desfasado (el "potato" del V-twin)
+                const v2 = ctx.createOscillator();
+                v2.type = 'sawtooth';
+                v2.frequency.setValueAtTime(28, t);
+                v2.frequency.linearRampToValueAtTime(38, t + 0.3);
+                v2.frequency.linearRampToValueAtTime(30, t + 0.7);
+                const v2g = ctx.createGain(); v2g.gain.value = 0.5;
+                v2.connect(v2g).connect(dist);
+                v2.start(t + 0.018); v2.stop(t + 0.9); // 18ms offset = uneven firing
+
+                // Sub bass punch — se siente en el pecho
+                const sub = ctx.createOscillator();
+                sub.type = 'sine';
+                sub.frequency.value = 22;
+                const subG = ctx.createGain();
+                subG.gain.setValueAtTime(0.2, t);
+                subG.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+                sub.connect(subG).connect(master);
+                sub.start(t); sub.stop(t + 0.7);
+
+                // Exhaust rumble noise — mufle
+                const nz = _noise(ctx, 0.8);
+                const nzG = ctx.createGain();
+                const nzF = ctx.createBiquadFilter();
+                nzF.type = 'lowpass'; nzF.frequency.value = 180;
+                nzG.gain.setValueAtTime(0.06, t);
+                nzG.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+                nz.connect(nzF).connect(nzG).connect(master);
+                nz.start(t); nz.stop(t + 0.85);
             } catch(e) {}
         }
 
-        // Sonido de arranque: rev sube + exhaust + doppler
+        // Arranque Harley: potato-potato acelera + rugido + whoosh
         function playLaunch() {
             try {
                 const ctx = _ctx(), t = ctx.currentTime;
+                const master = ctx.createGain();
+                master.gain.setValueAtTime(0.22, t);
+                master.gain.linearRampToValueAtTime(0.3, t + 0.6);
+                master.gain.linearRampToValueAtTime(0.35, t + 1.2);
+                master.gain.linearRampToValueAtTime(0.18, t + 1.8);
+                master.gain.exponentialRampToValueAtTime(0.001, t + 2.3);
+                master.connect(ctx.destination);
 
-                // Engine rev (frequency climbs)
-                const rev = ctx.createOscillator();
-                const revG = ctx.createGain();
-                const revF = ctx.createBiquadFilter();
-                rev.type = 'sawtooth';
-                rev.frequency.setValueAtTime(70, t);
-                rev.frequency.exponentialRampToValueAtTime(160, t + 0.35);
-                rev.frequency.exponentialRampToValueAtTime(350, t + 0.7);
-                rev.frequency.exponentialRampToValueAtTime(700, t + 1.1);
-                rev.frequency.exponentialRampToValueAtTime(1200, t + 1.5);
-                revF.type = 'lowpass';
-                revF.frequency.setValueAtTime(500, t);
-                revF.frequency.exponentialRampToValueAtTime(3000, t + 1.2);
-                revF.frequency.exponentialRampToValueAtTime(800, t + 1.8);
-                revG.gain.setValueAtTime(0.1, t);
-                revG.gain.linearRampToValueAtTime(0.18, t + 0.4);
-                revG.gain.linearRampToValueAtTime(0.22, t + 0.9);
-                revG.gain.linearRampToValueAtTime(0.12, t + 1.4);
-                revG.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
-                rev.connect(revF).connect(revG).connect(ctx.destination);
-                rev.start(t); rev.stop(t + 2.0);
+                const dist = _distortion(ctx, 25);
+                const lp = ctx.createBiquadFilter();
+                lp.type = 'lowpass';
+                lp.frequency.setValueAtTime(220, t);
+                lp.frequency.linearRampToValueAtTime(400, t + 1.0);
+                lp.frequency.linearRampToValueAtTime(600, t + 1.5);
+                lp.frequency.linearRampToValueAtTime(250, t + 2.2);
+                dist.connect(lp).connect(master);
 
-                // Sub bass layer
+                // V-twin rev — frecuencia sube (RPM subiendo)
+                const v1 = ctx.createOscillator();
+                v1.type = 'sawtooth';
+                v1.frequency.setValueAtTime(28, t);
+                v1.frequency.exponentialRampToValueAtTime(45, t + 0.5);
+                v1.frequency.exponentialRampToValueAtTime(80, t + 1.0);
+                v1.frequency.exponentialRampToValueAtTime(140, t + 1.5);
+                v1.frequency.exponentialRampToValueAtTime(200, t + 2.0);
+                const v1g = ctx.createGain(); v1g.gain.value = 0.7;
+                v1.connect(v1g).connect(dist);
+                v1.start(t); v1.stop(t + 2.2);
+
+                // Segundo cilindro
+                const v2 = ctx.createOscillator();
+                v2.type = 'sawtooth';
+                v2.frequency.setValueAtTime(28, t);
+                v2.frequency.exponentialRampToValueAtTime(45, t + 0.5);
+                v2.frequency.exponentialRampToValueAtTime(80, t + 1.0);
+                v2.frequency.exponentialRampToValueAtTime(140, t + 1.5);
+                v2.frequency.exponentialRampToValueAtTime(200, t + 2.0);
+                const v2g = ctx.createGain(); v2g.gain.value = 0.5;
+                v2.connect(v2g).connect(dist);
+                v2.start(t + 0.015); v2.stop(t + 2.2);
+
+                // Tercer armónico — grit del escape
+                const v3 = ctx.createOscillator();
+                v3.type = 'square';
+                v3.frequency.setValueAtTime(56, t);
+                v3.frequency.exponentialRampToValueAtTime(160, t + 1.0);
+                v3.frequency.exponentialRampToValueAtTime(280, t + 1.8);
+                const v3g = ctx.createGain(); v3g.gain.value = 0.2;
+                v3.connect(v3g).connect(dist);
+                v3.start(t); v3.stop(t + 2.0);
+
+                // Sub bass — vibra el piso
                 const sub = ctx.createOscillator();
-                const subG = ctx.createGain();
                 sub.type = 'sine';
-                sub.frequency.setValueAtTime(40, t);
-                sub.frequency.exponentialRampToValueAtTime(80, t + 0.6);
-                sub.frequency.exponentialRampToValueAtTime(150, t + 1.3);
-                subG.gain.setValueAtTime(0.12, t);
-                subG.gain.linearRampToValueAtTime(0.08, t + 0.8);
-                subG.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
-                sub.connect(subG).connect(ctx.destination);
-                sub.start(t); sub.stop(t + 1.6);
+                sub.frequency.setValueAtTime(20, t);
+                sub.frequency.exponentialRampToValueAtTime(50, t + 1.0);
+                sub.frequency.exponentialRampToValueAtTime(80, t + 1.8);
+                const subG = ctx.createGain();
+                subG.gain.setValueAtTime(0.18, t);
+                subG.gain.linearRampToValueAtTime(0.12, t + 1.2);
+                subG.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+                sub.connect(subG).connect(master);
+                sub.start(t); sub.stop(t + 2.0);
 
-                // Exhaust noise
-                const noise = _makeNoise(ctx, 2.0);
-                const nG = ctx.createGain();
-                const nF = ctx.createBiquadFilter();
-                nF.type = 'bandpass'; nF.frequency.value = 600; nF.Q.value = 0.7;
-                nF.frequency.exponentialRampToValueAtTime(1500, t + 1.0);
-                nF.frequency.exponentialRampToValueAtTime(400, t + 1.8);
-                nG.gain.setValueAtTime(0.03, t);
-                nG.gain.linearRampToValueAtTime(0.09, t + 0.5);
-                nG.gain.linearRampToValueAtTime(0.12, t + 1.0);
-                nG.gain.exponentialRampToValueAtTime(0.001, t + 1.9);
-                noise.connect(nF).connect(nG).connect(ctx.destination);
-                noise.start(t); noise.stop(t + 2.0);
+                // Exhaust rumble noise
+                const nz = _noise(ctx, 2.2);
+                const nzG = ctx.createGain();
+                const nzF = ctx.createBiquadFilter();
+                nzF.type = 'lowpass'; nzF.frequency.value = 300;
+                nzF.frequency.linearRampToValueAtTime(500, t + 1.2);
+                nzF.frequency.linearRampToValueAtTime(200, t + 2.0);
+                nzG.gain.setValueAtTime(0.05, t);
+                nzG.gain.linearRampToValueAtTime(0.1, t + 0.8);
+                nzG.gain.linearRampToValueAtTime(0.08, t + 1.5);
+                nzG.gain.exponentialRampToValueAtTime(0.001, t + 2.1);
+                nz.connect(nzF).connect(nzG).connect(master);
+                nz.start(t); nz.stop(t + 2.2);
 
-                // Doppler whoosh at the end
-                const whoosh = _makeNoise(ctx, 0.6);
-                const wG = ctx.createGain();
-                const wF = ctx.createBiquadFilter();
-                wF.type = 'highpass'; wF.frequency.value = 2000;
-                wG.gain.setValueAtTime(0, t + 1.0);
-                wG.gain.linearRampToValueAtTime(0.08, t + 1.3);
-                wG.gain.exponentialRampToValueAtTime(0.001, t + 1.7);
-                whoosh.connect(wF).connect(wG).connect(ctx.destination);
-                whoosh.start(t + 1.0); whoosh.stop(t + 1.7);
+                // Doppler fade — moto se aleja
+                const dp = _noise(ctx, 0.8);
+                const dpG = ctx.createGain();
+                const dpF = ctx.createBiquadFilter();
+                dpF.type = 'bandpass'; dpF.frequency.value = 150; dpF.Q.value = 2;
+                dpG.gain.setValueAtTime(0, t + 1.5);
+                dpG.gain.linearRampToValueAtTime(0.1, t + 1.7);
+                dpG.gain.exponentialRampToValueAtTime(0.001, t + 2.2);
+                dp.connect(dpF).connect(dpG).connect(master);
+                dp.start(t + 1.5); dp.stop(t + 2.3);
             } catch(e) {}
         }
 
