@@ -220,7 +220,11 @@ function initClienteAutocomplete() {
         const val = input.value.toLowerCase().trim();
         if (val.length < 1) { list.innerHTML = ''; list.style.display = 'none'; hidden.value = ''; return; }
         const matches = allClientesCC.filter(c => c.nombre_marca.toLowerCase().includes(val)).slice(0, 8);
-        if (!matches.length) { list.innerHTML = '<div class="ac-item" style="color:var(--muted)">Sin resultados</div>'; list.style.display = 'block'; return; }
+        if (!matches.length) {
+            const escapedVal = input.value.replace(/'/g, "\\'");
+            list.innerHTML = `<div class="ac-item" style="color:var(--g1);cursor:pointer;" onmousedown="abrirCrearClienteDesdeAC('${escapedVal}')">➕ Agregar "${input.value}" como nuevo cliente</div>`;
+            list.style.display = 'block'; return;
+        }
         list.innerHTML = matches.map(c => `<div class="ac-item" onmousedown="selectCliente('${c.id}','${c.nombre_marca.replace(/'/g, "\\'")}')"><strong>${c.nombre_marca.replace(
             new RegExp('(' + val + ')', 'gi'), '<u>$1</u>'
         )}</strong></div>`).join('');
@@ -418,7 +422,11 @@ function renderClientesCC(list) {
       <td>${c.email || '—'}</td>
       <td>${c.telefono || '—'}</td>
       <td style="color:${parseFloat(c.deuda_calculada) > 0 ? 'var(--warn)' : 'var(--g1)'}">${fmt(c.deuda_calculada)}</td>
-    </tr>`).join('') || '<tr><td colspan="4">Sin resultados</td></tr>';
+      <td>
+        <button class="btn-icon" onclick="editarClienteCC('${c.id}')" title="Editar">✏️</button>
+        <button class="btn-icon" style="color:#FF4444;" onclick="eliminarClienteCC('${c.id}','${(c.nombre_marca || '').replace(/'/g, "\\'")    }')" title="Eliminar">🗑️</button>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="5">Sin resultados</td></tr>';
 }
 
 // ── Crear servicio (dinámico según tipo) ─────────────
@@ -683,6 +691,90 @@ async function cerrarServicio() {
         loadActivos();
     } else {
         showToast('❌ Error', 'err');
+    }
+}
+
+// ── Gestión de Clientes desde Call Center ─────────────
+
+// Abrir modal de crear cliente desde el autocomplete (pre-llena el nombre)
+function abrirCrearClienteDesdeAC(nombre) {
+    document.getElementById('formClienteCC').reset();
+    document.getElementById('cc_nombre').value = nombre;
+    openModal('modalClienteCC');
+}
+
+// Crear cliente nuevo
+async function crearClienteCC(e) {
+    e.preventDefault();
+    const data = {
+        nombre_marca: document.getElementById('cc_nombre').value,
+        email: document.getElementById('cc_email').value || null,
+        telefono: document.getElementById('cc_tel').value || null,
+        rif: document.getElementById('cc_rif').value || null,
+    };
+    const res = await apiFetch('/clientes', { method: 'POST', body: data });
+    if (res?.id) {
+        showToast('✅ Cliente creado: ' + res.nombre_marca);
+        closeModal('modalClienteCC');
+        document.getElementById('formClienteCC').reset();
+        // Recargar lista de clientes
+        await loadClientesRegistro();
+        await loadClientesCC();
+        // Si hay un campo de autocompletado abierto, seleccionar el cliente recién creado
+        const searchInput = document.getElementById('s_cliente_search');
+        const hiddenInput = document.getElementById('s_cliente');
+        if (searchInput && hiddenInput) {
+            searchInput.value = res.nombre_marca;
+            hiddenInput.value = res.id;
+        }
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al crear cliente'), 'err');
+    }
+}
+
+// Editar cliente
+async function editarClienteCC(id) {
+    const data = await apiFetch('/clientes/' + id);
+    if (!data?.cliente) { showToast('❌ No se pudo cargar el cliente', 'err'); return; }
+    const c = data.cliente;
+    document.getElementById('ecc_id').value = c.id;
+    document.getElementById('ecc_nombre').value = c.nombre_marca || '';
+    document.getElementById('ecc_email').value = c.email || '';
+    document.getElementById('ecc_tel').value = c.telefono || '';
+    document.getElementById('ecc_rif').value = c.rif || '';
+    openModal('modalEditClienteCC');
+}
+
+async function guardarEdicionClienteCC(e) {
+    e.preventDefault();
+    const id = document.getElementById('ecc_id').value;
+    const body = {
+        nombre_marca: document.getElementById('ecc_nombre').value,
+        email: document.getElementById('ecc_email').value || null,
+        telefono: document.getElementById('ecc_tel').value || null,
+        rif: document.getElementById('ecc_rif').value || null,
+    };
+    const res = await apiFetch('/clientes/' + id, { method: 'PUT', body });
+    if (res?.id) {
+        showToast('✅ Cliente actualizado');
+        closeModal('modalEditClienteCC');
+        await loadClientesRegistro();
+        await loadClientesCC();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al actualizar'), 'err');
+    }
+}
+
+// Eliminar cliente
+async function eliminarClienteCC(id, nombre) {
+    if (!confirm('⚠️ ¿Seguro que quieres eliminar al cliente "' + nombre + '"?')) return;
+    const res = await apiFetch('/clientes/' + id, { method: 'DELETE' });
+    if (res?.ok) {
+        showToast('🗑️ Cliente ' + nombre + ' eliminado');
+        await loadClientesRegistro();
+        await loadClientesCC();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al eliminar'), 'err');
     }
 }
 

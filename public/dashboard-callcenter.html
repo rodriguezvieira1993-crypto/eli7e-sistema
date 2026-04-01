@@ -177,7 +177,10 @@
             <!-- ══ CONSULTAR CLIENTE ════════════════════════════════ -->
             <div class="view" id="view-clientes">
                 <div class="view-header">
-                    <h1 class="view-title">Consultar Cliente</h1>
+                    <div>
+                        <h1 class="view-title">Consultar Cliente</h1>
+                    </div>
+                    <button class="btn-primary" onclick="openModal('modalClienteCC')">+ Nuevo Cliente</button>
                 </div>
                 <div class="search-bar">
                     <input type="text" placeholder="🔍  Buscar marca..." id="searchClienteCC"
@@ -191,11 +194,12 @@
                                 <th>Email</th>
                                 <th>Teléfono</th>
                                 <th>Deuda Actual</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="clientesCCBody">
                             <tr>
-                                <td colspan="4" class="loading-txt">Cargando...</td>
+                                <td colspan="5" class="loading-txt">Cargando...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -246,6 +250,47 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('modalEditServicio')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar Cambios</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL NUEVO CLIENTE (Call Center) -->
+    <div class="modal-overlay" id="modalClienteCC">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>+ Nuevo Cliente / Marca</span>
+                <button onclick="closeModal('modalClienteCC')">✕</button>
+            </div>
+            <form id="formClienteCC" onsubmit="crearClienteCC(event)">
+                <div class="field"><label>Nombre de la Marca *</label><input required id="cc_nombre" placeholder="Ej: Topping Burguer"></div>
+                <div class="field"><label>Email (para reportes)</label><input type="email" id="cc_email" placeholder="contacto@marca.com"></div>
+                <div class="field"><label>Teléfono</label><input id="cc_tel" placeholder="+58 000 000 0000"></div>
+                <div class="field"><label>RIF</label><input id="cc_rif" placeholder="J-00000000-0"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalClienteCC')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Crear Cliente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL EDITAR CLIENTE (Call Center) -->
+    <div class="modal-overlay" id="modalEditClienteCC">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>✏️ Editar Cliente</span>
+                <button onclick="closeModal('modalEditClienteCC')">✕</button>
+            </div>
+            <form id="formEditClienteCC" onsubmit="guardarEdicionClienteCC(event)">
+                <input type="hidden" id="ecc_id">
+                <div class="field"><label>Nombre de la Marca *</label><input required id="ecc_nombre"></div>
+                <div class="field"><label>Email</label><input type="email" id="ecc_email"></div>
+                <div class="field"><label>Teléfono</label><input id="ecc_tel"></div>
+                <div class="field"><label>RIF</label><input id="ecc_rif"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalEditClienteCC')">Cancelar</button>
                     <button type="submit" class="btn-primary">Guardar Cambios</button>
                 </div>
             </form>

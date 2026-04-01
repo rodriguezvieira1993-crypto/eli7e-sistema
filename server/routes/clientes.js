@@ -42,8 +42,8 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// POST /api/clientes — crear (solo admin)
-router.post('/', requireRol('admin'), async (req, res) => {
+// POST /api/clientes — crear (admin o call_center)
+router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
     const { nombre_marca, email, telefono, rif, direccion } = req.body;
     if (!nombre_marca) return res.status(400).json({ error: 'nombre_marca es requerido' });
 
@@ -59,8 +59,8 @@ router.post('/', requireRol('admin'), async (req, res) => {
     }
 });
 
-// PUT /api/clientes/:id — actualizar (solo admin)
-router.put('/:id', requireRol('admin'), async (req, res) => {
+// PUT /api/clientes/:id — actualizar (admin o call_center)
+router.put('/:id', requireRol('admin', 'call_center'), async (req, res) => {
     const { nombre_marca, email, telefono, rif, direccion } = req.body;
     try {
         const { rows } = await pool.query(
@@ -74,8 +74,8 @@ router.put('/:id', requireRol('admin'), async (req, res) => {
     }
 });
 
-// DELETE /api/clientes/:id — desactivar (solo admin)
-router.delete('/:id', requireRol('admin'), async (req, res) => {
+// DELETE /api/clientes/:id — desactivar (admin o call_center)
+router.delete('/:id', requireRol('admin', 'call_center'), async (req, res) => {
     try {
         await pool.query('UPDATE clientes SET activo=FALSE WHERE id=$1', [req.params.id]);
         res.json({ ok: true });
