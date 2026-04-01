@@ -28,12 +28,15 @@
 
             <div class="sb-section">Finanzas</div>
             <a href="#" class="sb-link" data-view="cobranza"><span>💰</span> Cobranza</a>
-            <a href="#" class="sb-link" data-view="cierres"><span>🧾</span> Cierres</a>
+            <a href="#" class="sb-link" data-view="nominas"><span>🧾</span> Nóminas</a>
+            <a href="#" class="sb-link" data-view="prestamos"><span>🏦</span> Préstamos</a>
+            <a href="#" class="sb-link" data-view="cierres"><span>📋</span> Cierres</a>
             <a href="#" class="sb-link" data-view="reportes"><span>📈</span> Reportes</a>
 
             <div class="sb-section">Sistema</div>
             <a href="#" class="sb-link" data-view="usuarios"><span>👤</span> Usuarios</a>
-            <a href="#" class="sb-link" data-view="config"><span>⚙️</span> Configuración</a>
+            <a href="#" class="sb-link" data-view="parametros"><span>⚙️</span> Parámetros</a>
+            <a href="#" class="sb-link" data-view="config"><span>🔧</span> Configuración</a>
         </nav>
 
         <div class="sb-footer" id="sbUser">
@@ -321,6 +324,96 @@
                 </div>
             </div>
 
+            <!-- ══ NÓMINAS VIEW ═════════════════════════════════════ -->
+            <div class="view" id="view-nominas">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Nóminas Semanales</h1>
+                        <span class="view-sub">Control de nómina de todos los motorizados</span>
+                    </div>
+                    <div style="display:flex;gap:8px;align-items:center;">
+                        <input type="date" id="nominaSemanaInput" style="padding:8px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:inherit;">
+                        <button class="btn-primary" onclick="loadNominasAdmin()">Ver Semana</button>
+                        <button class="btn-primary" style="background:#FF9800;border-color:#FF9800;" onclick="cerrarTodasNominas()">Cerrar Todas</button>
+                    </div>
+                </div>
+
+                <div id="nominaSemanaLabel" style="margin-bottom:12px;color:var(--g1);font-weight:600;"></div>
+
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Motorizado</th>
+                                <th>Servicios</th>
+                                <th>Bruto</th>
+                                <th>Empresa</th>
+                                <th>Moto</th>
+                                <th>Préstamos</th>
+                                <th>Neto</th>
+                                <th>Estado</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="nominasAdminBody">
+                            <tr><td colspan="9" class="loading-txt">Seleccione semana o cargue la actual</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ PRÉSTAMOS VIEW ══════════════════════════════════ -->
+            <div class="view" id="view-prestamos">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Préstamos a Motorizados</h1>
+                        <span class="view-sub">Solicitudes, aprobaciones y seguimiento</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Motorizado</th>
+                                <th>Cédula</th>
+                                <th>Monto</th>
+                                <th>Cuotas</th>
+                                <th>Cuota/Sem</th>
+                                <th>Saldo</th>
+                                <th>Estado</th>
+                                <th>Fecha</th>
+                                <th>Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prestamosAdminBody">
+                            <tr><td colspan="9" class="loading-txt">Cargando préstamos...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ══ PARÁMETROS VIEW ═════════════════════════════════ -->
+            <div class="view" id="view-parametros">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Parámetros del Sistema</h1>
+                        <span class="view-sub">Variables configurables de nómina y operación</span>
+                    </div>
+                </div>
+
+                <div class="grid-2" id="parametrosGrid">
+                    <p class="loading-txt">Cargando parámetros...</p>
+                </div>
+
+                <div class="card" style="margin-top:24px;">
+                    <div class="card-hdr">📐 Fórmula de Nómina Actual</div>
+                    <div id="formulaPreview" style="padding:16px;font-size:.9rem;color:var(--muted);">
+                        Cargando...
+                    </div>
+                </div>
+            </div>
+
             <!-- ══ CONFIG VIEW ══════════════════════════════════════ -->
             <div class="view" id="view-config">
                 <div class="view-header">
@@ -505,6 +598,39 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('modalTarifa')">Cancelar</button>
                     <button type="submit" class="btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL APROBAR PRÉSTAMO -->
+    <div class="modal-overlay" id="modalAprobarPrestamo">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>Aprobar Préstamo</span>
+                <button onclick="closeModal('modalAprobarPrestamo')">✕</button>
+            </div>
+            <form onsubmit="confirmarAprobarPrestamo(event)">
+                <input type="hidden" id="ap_id">
+                <div class="field">
+                    <label>Motorizado</label>
+                    <input type="text" id="ap_nombre" readonly style="background:var(--bg);color:var(--g1);font-weight:700;">
+                </div>
+                <div class="field">
+                    <label>Monto solicitado</label>
+                    <input type="text" id="ap_monto" readonly style="background:var(--bg);font-weight:700;">
+                </div>
+                <div class="field">
+                    <label>Cuotas semanales (ajustable)</label>
+                    <input type="number" id="ap_cuotas" min="1" required>
+                </div>
+                <div class="field">
+                    <label>Cuota semanal resultante</label>
+                    <input type="text" id="ap_cuota_est" readonly style="background:var(--bg);color:var(--g1);font-weight:700;">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalAprobarPrestamo')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Aprobar</button>
                 </div>
             </form>
         </div>

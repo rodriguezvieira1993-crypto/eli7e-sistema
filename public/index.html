@@ -738,13 +738,14 @@
             admin: { email: 'admin@eli7e.com', password: 'eli7e2026', label: 'Admin' },
             cc:    { email: 'callcenter@eli7e.com', password: 'eli7e2026', label: 'Call Center' },
             cont:  { email: 'contable@eli7e.com', password: 'eli7e2026', label: 'Contable' },
-            moto:  { email: '', password: '', label: 'Motorizados', redirect: 'dashboard-motorizado.html' },
+            moto:  { cedula: '', password: '123456', label: 'Motorizados' },
         };
 
         const DASHBOARD = {
             admin: 'dashboard-admin.html',
             call_center: 'dashboard-callcenter.html',
             contable: 'dashboard-contable.html',
+            motorizado: 'dashboard-motorizado.html',
         };
 
         let selectedRole = null;
@@ -979,10 +980,7 @@
         // ─── LAUNCH MOTO ─────────────────────────────
         function launchMoto() {
             if (isAnimating) return;
-            if (selectedRole === 'moto') {
-                window.location.href = 'dashboard-motorizado.html';
-                return;
-            }
+            if (!selectedRole) return;
 
             isAnimating = true;
             playLaunch();
@@ -1036,9 +1034,26 @@
             const ls = document.getElementById('loginScreen');
             ls.classList.add('visible');
 
+            const emailField = document.getElementById('email');
+            const emailLabel = emailField.previousElementSibling || emailField.closest('.field').querySelector('label');
+            const isMoto = selectedRole === 'moto';
+
+            // Cambiar campo email a cédula para motorizados
+            if (isMoto) {
+                emailLabel.textContent = 'Cédula';
+                emailField.type = 'text';
+                emailField.placeholder = 'Ej: V-12345678';
+                emailField.removeAttribute('autocomplete');
+            } else {
+                emailLabel.textContent = 'Correo electrónico';
+                emailField.type = 'email';
+                emailField.placeholder = 'usuario@eli7e.com';
+                emailField.setAttribute('autocomplete', 'email');
+            }
+
             if (selectedRole && DEMO[selectedRole]) {
                 const d = DEMO[selectedRole];
-                document.getElementById('email').value = d.email;
+                document.getElementById('email').value = d.email || d.cedula || '';
                 document.getElementById('password').value = d.password;
                 document.getElementById('roleTagText').textContent = d.label;
                 document.getElementById('roleTag').classList.add('show');
@@ -1078,6 +1093,16 @@
                         selectedRole = null;
                         document.querySelectorAll('.spec-item').forEach(s => s.classList.remove('active'));
                         document.getElementById('roleTag').classList.remove('show');
+
+                        // Reset login form al estado original
+                        const emailF = document.getElementById('email');
+                        const emailLbl = emailF.closest('.field').querySelector('label');
+                        emailLbl.textContent = 'Correo electrónico';
+                        emailF.type = 'email';
+                        emailF.placeholder = 'usuario@eli7e.com';
+                        emailF.value = '';
+                        document.getElementById('password').value = '';
+                        document.getElementById('errorMsg').classList.remove('show');
 
                         gsap.fromTo('#heroScreen', { opacity: 0 }, { opacity: 1, duration: 0.3 });
                         gsap.fromTo('#motoImg', { x: -60, opacity: 0 }, { x: 0, opacity: 1, duration: 0.5, ease: 'back.out(1.2)' });
@@ -1141,13 +1166,16 @@
             btn.disabled = true;
 
             try {
-                const res = await fetch('/api/auth/login', {
+                const isMoto = selectedRole === 'moto';
+                const loginUrl = isMoto ? '/api/auth/login-motorizado' : '/api/auth/login';
+                const loginBody = isMoto
+                    ? { cedula: document.getElementById('email').value.trim(), password: document.getElementById('password').value }
+                    : { email: document.getElementById('email').value.trim(), password: document.getElementById('password').value };
+
+                const res = await fetch(loginUrl, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        email: document.getElementById('email').value.trim(),
-                        password: document.getElementById('password').value,
-                    }),
+                    body: JSON.stringify(loginBody),
                 });
 
                 const data = await res.json();

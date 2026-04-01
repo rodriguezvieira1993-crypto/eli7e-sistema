@@ -159,7 +159,62 @@ CREATE TABLE IF NOT EXISTS pagos (
 );
 
 -- ============================================================
--- 8. ÍNDICES para performance (IF NOT EXISTS)
+-- 8. PARÁMETROS DEL SISTEMA (configurables por admin)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS parametros_sistema (
+    id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    clave       VARCHAR(50) NOT NULL UNIQUE,
+    valor       NUMERIC(10,2) NOT NULL,
+    descripcion TEXT,
+    actualizado_en TIMESTAMP DEFAULT NOW(),
+    actualizado_por UUID REFERENCES usuarios(id)
+);
+
+INSERT INTO parametros_sistema (clave, valor, descripcion) VALUES
+('porcentaje_empresa', 30, 'Porcentaje que retiene la empresa sobre el monto bruto semanal'),
+('costo_moto_semanal', 40, 'Deducción semanal fija por uso de moto ($)')
+ON CONFLICT (clave) DO NOTHING;
+
+-- ============================================================
+-- 9. PRÉSTAMOS A MOTORIZADOS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS prestamos (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    motorizado_id   UUID NOT NULL REFERENCES motorizados(id) ON DELETE CASCADE,
+    monto           NUMERIC(10,2) NOT NULL,
+    cuotas          INT NOT NULL DEFAULT 1,
+    cuota_semanal   NUMERIC(10,2) NOT NULL,
+    saldo_pendiente NUMERIC(10,2) NOT NULL,
+    estado          VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aprobado','rechazado','pagado')),
+    nota            TEXT,
+    solicitado_en   TIMESTAMP DEFAULT NOW(),
+    aprobado_en     TIMESTAMP,
+    aprobado_por    UUID REFERENCES usuarios(id)
+);
+
+-- ============================================================
+-- 10. NÓMINAS SEMANALES DE MOTORIZADOS
+-- ============================================================
+CREATE TABLE IF NOT EXISTS nominas (
+    id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    motorizado_id       UUID NOT NULL REFERENCES motorizados(id) ON DELETE CASCADE,
+    semana_inicio       DATE NOT NULL,
+    semana_fin          DATE NOT NULL,
+    monto_bruto         NUMERIC(10,2) NOT NULL DEFAULT 0,
+    porcentaje_empresa  NUMERIC(5,2) NOT NULL DEFAULT 30,
+    deduccion_empresa   NUMERIC(10,2) NOT NULL DEFAULT 0,
+    deduccion_moto      NUMERIC(10,2) NOT NULL DEFAULT 40,
+    deduccion_prestamos NUMERIC(10,2) NOT NULL DEFAULT 0,
+    monto_neto          NUMERIC(10,2) NOT NULL DEFAULT 0,
+    estado              VARCHAR(20) DEFAULT 'borrador' CHECK (estado IN ('borrador','cerrado')),
+    cerrado_por         UUID REFERENCES usuarios(id),
+    cerrado_en          TIMESTAMP,
+    creado_en           TIMESTAMP DEFAULT NOW(),
+    UNIQUE(motorizado_id, semana_inicio)
+);
+
+-- ============================================================
+-- 11. ÍNDICES para performance (IF NOT EXISTS)
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_servicios_cliente ON servicios(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_servicios_motorizado ON servicios(motorizado_id);
@@ -167,9 +222,13 @@ CREATE INDEX IF NOT EXISTS idx_servicios_estado ON servicios(estado);
 CREATE INDEX IF NOT EXISTS idx_servicios_fecha ON servicios(fecha_inicio);
 CREATE INDEX IF NOT EXISTS idx_pagos_cliente ON pagos(cliente_id);
 CREATE INDEX IF NOT EXISTS idx_pagos_fecha ON pagos(fecha);
+CREATE INDEX IF NOT EXISTS idx_prestamos_motorizado ON prestamos(motorizado_id);
+CREATE INDEX IF NOT EXISTS idx_prestamos_estado ON prestamos(estado);
+CREATE INDEX IF NOT EXISTS idx_nominas_motorizado ON nominas(motorizado_id);
+CREATE INDEX IF NOT EXISTS idx_nominas_semana ON nominas(semana_inicio);
 
 -- ============================================================
--- 9. VIEW: deuda actual por cliente (subqueries para evitar cross-product)
+-- 12. VIEW: deuda actual por cliente (subqueries para evitar cross-product)
 -- ============================================================
 DROP VIEW IF EXISTS vista_cobranza CASCADE;
 CREATE OR REPLACE VIEW vista_cobranza AS

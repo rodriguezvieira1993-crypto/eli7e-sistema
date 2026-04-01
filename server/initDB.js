@@ -53,6 +53,81 @@ async function initDB() {
         console.log('⚠️ Migración tarifas:', err.message);
     }
 
+    // Migración: agregar campo password a motorizados (login por cédula)
+    try {
+        await pool.query(`ALTER TABLE motorizados ADD COLUMN IF NOT EXISTS password TEXT`);
+        // Poner password por defecto (123456) a los que no tengan
+        const bcrypt = require('bcryptjs');
+        const hash = await bcrypt.hash('123456', 10);
+        await pool.query(`UPDATE motorizados SET password = $1 WHERE password IS NULL`, [hash]);
+        console.log('✅ Campo password en motorizados OK');
+    } catch (err) {
+        console.log('⚠️ Migración password motorizados:', err.message);
+    }
+
+    // Migración: crear tablas de nóminas, préstamos y parámetros si no existen
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS parametros_sistema (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                clave VARCHAR(50) NOT NULL UNIQUE,
+                valor NUMERIC(10,2) NOT NULL,
+                descripcion TEXT,
+                actualizado_en TIMESTAMP DEFAULT NOW(),
+                actualizado_por UUID REFERENCES usuarios(id)
+            )
+        `);
+        const { rows: paramCount } = await pool.query('SELECT COUNT(*)::int AS n FROM parametros_sistema');
+        if (paramCount[0].n === 0) {
+            await pool.query(`
+                INSERT INTO parametros_sistema (clave, valor, descripcion) VALUES
+                ('porcentaje_empresa', 30, 'Porcentaje que retiene la empresa sobre el monto bruto semanal'),
+                ('costo_moto_semanal', 40, 'Deducción semanal fija por uso de moto ($)')
+            `);
+        }
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS prestamos (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                motorizado_id UUID NOT NULL REFERENCES motorizados(id) ON DELETE CASCADE,
+                monto NUMERIC(10,2) NOT NULL,
+                cuotas INT NOT NULL DEFAULT 1,
+                cuota_semanal NUMERIC(10,2) NOT NULL,
+                saldo_pendiente NUMERIC(10,2) NOT NULL,
+                estado VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente','aprobado','rechazado','pagado')),
+                nota TEXT,
+                solicitado_en TIMESTAMP DEFAULT NOW(),
+                aprobado_en TIMESTAMP,
+                aprobado_por UUID REFERENCES usuarios(id)
+            )
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS nominas (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                motorizado_id UUID NOT NULL REFERENCES motorizados(id) ON DELETE CASCADE,
+                semana_inicio DATE NOT NULL,
+                semana_fin DATE NOT NULL,
+                monto_bruto NUMERIC(10,2) NOT NULL DEFAULT 0,
+                porcentaje_empresa NUMERIC(5,2) NOT NULL DEFAULT 30,
+                deduccion_empresa NUMERIC(10,2) NOT NULL DEFAULT 0,
+                deduccion_moto NUMERIC(10,2) NOT NULL DEFAULT 40,
+                deduccion_prestamos NUMERIC(10,2) NOT NULL DEFAULT 0,
+                monto_neto NUMERIC(10,2) NOT NULL DEFAULT 0,
+                estado VARCHAR(20) DEFAULT 'borrador' CHECK (estado IN ('borrador','cerrado')),
+                cerrado_por UUID REFERENCES usuarios(id),
+                cerrado_en TIMESTAMP,
+                creado_en TIMESTAMP DEFAULT NOW(),
+                UNIQUE(motorizado_id, semana_inicio)
+            )
+        `);
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_prestamos_motorizado ON prestamos(motorizado_id)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_prestamos_estado ON prestamos(estado)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_nominas_motorizado ON nominas(motorizado_id)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_nominas_semana ON nominas(semana_inicio)');
+        console.log('✅ Tablas nóminas/préstamos/parámetros OK');
+    } catch (err) {
+        console.log('⚠️ Migración nóminas:', err.message);
+    }
+
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {
         console.log('🔄 Recreando vista de cobranza...');

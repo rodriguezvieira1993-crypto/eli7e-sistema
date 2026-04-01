@@ -196,40 +196,6 @@ async function crearMoto(e) {
     }
 }
 
-async function loadCobranza() {
-    const data = await apiFetch('/cobranza');
-    if (!data) return;
-    const tbody = document.getElementById('cobranzaBody');
-    tbody.innerHTML = data.map(c => `
-    <tr>
-      <td><strong style="color:var(--text)">${c.nombre_marca}</strong></td>
-      <td>${c.servicios_pendientes || 0}</td>
-      <td>${fmt(c.facturado_total)}</td>
-      <td>${fmt(c.pagado_total)}</td>
-      <td style="color:${parseFloat(c.deuda_calculada) > 0 ? 'var(--warn)' : 'var(--g1)'};font-weight:700">${fmt(c.deuda_calculada)}</td>
-      <td>${semaforoDeuda(c.deuda_calculada)}</td>
-      <td><button class="btn-icon" onclick="enviarCorreo('${c.id}','${c.nombre_marca}')">📧</button></td>
-    </tr>`).join('') || '<tr><td colspan="7">Sin datos</td></tr>';
-}
-
-async function enviarCorreo(id, nombre) {
-    showToast(`📧 Enviando reporte a ${nombre}...`);
-    const res = await apiFetch('/cobranza/enviar/' + id, { method: 'POST' });
-    if (res?.ok) showToast(`✅ Reporte enviado a ${nombre}`);
-    else showToast('❌ Error enviando correo', 'err');
-}
-
-async function enviarCierresMasivos() {
-    showToast('📧 Enviando cierres a todas las marcas...');
-    const res = await apiFetch('/cobranza/enviar-masivo', { method: 'POST' });
-    if (res?.ok) showToast(`✅ Cierres enviados a ${res.count} marcas`);
-    else showToast('❌ Error', 'err');
-}
-
-function exportarReporte(tipo) {
-    window.open('/api/reportes/' + tipo + '?token=' + getToken(), '_blank');
-}
-
 // ── Tipos de Servicio (catálogo) ────────────────────────
 async function loadServicios() {
     const data = await apiFetch('/tipos-servicio');
@@ -330,6 +296,24 @@ async function loadCobranza() {
 
 function verFactura(clienteId) {
     window.open('/api/reportes/factura/' + clienteId + '?token=' + getToken(), '_blank');
+}
+
+async function enviarCorreo(id, nombre) {
+    showToast(`Enviando reporte a ${nombre}...`);
+    const res = await apiFetch('/cobranza/enviar/' + id, { method: 'POST' });
+    if (res?.ok) showToast(`Reporte enviado a ${nombre}`);
+    else showToast('Error enviando correo', 'err');
+}
+
+async function enviarCierresMasivos() {
+    showToast('Enviando cierres a todas las marcas...');
+    const res = await apiFetch('/cobranza/enviar-masivo', { method: 'POST' });
+    if (res?.ok) showToast(`Cierres enviados a ${res.count} marcas`);
+    else showToast('Error', 'err');
+}
+
+function exportarReporte(tipo) {
+    window.open('/api/reportes/' + tipo + '?token=' + getToken(), '_blank');
 }
 
 // ── Usuarios ────────────────────────────────────────────
@@ -509,6 +493,252 @@ async function eliminarTarifa(id, monto) {
     }
 }
 
+// ══════════════════════════════════════════════════════════
+// ── NÓMINAS (Admin) ───────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+async function loadNominasAdmin() {
+    const input = document.getElementById('nominaSemanaInput');
+    let semana = input?.value || '';
+
+    // Si no hay fecha, calcular lunes actual
+    if (!semana) {
+        const hoy = new Date();
+        const day = hoy.getDay();
+        const diff = hoy.getDate() - day + (day === 0 ? -6 : 1);
+        const lunes = new Date(hoy);
+        lunes.setDate(diff);
+        semana = lunes.toISOString().split('T')[0];
+        if (input) input.value = semana;
+    }
+
+    const data = await apiFetch(`/nominas/resumen-semanal?semana=${semana}`);
+    if (!data) return;
+
+    document.getElementById('nominaSemanaLabel').textContent =
+        `Semana: ${data.semana_inicio} → ${data.semana_fin}`;
+
+    const tbody = document.getElementById('nominasAdminBody');
+    if (!data.motorizados?.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="loading-txt">Sin motorizados activos</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = data.motorizados.map(m => {
+        const cerrada = m.nomina_estado === 'cerrado';
+        return `
+        <tr>
+            <td><strong>${m.nombre}</strong></td>
+            <td>${m.total_servicios}</td>
+            <td style="font-weight:600;">${fmt(m.monto_bruto)}</td>
+            <td style="color:#FF6B6B;">-${fmt(m.deduccion_empresa)}</td>
+            <td style="color:#FF6B6B;">-${fmt(m.deduccion_moto)}</td>
+            <td style="color:#FF6B6B;">-${fmt(m.deduccion_prestamos)}</td>
+            <td style="font-weight:800;color:var(--g1);font-size:1.05rem;">${fmt(m.monto_neto)}</td>
+            <td>${cerrada
+                ? '<span class="badge badge-green">Cerrada</span>'
+                : '<span class="badge badge-yellow">Abierta</span>'}</td>
+            <td>${cerrada
+                ? '—'
+                : `<button class="btn-icon" onclick="cerrarNominaUno('${m.motorizado_id}','${semana}','${m.nombre}')" title="Cerrar nómina">🔒</button>`}
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function cerrarNominaUno(motorizadoId, semana, nombre) {
+    if (!confirm(`¿Cerrar nómina de ${nombre} para la semana del ${semana}?`)) return;
+    const res = await apiFetch('/nominas/cerrar', {
+        method: 'POST',
+        body: { motorizado_id: motorizadoId, semana_inicio: semana }
+    });
+    if (res && !res.error) {
+        showToast(`Nómina de ${nombre} cerrada`);
+        loadNominasAdmin();
+    } else {
+        showToast(res?.error || 'Error al cerrar nómina', 'err');
+    }
+}
+
+async function cerrarTodasNominas() {
+    const input = document.getElementById('nominaSemanaInput');
+    const semana = input?.value;
+    if (!semana) { showToast('Selecciona una semana primero', 'err'); return; }
+    if (!confirm(`¿Cerrar nóminas de TODOS los motorizados para la semana del ${semana}?`)) return;
+
+    const res = await apiFetch('/nominas/cerrar-todas', {
+        method: 'POST',
+        body: { semana_inicio: semana }
+    });
+    if (res && !res.error) {
+        showToast(`${res.cerradas} nóminas cerradas`);
+        loadNominasAdmin();
+    } else {
+        showToast(res?.error || 'Error al cerrar nóminas', 'err');
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+// ── PRÉSTAMOS (Admin) ─────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+async function loadPrestamosAdmin() {
+    const data = await apiFetch('/prestamos');
+    const tbody = document.getElementById('prestamosAdminBody');
+    if (!data || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="loading-txt">Sin préstamos registrados</td></tr>';
+        return;
+    }
+
+    const estadoMap = {
+        pendiente: '<span class="badge badge-yellow">Pendiente</span>',
+        aprobado: '<span class="badge badge-blue">Aprobado</span>',
+        rechazado: '<span class="badge badge-red">Rechazado</span>',
+        pagado: '<span class="badge badge-green">Pagado</span>'
+    };
+
+    tbody.innerHTML = data.map(p => `
+    <tr>
+        <td><strong>${p.motorizado_nombre || '—'}</strong></td>
+        <td>${p.motorizado_cedula || '—'}</td>
+        <td style="font-weight:700;">${fmt(p.monto)}</td>
+        <td>${p.cuotas}</td>
+        <td>${fmt(p.cuota_semanal)}</td>
+        <td style="color:${parseFloat(p.saldo_pendiente) > 0 ? '#FF6B6B' : 'var(--g1)'};">${fmt(p.saldo_pendiente)}</td>
+        <td>${estadoMap[p.estado] || p.estado}</td>
+        <td style="font-size:.8rem;">${fmtDate(p.solicitado_en)}</td>
+        <td>
+            ${p.estado === 'pendiente' ? `
+                <button class="btn-icon" onclick="abrirAprobarPrestamo('${p.id}','${(p.motorizado_nombre || '').replace(/'/g, "\\'")}','${p.monto}','${p.cuotas}')" title="Aprobar" style="color:var(--g1);">✅</button>
+                <button class="btn-icon" onclick="rechazarPrestamo('${p.id}')" title="Rechazar" style="color:#FF4444;">❌</button>
+            ` : '—'}
+        </td>
+    </tr>`).join('');
+}
+
+function abrirAprobarPrestamo(id, nombre, monto, cuotas) {
+    document.getElementById('ap_id').value = id;
+    document.getElementById('ap_nombre').value = nombre;
+    document.getElementById('ap_monto').value = '$' + parseFloat(monto).toFixed(2);
+    document.getElementById('ap_cuotas').value = cuotas;
+    calcApCuota();
+    openModal('modalAprobarPrestamo');
+}
+
+function calcApCuota() {
+    const montoStr = document.getElementById('ap_monto').value.replace('$', '');
+    const monto = parseFloat(montoStr) || 0;
+    const cuotas = parseInt(document.getElementById('ap_cuotas').value) || 1;
+    document.getElementById('ap_cuota_est').value = fmt(monto / cuotas) + ' / semana';
+}
+
+// Listener para recalcular cuota al cambiar
+document.addEventListener('DOMContentLoaded', () => {
+    const el = document.getElementById('ap_cuotas');
+    if (el) el.addEventListener('input', calcApCuota);
+});
+
+async function confirmarAprobarPrestamo(e) {
+    e.preventDefault();
+    const id = document.getElementById('ap_id').value;
+    const cuotas = parseInt(document.getElementById('ap_cuotas').value);
+    const res = await apiFetch(`/prestamos/${id}/aprobar`, {
+        method: 'PATCH',
+        body: { cuotas }
+    });
+    if (res && !res.error) {
+        showToast('Préstamo aprobado');
+        closeModal('modalAprobarPrestamo');
+        loadPrestamosAdmin();
+    } else {
+        showToast(res?.error || 'Error al aprobar', 'err');
+    }
+}
+
+async function rechazarPrestamo(id) {
+    if (!confirm('¿Rechazar este préstamo?')) return;
+    const res = await apiFetch(`/prestamos/${id}/rechazar`, { method: 'PATCH' });
+    if (res && !res.error) {
+        showToast('Préstamo rechazado');
+        loadPrestamosAdmin();
+    } else {
+        showToast(res?.error || 'Error al rechazar', 'err');
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+// ── PARÁMETROS DEL SISTEMA (Admin) ────────────────────────
+// ══════════════════════════════════════════════════════════
+async function loadParametros() {
+    const data = await apiFetch('/parametros');
+    const grid = document.getElementById('parametrosGrid');
+    if (!data || !data.length) {
+        grid.innerHTML = '<p class="loading-txt">Sin parámetros configurados</p>';
+        return;
+    }
+
+    const iconos = {
+        porcentaje_empresa: '📊',
+        costo_moto_semanal: '🛵'
+    };
+
+    grid.innerHTML = data.map(p => `
+    <div class="card" style="padding:20px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <span style="font-size:2rem;">${iconos[p.clave] || '⚙️'}</span>
+            <div>
+                <div style="font-weight:700;font-size:1rem;">${p.clave.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                <div style="font-size:.78rem;color:var(--muted);">${p.descripcion || ''}</div>
+            </div>
+        </div>
+        <div class="field">
+            <label>Valor actual</label>
+            <div style="display:flex;gap:8px;">
+                <input type="number" step="0.01" id="param_${p.clave}" value="${p.valor}"
+                    style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--g1);font-weight:700;font-size:1.1rem;">
+                <button class="btn-primary" onclick="guardarParametro('${p.clave}')">Guardar</button>
+            </div>
+        </div>
+        <div style="font-size:.72rem;color:var(--muted);margin-top:8px;">
+            Última actualización: ${p.actualizado_en ? fmtDate(p.actualizado_en) : 'Nunca'}
+        </div>
+    </div>`).join('');
+
+    // Preview de fórmula
+    const paramMap = {};
+    data.forEach(p => paramMap[p.clave] = parseFloat(p.valor));
+    const pct = paramMap.porcentaje_empresa || 30;
+    const moto = paramMap.costo_moto_semanal || 40;
+    document.getElementById('formulaPreview').innerHTML = `
+    <div style="font-family:monospace;font-size:1rem;color:var(--text);line-height:2;">
+        <div><strong>Monto Bruto</strong> = Suma de servicios completados en la semana</div>
+        <div style="color:#FF6B6B;"><strong>− Empresa (${pct}%)</strong> = Bruto × ${pct/100}</div>
+        <div style="color:#FF6B6B;"><strong>− Uso de moto</strong> = $${moto.toFixed(2)} fijo semanal</div>
+        <div style="color:#FF6B6B;"><strong>− Préstamos</strong> = Cuotas semanales activas</div>
+        <hr style="border:none;border-top:2px solid var(--g1);margin:12px 0;">
+        <div style="color:var(--g1);font-size:1.15rem;"><strong>= SUELDO NETO</strong></div>
+    </div>`;
+}
+
+async function guardarParametro(clave) {
+    const input = document.getElementById('param_' + clave);
+    const valor = parseFloat(input?.value);
+    if (isNaN(valor)) { showToast('Valor inválido', 'err'); return; }
+
+    const res = await apiFetch('/parametros/' + clave, {
+        method: 'PUT',
+        body: { valor }
+    });
+    if (res && !res.error) {
+        showToast(`Parámetro "${clave}" actualizado a ${valor}`);
+        loadParametros();
+    } else {
+        showToast(res?.error || 'Error al guardar', 'err');
+    }
+}
+
+function guardarGmail() {
+    showToast('Configuración de Gmail guardada (local)');
+}
+
 // ── Init
 loadDashboard();
 document.addEventListener('viewChange', ({ detail: { view } }) => {
@@ -516,6 +746,9 @@ document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'flota') loadFlota();
     if (view === 'servicios') { loadServicios(); loadTarifas(); }
     if (view === 'cobranza') loadCobranza();
+    if (view === 'nominas') loadNominasAdmin();
+    if (view === 'prestamos') loadPrestamosAdmin();
+    if (view === 'parametros') loadParametros();
     if (view === 'cierres') loadCierresAdmin();
     if (view === 'usuarios') loadUsuarios();
     if (view === 'dashboard') loadDashboard();

@@ -9,7 +9,7 @@ router.use(auth);
 // GET /api/servicios
 router.get('/', async (req, res) => {
     try {
-        const { estado, hoy, limit } = req.query;
+        const { estado, hoy, limit, motorizado_id, desde, hasta } = req.query;
         let query = `
       SELECT s.*, c.nombre_marca AS cliente_nombre, m.nombre AS motorizado_nombre,
              EXISTS(SELECT 1 FROM notas_entrega n WHERE n.servicio_id = s.id) AS tiene_nota
@@ -21,12 +21,23 @@ router.get('/', async (req, res) => {
         const where = [];
 
         if (estado) {
-            // 'en_curso' en el frontend = 'pendiente' en la BD
             const dbEstado = estado === 'en_curso' ? 'pendiente' : estado;
             params.push(dbEstado);
             where.push(`s.estado = $${params.length}`);
         }
         if (hoy) where.push(`DATE(s.fecha_inicio) = CURRENT_DATE`);
+        if (motorizado_id) {
+            params.push(motorizado_id);
+            where.push(`s.motorizado_id = $${params.length}`);
+        }
+        if (desde) {
+            params.push(desde);
+            where.push(`DATE(s.fecha_inicio) >= $${params.length}`);
+        }
+        if (hasta) {
+            params.push(hasta);
+            where.push(`DATE(s.fecha_inicio) <= $${params.length}`);
+        }
         if (where.length) query += ' WHERE ' + where.join(' AND ');
         query += ' ORDER BY s.fecha_inicio DESC';
         query += ` LIMIT ${parseInt(limit) || 100}`;

@@ -25,6 +25,9 @@ app.use('/api/cobranza', require('./routes/cobranza'));
 app.use('/api/cierres', require('./routes/cierres'));
 app.use('/api/reportes', require('./routes/reportes'));
 app.use('/api/usuarios', require('./routes/usuarios'));
+app.use('/api/parametros', require('./routes/parametros'));
+app.use('/api/prestamos', require('./routes/prestamos'));
+app.use('/api/nominas', require('./routes/nominas'));
 
 // ── Reset DB: limpiar datos de prueba (solo admin) ──────────
 app.post('/api/admin/reset-db', require('./middleware/auth'), (req, res, next) => {
