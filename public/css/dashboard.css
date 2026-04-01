@@ -794,19 +794,37 @@ textarea::placeholder {
     left: 0;
     top: 0;
     bottom: 0;
-    z-index: 100;
+    z-index: 200;
     transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0,0,0,0.5);
   }
 
   .sidebar.open {
     transform: translateX(0);
   }
 
+  /* Backdrop overlay cuando sidebar está abierto */
+  .sidebar.open ~ .main-wrap::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 150;
+  }
+
   .menu-toggle {
     display: block;
   }
 
+  .main-wrap {
+    margin-left: 0;
+  }
+
   .dash-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-2 {
     grid-template-columns: 1fr;
   }
 
@@ -817,6 +835,31 @@ textarea::placeholder {
   .content {
     padding: 18px 14px;
   }
+
+  .topbar {
+    padding: 0 14px;
+  }
+
+  .view-header {
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .data-table {
+    font-size: 0.78rem;
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 8px 6px;
+  }
+
+  .modal {
+    width: 95vw;
+    max-width: 95vw;
+    margin: 10px;
+  }
 }
 
 @media (max-width:480px) {
@@ -825,7 +868,37 @@ textarea::placeholder {
   }
 
   .moto-cards {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
+  }
+
+  .topbar {
+    height: 50px;
+    padding: 0 12px;
+  }
+
+  .topbar-title {
+    font-size: 0.9rem;
+  }
+
+  .content {
+    padding: 14px 10px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .data-table {
+    font-size: 0.72rem;
+  }
+
+  .btn-primary {
+    font-size: 0.82rem;
+    padding: 10px 16px;
+  }
+
+  .search-bar input {
+    font-size: 0.85rem;
   }
 }
 
