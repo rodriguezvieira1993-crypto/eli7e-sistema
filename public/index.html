@@ -669,6 +669,135 @@
         let selectedRole = null;
         let isAnimating = false;
 
+        // ─── MOTO SOUND ENGINE (Web Audio API) ──────
+        let _audioCtx = null;
+        function _ctx() {
+            if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (_audioCtx.state === 'suspended') _audioCtx.resume();
+            return _audioCtx;
+        }
+
+        function _makeNoise(ctx, duration) {
+            const buf = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+            const src = ctx.createBufferSource();
+            src.buffer = buf;
+            return src;
+        }
+
+        // Sonido de encendido: click starter + rumble corto
+        function playIgnition() {
+            try {
+                const ctx = _ctx(), t = ctx.currentTime;
+
+                // Starter click
+                const click = ctx.createOscillator();
+                const clickG = ctx.createGain();
+                click.type = 'square';
+                click.frequency.setValueAtTime(180, t);
+                click.frequency.exponentialRampToValueAtTime(60, t + 0.08);
+                clickG.gain.setValueAtTime(0.18, t);
+                clickG.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+                click.connect(clickG).connect(ctx.destination);
+                click.start(t); click.stop(t + 0.1);
+
+                // Engine rumble burst
+                const eng = ctx.createOscillator();
+                const engG = ctx.createGain();
+                const engF = ctx.createBiquadFilter();
+                eng.type = 'sawtooth';
+                eng.frequency.setValueAtTime(55, t + 0.05);
+                eng.frequency.linearRampToValueAtTime(95, t + 0.25);
+                eng.frequency.linearRampToValueAtTime(70, t + 0.55);
+                engF.type = 'lowpass'; engF.frequency.value = 350;
+                engG.gain.setValueAtTime(0, t);
+                engG.gain.linearRampToValueAtTime(0.13, t + 0.1);
+                engG.gain.linearRampToValueAtTime(0.06, t + 0.35);
+                engG.gain.exponentialRampToValueAtTime(0.001, t + 0.6);
+                eng.connect(engF).connect(engG).connect(ctx.destination);
+                eng.start(t + 0.05); eng.stop(t + 0.6);
+
+                // Noise texture
+                const noise = _makeNoise(ctx, 0.4);
+                const nG = ctx.createGain();
+                const nF = ctx.createBiquadFilter();
+                nF.type = 'bandpass'; nF.frequency.value = 400; nF.Q.value = 1;
+                nG.gain.setValueAtTime(0.02, t);
+                nG.gain.linearRampToValueAtTime(0.04, t + 0.15);
+                nG.gain.exponentialRampToValueAtTime(0.001, t + 0.45);
+                noise.connect(nF).connect(nG).connect(ctx.destination);
+                noise.start(t + 0.05); noise.stop(t + 0.5);
+            } catch(e) {}
+        }
+
+        // Sonido de arranque: rev sube + exhaust + doppler
+        function playLaunch() {
+            try {
+                const ctx = _ctx(), t = ctx.currentTime;
+
+                // Engine rev (frequency climbs)
+                const rev = ctx.createOscillator();
+                const revG = ctx.createGain();
+                const revF = ctx.createBiquadFilter();
+                rev.type = 'sawtooth';
+                rev.frequency.setValueAtTime(70, t);
+                rev.frequency.exponentialRampToValueAtTime(160, t + 0.35);
+                rev.frequency.exponentialRampToValueAtTime(350, t + 0.7);
+                rev.frequency.exponentialRampToValueAtTime(700, t + 1.1);
+                rev.frequency.exponentialRampToValueAtTime(1200, t + 1.5);
+                revF.type = 'lowpass';
+                revF.frequency.setValueAtTime(500, t);
+                revF.frequency.exponentialRampToValueAtTime(3000, t + 1.2);
+                revF.frequency.exponentialRampToValueAtTime(800, t + 1.8);
+                revG.gain.setValueAtTime(0.1, t);
+                revG.gain.linearRampToValueAtTime(0.18, t + 0.4);
+                revG.gain.linearRampToValueAtTime(0.22, t + 0.9);
+                revG.gain.linearRampToValueAtTime(0.12, t + 1.4);
+                revG.gain.exponentialRampToValueAtTime(0.001, t + 2.0);
+                rev.connect(revF).connect(revG).connect(ctx.destination);
+                rev.start(t); rev.stop(t + 2.0);
+
+                // Sub bass layer
+                const sub = ctx.createOscillator();
+                const subG = ctx.createGain();
+                sub.type = 'sine';
+                sub.frequency.setValueAtTime(40, t);
+                sub.frequency.exponentialRampToValueAtTime(80, t + 0.6);
+                sub.frequency.exponentialRampToValueAtTime(150, t + 1.3);
+                subG.gain.setValueAtTime(0.12, t);
+                subG.gain.linearRampToValueAtTime(0.08, t + 0.8);
+                subG.gain.exponentialRampToValueAtTime(0.001, t + 1.6);
+                sub.connect(subG).connect(ctx.destination);
+                sub.start(t); sub.stop(t + 1.6);
+
+                // Exhaust noise
+                const noise = _makeNoise(ctx, 2.0);
+                const nG = ctx.createGain();
+                const nF = ctx.createBiquadFilter();
+                nF.type = 'bandpass'; nF.frequency.value = 600; nF.Q.value = 0.7;
+                nF.frequency.exponentialRampToValueAtTime(1500, t + 1.0);
+                nF.frequency.exponentialRampToValueAtTime(400, t + 1.8);
+                nG.gain.setValueAtTime(0.03, t);
+                nG.gain.linearRampToValueAtTime(0.09, t + 0.5);
+                nG.gain.linearRampToValueAtTime(0.12, t + 1.0);
+                nG.gain.exponentialRampToValueAtTime(0.001, t + 1.9);
+                noise.connect(nF).connect(nG).connect(ctx.destination);
+                noise.start(t); noise.stop(t + 2.0);
+
+                // Doppler whoosh at the end
+                const whoosh = _makeNoise(ctx, 0.6);
+                const wG = ctx.createGain();
+                const wF = ctx.createBiquadFilter();
+                wF.type = 'highpass'; wF.frequency.value = 2000;
+                wG.gain.setValueAtTime(0, t + 1.0);
+                wG.gain.linearRampToValueAtTime(0.08, t + 1.3);
+                wG.gain.exponentialRampToValueAtTime(0.001, t + 1.7);
+                whoosh.connect(wF).connect(wG).connect(ctx.destination);
+                whoosh.start(t + 1.0); whoosh.stop(t + 1.7);
+            } catch(e) {}
+        }
+
         // Auto-redirect if logged in
         const sesion = localStorage.getItem('eli7e_user');
         if (sesion) {
@@ -682,6 +811,7 @@
             document.querySelectorAll('.spec-item').forEach(s => s.classList.remove('active'));
             el.classList.add('active');
             selectedRole = role;
+            playIgnition();
 
             if (typeof gsap !== 'undefined') {
                 gsap.to(el, { scale: 1.05, duration: 0.12, yoyo: true, repeat: 1 });
@@ -723,6 +853,7 @@
             }
 
             isAnimating = true;
+            playLaunch();
 
             if (typeof gsap === 'undefined') { showLoginScreen(); return; }
 
