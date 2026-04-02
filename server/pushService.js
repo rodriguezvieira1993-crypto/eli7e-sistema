@@ -87,10 +87,31 @@ async function removeSubscription(endpoint) {
 async function notifyMotorizado(motorizadoId, title, body, data = {}) {
     if (!_configured && !(await init())) return { sent: 0, failed: 0 };
 
-    const { rows } = await pool.query(
-        "SELECT * FROM push_subscriptions WHERE user_id = $1 AND user_rol = 'motorizado'",
+    // Buscar suscripciones — intentar por motorizado_id, si no hay buscar por user_id genérico
+    let { rows } = await pool.query(
+        "SELECT * FROM push_subscriptions WHERE user_id = $1",
         [motorizadoId]
     );
+
+    console.log(`📬 Push: buscando suscripciones para ${motorizadoId} → ${rows.length} encontrada(s)`);
+
+    if (!rows.length) {
+        // Intentar buscar la relación motorizado → usuario
+        try {
+            const { rows: motoRows } = await pool.query(
+                "SELECT u.id FROM usuarios u JOIN motorizados m ON m.cedula = u.nombre WHERE m.id = $1 LIMIT 1",
+                [motorizadoId]
+            );
+            if (motoRows.length) {
+                const result = await pool.query(
+                    "SELECT * FROM push_subscriptions WHERE user_id = $1",
+                    [motoRows[0].id]
+                );
+                rows = result.rows;
+                console.log(`📬 Push: fallback por usuario → ${rows.length} encontrada(s)`);
+            }
+        } catch (e) { /* no crítico */ }
+    }
 
     let sent = 0, failed = 0;
 
@@ -111,7 +132,9 @@ async function notifyMotorizado(motorizadoId, title, body, data = {}) {
         try {
             await webpush.sendNotification(pushSub, payload);
             sent++;
+            console.log(`📬 Push enviado OK a ${sub.endpoint.substring(0, 60)}...`);
         } catch (err) {
+            console.log(`📬 Push error: ${err.statusCode || err.message}`);
             if (err.statusCode === 410 || err.statusCode === 404) {
                 await removeSubscription(sub.endpoint);
             }

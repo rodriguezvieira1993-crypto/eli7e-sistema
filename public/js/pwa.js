@@ -194,9 +194,14 @@
         // Guardar token en cache para que el SW pueda completar servicios
         await cacheTokenForSW();
 
-        // Si ya tiene permiso, re-suscribir silenciosamente
-        if (reg && 'Notification' in window && Notification.permission === 'granted') {
+        // SIEMPRE re-suscribir si tiene permiso y token (por si cambió el SW o VAPID)
+        const hasToken = !!localStorage.getItem('eli7e_token');
+        if (reg && hasToken && 'Notification' in window && Notification.permission === 'granted') {
             await subscribeToPush();
+        }
+        // Si tiene token pero no permiso, pedir permiso automáticamente
+        if (reg && hasToken && 'Notification' in window && Notification.permission === 'default') {
+            setTimeout(() => requestNotificationPermission(), 5000);
         }
 
         // Mostrar banner de instalación en TODOS los dispositivos móviles

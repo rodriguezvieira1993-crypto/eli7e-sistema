@@ -89,7 +89,7 @@ router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
                     `${tipo.charAt(0).toUpperCase() + tipo.slice(1)} $${parseFloat(monto).toFixed(2)}${desc}`,
                     { servicioId: rows[0].id }
                 );
-            } catch (pushErr) { /* no bloquear si push falla */ }
+            } catch (pushErr) { console.log('⚠️ Push error:', pushErr.message); }
         }
         res.status(201).json(rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
