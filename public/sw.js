@@ -1,5 +1,5 @@
 // sw.js — Service Worker para Eli7e PWA + Push Notifications
-const CACHE_NAME = 'eli7e-v1';
+const CACHE_NAME = 'eli7e-v2';
 
 // Instalar
 self.addEventListener('install', (e) => {
