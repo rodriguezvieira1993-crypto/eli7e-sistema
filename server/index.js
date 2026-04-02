@@ -11,6 +11,34 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Generar íconos PWA con fondo negro al iniciar
+(async () => {
+    try {
+        const sharp = require('sharp');
+        const fss = require('fs');
+        const logoPath = path.join(__dirname, '../public/img/eli7e_logo.png');
+        if (!fss.existsSync(logoPath)) return;
+
+        for (const size of [192, 512]) {
+            const iconPath = path.join(__dirname, `../public/img/icon-${size}.png`);
+            const padding = Math.round(size * 0.15);
+            const logoSize = size - padding * 2;
+
+            const logo = await sharp(logoPath)
+                .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+                .toBuffer();
+
+            await sharp({ create: { width: size, height: size, channels: 4, background: { r: 6, g: 11, b: 6, alpha: 255 } } })
+                .composite([{ input: logo, gravity: 'centre' }])
+                .png()
+                .toFile(iconPath);
+        }
+        console.log('✅ Íconos PWA generados con fondo negro');
+    } catch (e) {
+        console.log('⚠️ Íconos PWA: usando originales —', e.message);
+    }
+})();
+
 // Servir archivos estáticos del frontend
 app.use(express.static(path.join(__dirname, '../public')));
 

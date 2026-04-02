@@ -2,6 +2,7 @@
 (function () {
     let _deferredPrompt = null;
     let _swRegistration = null;
+    let _bannerShown = false;
 
     // ─── REGISTRO DEL SERVICE WORKER ────────────────────────────
     async function registerSW() {
@@ -19,34 +20,33 @@
 
     // ─── BANNER DE INSTALACIÓN ──────────────────────────────────
     function showInstallBanner() {
+        if (_bannerShown) return;
         // No mostrar si ya está instalado como PWA
         if (window.matchMedia('(display-mode: standalone)').matches) return;
         if (window.navigator.standalone === true) return;
-
-        // No mostrar si el usuario ya lo descartó esta sesión
+        // No mostrar si ya descartó esta sesión
         if (sessionStorage.getItem('eli7e_install_dismissed')) return;
+        _bannerShown = true;
 
-        // Crear banner
         const banner = document.createElement('div');
         banner.id = 'pwa-install-banner';
         banner.innerHTML = `
             <div style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;">
-                <img src="/img/icon-192.png" alt="Eli7e" style="width:40px;height:40px;border-radius:10px;flex-shrink:0;">
+                <img src="/img/icon-192.png" alt="Eli7e" style="width:44px;height:44px;border-radius:12px;flex-shrink:0;background:#060B06;">
                 <div style="min-width:0;">
-                    <div style="font-weight:700;font-size:.92rem;color:#E4F5E4;">Instalar Eli7e</div>
-                    <div style="font-size:.72rem;color:#7A9A7A;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Acceso rápido + notificaciones</div>
+                    <div style="font-weight:700;font-size:.95rem;color:#E4F5E4;">Descargar Eli7e</div>
+                    <div style="font-size:.74rem;color:#7A9A7A;">Instala la app para recibir notificaciones</div>
                 </div>
             </div>
             <div style="display:flex;gap:8px;flex-shrink:0;">
-                <button id="pwa-install-btn" style="background:linear-gradient(135deg,#00DD00,#007700);color:#000;border:none;border-radius:8px;padding:8px 18px;font-weight:700;font-family:inherit;font-size:.82rem;cursor:pointer;">Instalar</button>
-                <button id="pwa-dismiss-btn" style="background:none;border:1px solid rgba(0,221,0,.2);border-radius:8px;padding:8px 12px;color:#7A9A7A;font-family:inherit;font-size:.82rem;cursor:pointer;">Luego</button>
+                <button id="pwa-install-btn" style="background:linear-gradient(135deg,#00DD00,#007700);color:#000;border:none;border-radius:10px;padding:10px 20px;font-weight:700;font-family:inherit;font-size:.88rem;cursor:pointer;">Descargar</button>
+                <button id="pwa-dismiss-btn" style="background:none;border:1px solid rgba(0,221,0,.25);border-radius:10px;padding:10px 14px;color:#7A9A7A;font-family:inherit;font-size:.82rem;cursor:pointer;">Luego</button>
             </div>
         `;
-        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0F180F;border-top:1px solid rgba(0,221,0,.2);padding:12px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 -4px 20px rgba(0,0,0,.5);animation:slideUp .4s ease-out;';
+        banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#0A140A;border-top:2px solid rgba(0,221,0,.3);padding:14px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 -6px 30px rgba(0,0,0,.7);animation:pwaSlideUp .5s ease-out;';
 
-        // Agregar animación
         const style = document.createElement('style');
-        style.textContent = '@keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}';
+        style.textContent = '@keyframes pwaSlideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}';
         document.head.appendChild(style);
 
         document.body.appendChild(banner);
@@ -54,21 +54,33 @@
         // Botón instalar
         document.getElementById('pwa-install-btn').addEventListener('click', async () => {
             if (_deferredPrompt) {
+                // Chrome: usar el prompt nativo
                 _deferredPrompt.prompt();
                 const { outcome } = await _deferredPrompt.userChoice;
                 _deferredPrompt = null;
                 if (outcome === 'accepted') {
                     banner.remove();
-                    // Después de instalar, pedir permisos de notificación
                     setTimeout(() => requestNotificationPermission(), 1500);
                 }
             } else {
-                // En iOS o navegadores sin beforeinstallprompt
+                // Android sin prompt / iOS / otros: mostrar instrucciones
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                const isAndroid = /Android/.test(navigator.userAgent);
+
+                let instructions = '';
+                if (isIOS) {
+                    instructions = 'Toca el botón <strong style="color:#00DD00;">Compartir ↗</strong> abajo y luego <strong style="color:#00DD00;">"Agregar a pantalla de inicio"</strong>';
+                } else if (isAndroid) {
+                    instructions = 'Toca los <strong style="color:#00DD00;">3 puntos ⋮</strong> del navegador y luego <strong style="color:#00DD00;">"Instalar app"</strong> o <strong style="color:#00DD00;">"Agregar a pantalla de inicio"</strong>';
+                } else {
+                    instructions = 'Usa el menú del navegador para <strong style="color:#00DD00;">"Instalar"</strong> o <strong style="color:#00DD00;">"Agregar a pantalla de inicio"</strong>';
+                }
+
                 banner.innerHTML = `
-                    <div style="text-align:center;width:100%;padding:8px 0;">
-                        <div style="font-weight:700;font-size:.88rem;color:#E4F5E4;margin-bottom:6px;">Para instalar Eli7e:</div>
-                        <div style="font-size:.78rem;color:#7A9A7A;">Toca <strong style="color:#00DD00;">Compartir ↗</strong> y luego <strong style="color:#00DD00;">"Agregar a pantalla de inicio"</strong></div>
-                        <button onclick="this.parentElement.parentElement.remove();sessionStorage.setItem('eli7e_install_dismissed','1')" style="margin-top:10px;background:none;border:1px solid rgba(0,221,0,.2);border-radius:8px;padding:6px 16px;color:#7A9A7A;font-family:inherit;font-size:.78rem;cursor:pointer;">Entendido</button>
+                    <div style="width:100%;padding:4px 0;">
+                        <div style="font-weight:700;font-size:.92rem;color:#E4F5E4;margin-bottom:8px;">📲 Para instalar Eli7e:</div>
+                        <div style="font-size:.82rem;color:#7A9A7A;line-height:1.5;">${instructions}</div>
+                        <button onclick="this.parentElement.parentElement.remove();sessionStorage.setItem('eli7e_install_dismissed','1')" style="margin-top:12px;background:linear-gradient(135deg,#00DD00,#007700);color:#000;border:none;border-radius:8px;padding:8px 20px;font-weight:700;font-family:inherit;font-size:.82rem;cursor:pointer;">Entendido</button>
                     </div>`;
             }
         });
@@ -80,15 +92,14 @@
         });
     }
 
-    // Capturar evento de instalación
+    // Capturar evento de instalación (Chrome en Android/Desktop)
     window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
         _deferredPrompt = e;
-        // Mostrar banner después de un momento
-        setTimeout(showInstallBanner, 2000);
+        showInstallBanner();
     });
 
-    // Si ya se instaló
+    // Después de instalar
     window.addEventListener('appinstalled', () => {
         _deferredPrompt = null;
         const banner = document.getElementById('pwa-install-banner');
@@ -115,22 +126,18 @@
         if (!_swRegistration) return;
 
         try {
-            // Obtener clave pública VAPID del servidor
             const resp = await fetch('/api/push/vapid-key');
             if (!resp.ok) return;
             const { publicKey } = await resp.json();
             if (!publicKey) return;
 
-            // Convertir clave a Uint8Array
             const appServerKey = urlBase64ToUint8Array(publicKey);
 
-            // Suscribirse a push
             const subscription = await _swRegistration.pushManager.subscribe({
                 userVisibleOnly: true,
                 applicationServerKey: appServerKey
             });
 
-            // Enviar suscripción al servidor
             const token = localStorage.getItem('eli7e_token');
             if (!token) return;
 
@@ -164,19 +171,15 @@
     document.addEventListener('DOMContentLoaded', async () => {
         const reg = await registerSW();
 
-        // Si ya tiene permiso de notificaciones, re-suscribir
-        if (reg && Notification.permission === 'granted') {
+        // Si ya tiene permiso, re-suscribir silenciosamente
+        if (reg && 'Notification' in window && Notification.permission === 'granted') {
             await subscribeToPush();
         }
 
-        // Mostrar banner de instalación si no está instalado
-        // (en navegadores que no disparan beforeinstallprompt, mostrarlo después de un delay)
+        // Mostrar banner de instalación en TODOS los dispositivos móviles
+        // después de 3 segundos (da tiempo a que cargue la página)
         if (!window.matchMedia('(display-mode: standalone)').matches && !window.navigator.standalone) {
-            // En iOS, no existe beforeinstallprompt — mostrar banner instructivo
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            if (isIOS && !sessionStorage.getItem('eli7e_install_dismissed')) {
-                setTimeout(showInstallBanner, 3000);
-            }
+            setTimeout(showInstallBanner, 3000);
         }
     });
 })();

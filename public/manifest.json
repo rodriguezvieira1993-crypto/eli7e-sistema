@@ -3,14 +3,15 @@
   "short_name": "Eli7e",
   "description": "Sistema de gestión operativa de mototaxi y delivery",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#060B06",
-  "theme_color": "#00DD00",
+  "theme_color": "#060B06",
   "orientation": "any",
   "icons": [
     {
-      "src": "img/eli7e_logo.png",
-      "sizes": "any",
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
@@ -18,13 +19,19 @@
       "src": "img/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     },
     {
       "src": "img/icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
