@@ -332,14 +332,15 @@ async function verFichaMoto(id) {
         <div>${estadoBadge(m.estado)}</div>
     </div>
     <div style="padding:20px;">
+        <form onsubmit="guardarFichaMoto(event, '${m.id}', '${m.nombre.replace(/'/g,"\\'")}')">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
-            <div style="background:var(--bg);padding:12px;border-radius:8px;">
-                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">CEDULA</div>
-                <div style="font-weight:600;">${m.cedula || '—'}</div>
+            <div class="field" style="margin:0;">
+                <label style="font-size:.72rem;color:var(--muted);">CEDULA</label>
+                <input id="fichaMoto_cedula" value="${m.cedula || ''}" placeholder="V-12345678" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:inherit;">
             </div>
-            <div style="background:var(--bg);padding:12px;border-radius:8px;">
-                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">TELEFONO</div>
-                <div style="font-weight:600;">${m.telefono || '—'}</div>
+            <div class="field" style="margin:0;">
+                <label style="font-size:.72rem;color:var(--muted);">TELEFONO</label>
+                <input id="fichaMoto_telefono" value="${m.telefono || ''}" placeholder="0412-1234567" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:inherit;">
             </div>
             <div style="background:var(--bg);padding:12px;border-radius:8px;">
                 <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">SERVICIOS HOY</div>
@@ -350,11 +351,30 @@ async function verFichaMoto(id) {
                 <div style="font-weight:700;color:var(--g1);">${fmt(r.total_dia)}</div>
             </div>
         </div>
+        <button type="submit" class="btn-primary" style="width:100%;margin-bottom:12px;">Guardar cambios</button>
+        </form>
         <div style="font-size:.75rem;color:var(--muted);text-align:center;">
             Registrado: ${m.creado_en ? fmtDate(m.creado_en) : '—'}
         </div>
     </div>`;
     openModal('modalFichaMoto');
+}
+
+async function guardarFichaMoto(e, id, nombre) {
+    e.preventDefault();
+    const cedula = document.getElementById('fichaMoto_cedula').value.trim();
+    const telefono = document.getElementById('fichaMoto_telefono').value.trim();
+    const res = await apiFetch('/motorizados/' + id, {
+        method: 'PUT',
+        body: { nombre, cedula, telefono }
+    });
+    if (res && !res.error) {
+        showToast('Motorizado actualizado');
+        closeModal('modalFichaMoto');
+        loadFlota();
+    } else {
+        showToast(res?.error || 'Error al guardar', 'err');
+    }
 }
 
 // ── Tipos de Servicio (catálogo) ────────────────────────
