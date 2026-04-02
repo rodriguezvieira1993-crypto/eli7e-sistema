@@ -1,3 +1,4 @@
+if (!requireRole('call_center', 'admin')) throw new Error('redirect');
 let allClientesCC = [];
 let allMotosCC = [];
 let serviciosRecientes = [];

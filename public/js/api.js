@@ -11,6 +11,27 @@ function getUser() {
     return u ? JSON.parse(u) : null;
 }
 
+// Mapa de dashboards por rol
+const ROLE_DASHBOARD = {
+    admin: '/dashboard-admin.html',
+    call_center: '/dashboard-callcenter.html',
+    contable: '/dashboard-contable.html',
+    motorizado: '/dashboard-motorizado.html',
+};
+
+// Redirige al dashboard correcto si el rol no coincide con los permitidos
+function requireRole(...allowedRoles) {
+    const user = getUser();
+    if (!user || !getToken()) { window.location.href = '/'; return false; }
+    if (!allowedRoles.includes(user.rol)) {
+        const dest = ROLE_DASHBOARD[user.rol];
+        if (dest) window.location.href = dest;
+        else { logout(); }
+        return false;
+    }
+    return true;
+}
+
 // Fetch autenticado
 async function apiFetch(path, opts = {}) {
     const token = getToken();
