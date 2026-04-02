@@ -114,6 +114,44 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', sistema: 'Eli7e', hora: new Date().toISOString() });
 });
 
+// ── Forzar migraciones manualmente (visitar una vez y listo) ──
+app.get('/api/admin/migrate', async (req, res) => {
+    const pool = require('./db');
+    const resultados = [];
+
+    const queries = [
+        { nombre: 'chat_mensajes', sql: `CREATE TABLE IF NOT EXISTS chat_mensajes (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            canal VARCHAR(50) NOT NULL DEFAULT 'general',
+            autor_id UUID NOT NULL, autor_nombre VARCHAR(100) NOT NULL,
+            autor_rol VARCHAR(20) NOT NULL, mensaje TEXT NOT NULL,
+            imagen_url TEXT, mencion_ids UUID[], creado_en TIMESTAMP DEFAULT NOW())` },
+        { nombre: 'idx_chat_canal', sql: `CREATE INDEX IF NOT EXISTS idx_chat_canal ON chat_mensajes(canal)` },
+        { nombre: 'idx_chat_fecha', sql: `CREATE INDEX IF NOT EXISTS idx_chat_fecha ON chat_mensajes(creado_en)` },
+        { nombre: 'push_subscriptions', sql: `CREATE TABLE IF NOT EXISTS push_subscriptions (
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+            user_id UUID NOT NULL, user_rol VARCHAR(20) NOT NULL,
+            endpoint TEXT NOT NULL UNIQUE, p256dh TEXT NOT NULL,
+            auth_key TEXT NOT NULL, creado_en TIMESTAMP DEFAULT NOW(),
+            actualizado_en TIMESTAMP DEFAULT NOW())` },
+        { nombre: 'idx_push', sql: `CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id)` },
+        { nombre: 'configuracion_sistema', sql: `CREATE TABLE IF NOT EXISTS configuracion_sistema (
+            clave VARCHAR(50) PRIMARY KEY, valor TEXT NOT NULL DEFAULT '',
+            descripcion TEXT, actualizado_en TIMESTAMP DEFAULT NOW())` },
+    ];
+
+    for (const q of queries) {
+        try {
+            await pool.query(q.sql);
+            resultados.push('✅ ' + q.nombre);
+        } catch (err) {
+            resultados.push('❌ ' + q.nombre + ': ' + err.message);
+        }
+    }
+
+    res.json({ ok: true, resultados });
+});
+
 // ── SPA fallback: todas las rutas → index.html ──────────────
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
