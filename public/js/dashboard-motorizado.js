@@ -1,8 +1,12 @@
 // dashboard-motorizado.js — Lógica del panel Motorizado
 
-if (!requireRole('motorizado', 'admin')) throw new Error('redirect');
 const motoUser = getUser();
 const isAdmin = motoUser && motoUser.rol === 'admin';
+if (!motoUser || (motoUser.rol !== 'motorizado' && motoUser.rol !== 'admin')) {
+    localStorage.removeItem('eli7e_token');
+    localStorage.removeItem('eli7e_user');
+    window.location.href = '/';
+}
 
 // Si es admin, mostrar selector de motorizado
 let _motoIdOverride = null;

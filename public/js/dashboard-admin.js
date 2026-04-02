@@ -1,5 +1,4 @@
 // dashboard-admin.js — Lógica del panel Admin
-if (!requireRole('admin')) throw new Error('redirect');
 let todosClientes = [];
 let todosMoto = [];
 

@@ -1187,10 +1187,12 @@
             if (saved) {
                 try {
                     const r = JSON.parse(saved);
-                    document.getElementById('email').value = r.user || '';
-                    document.getElementById('password').value = r.pass || '';
-                    document.getElementById('rememberMe').checked = true;
-                    if (r.role) { selectedRole = r.role; }
+                    // Solo cargar credenciales si coinciden con el rol seleccionado
+                    if (r.role && r.role === selectedRole) {
+                        document.getElementById('email').value = r.user || '';
+                        document.getElementById('password').value = r.pass || '';
+                        document.getElementById('rememberMe').checked = true;
+                    }
                 } catch(e) {}
             }
         }

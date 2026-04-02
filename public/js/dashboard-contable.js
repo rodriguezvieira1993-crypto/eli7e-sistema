@@ -1,5 +1,4 @@
 // dashboard-contable.js
-if (!requireRole('contable', 'admin')) throw new Error('redirect');
 let cobranzaData = [];
 
 async function loadCobranza() {
