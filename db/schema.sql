@@ -235,6 +235,22 @@ INSERT INTO configuracion_sistema (clave, valor, descripcion) VALUES
 ON CONFLICT (clave) DO NOTHING;
 
 -- ============================================================
+-- 12. CHAT / MENSAJERÍA INTERNA
+-- ============================================================
+CREATE TABLE IF NOT EXISTS chat_mensajes (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    canal           VARCHAR(50) NOT NULL DEFAULT 'general',
+    autor_id        UUID NOT NULL,
+    autor_nombre    VARCHAR(100) NOT NULL,
+    autor_rol       VARCHAR(20) NOT NULL,
+    mensaje         TEXT NOT NULL,
+    creado_en       TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_chat_canal ON chat_mensajes(canal);
+CREATE INDEX IF NOT EXISTS idx_chat_fecha ON chat_mensajes(creado_en);
+
+-- ============================================================
 -- 11. ÍNDICES para performance (IF NOT EXISTS)
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_servicios_cliente ON servicios(cliente_id);

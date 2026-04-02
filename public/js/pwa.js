@@ -187,6 +187,36 @@
         });
     }
 
+    // ─── BOTÓN FIJO DE INSTALACIÓN EN LOGIN ─────────────────────
+    function showFixedInstallBtn() {
+        const btn = document.getElementById('installFixedBtn');
+        if (!btn) return;
+        if (window.matchMedia('(display-mode: standalone)').matches) return;
+        if (window.navigator.standalone === true) return;
+        btn.style.display = 'block';
+    }
+
+    window._pwaInstallFixed = async function () {
+        if (_deferredPrompt) {
+            _deferredPrompt.prompt();
+            const { outcome } = await _deferredPrompt.userChoice;
+            _deferredPrompt = null;
+            if (outcome === 'accepted') {
+                const btn = document.getElementById('installFixedBtn');
+                if (btn) btn.style.display = 'none';
+                setTimeout(() => requestNotificationPermission(), 1500);
+            }
+        } else {
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            const isAndroid = /Android/.test(navigator.userAgent);
+            let msg = '';
+            if (isIOS) msg = 'Toca el botón Compartir ↗ abajo y luego "Agregar a pantalla de inicio"';
+            else if (isAndroid) msg = 'Toca los 3 puntos ⋮ del navegador → "Instalar app" o "Agregar a pantalla de inicio"';
+            else msg = 'Usa el menú del navegador → "Instalar" o "Agregar a pantalla de inicio"';
+            alert('📲 ' + msg);
+        }
+    };
+
     // ─── INIT ───────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
         const reg = await registerSW();
@@ -208,5 +238,8 @@
         if (!window.matchMedia('(display-mode: standalone)').matches && !window.navigator.standalone) {
             setTimeout(showInstallBanner, 3000);
         }
+
+        // Botón fijo en login (siempre visible si no está instalada)
+        showFixedInstallBtn();
     });
 })();

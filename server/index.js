@@ -2,9 +2,13 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server: SocketIO } = require('socket.io');
 const initDB = require('./initDB');
 
 const app = express();
+const server = http.createServer(app);
+const io = new SocketIO(server, { cors: { origin: '*' } });
 
 // ── Middleware ──────────────────────────────────────────────
 app.use(cors());
@@ -82,6 +86,7 @@ app.use('/api/prestamos', require('./routes/prestamos'));
 app.use('/api/nominas', require('./routes/nominas'));
 app.use('/api/configuracion', require('./routes/configuracion'));
 app.use('/api/push', require('./routes/push'));
+app.use('/api/chat', require('./routes/chat'));
 
 // ── Reset DB: limpiar datos de prueba (solo admin) ──────────
 app.post('/api/admin/reset-db', require('./middleware/auth'), (req, res, next) => {
@@ -109,6 +114,59 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
+// ── Socket.io — Chat en tiempo real ────────────────────────
+const jwt = require('jsonwebtoken');
+const pool = require('./db');
+
+io.use((socket, next) => {
+    const token = socket.handshake.auth?.token;
+    if (!token) return next(new Error('Sin token'));
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'eli7e_jwt_secret_super_seguro_2026');
+        socket.user = decoded;
+        next();
+    } catch {
+        next(new Error('Token inválido'));
+    }
+});
+
+io.on('connection', (socket) => {
+    const user = socket.user;
+    socket.join('general');
+    console.log(`💬 Chat: ${user.nombre} (${user.rol}) conectado`);
+
+    socket.on('join-canal', (canal) => {
+        socket.join(canal);
+    });
+
+    socket.on('chat-mensaje', async (data) => {
+        const { canal, mensaje } = data;
+        if (!mensaje || !mensaje.trim()) return;
+
+        try {
+            const { rows } = await pool.query(
+                `INSERT INTO chat_mensajes (canal, autor_id, autor_nombre, autor_rol, mensaje)
+                 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+                [canal || 'general', user.id, user.nombre, user.rol, mensaje.trim()]
+            );
+            io.to(canal || 'general').emit('chat-nuevo', rows[0]);
+        } catch (err) {
+            socket.emit('chat-error', { error: err.message });
+        }
+    });
+
+    socket.on('typing', (data) => {
+        socket.to(data.canal || 'general').emit('chat-typing', {
+            nombre: user.nombre,
+            rol: user.rol
+        });
+    });
+
+    socket.on('disconnect', () => {
+        console.log(`💬 Chat: ${user.nombre} desconectado`);
+    });
+});
+
 // ── Iniciar servidor ────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
 
@@ -116,9 +174,10 @@ initDB().then(() => {
     // Inicializar push notifications (auto-genera VAPID keys si no existen)
     require('./pushService').init().catch(err => console.log('⚠️ Push init:', err.message));
 
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
         console.log(`✅ Eli7e Sistema corriendo en http://localhost:${PORT}`);
         console.log(`   Admin: admin@eli7e.com / eli7e2026`);
+        console.log(`   💬 Chat WebSocket activo`);
     });
 }).catch(err => {
     console.error('❌ No se pudo inicializar la BD:', err.message);

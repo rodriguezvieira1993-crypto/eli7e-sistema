@@ -26,8 +26,63 @@ async function loadDashboard() {
       </tr>`).join('') || '<tr><td colspan="3">Sin deudas 🎉</td></tr>';
     }
 
-    // Flota
+    // Flota + Ranking
     await loadFlotaStatus();
+    await loadRankingChart();
+}
+
+let rankingChart = null;
+async function loadRankingChart() {
+    const data = await apiFetch('/motorizados/ranking');
+    if (!data || !data.length) return;
+
+    const ctx = document.getElementById('chartRanking');
+    if (!ctx) return;
+
+    if (rankingChart) rankingChart.destroy();
+
+    const nombres = data.map(m => m.nombre);
+    const servicios = data.map(m => m.total_servicios);
+    const ingresos = data.map(m => parseFloat(m.total_ingresos));
+
+    rankingChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: nombres,
+            datasets: [
+                {
+                    label: 'Servicios',
+                    data: servicios,
+                    backgroundColor: 'rgba(0,221,0,0.7)',
+                    borderColor: '#00DD00',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Ingresos ($)',
+                    data: ingresos,
+                    backgroundColor: 'rgba(0,150,255,0.5)',
+                    borderColor: '#0096FF',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#7a9a7a', font: { family: 'Outfit' } } }
+            },
+            scales: {
+                x: { ticks: { color: '#7a9a7a', font: { family: 'Outfit', size: 11 } }, grid: { color: 'rgba(0,221,0,.06)' } },
+                y: { position: 'left', title: { display: true, text: 'Servicios', color: '#00DD00' }, ticks: { color: '#7a9a7a', stepSize: 1 }, grid: { color: 'rgba(0,221,0,.06)' } },
+                y1: { position: 'right', title: { display: true, text: 'USD $', color: '#0096FF' }, ticks: { color: '#7a9a7a' }, grid: { drawOnChartArea: false } }
+            }
+        }
+    });
 }
 
 async function loadFlotaStatus() {
@@ -419,7 +474,27 @@ async function enviarCierresMasivos() {
 }
 
 function exportarReporte(tipo) {
-    window.open('/api/reportes/' + tipo + '?token=' + getToken(), '_blank');
+    let url = '/api/reportes/' + tipo + '?token=' + getToken();
+    if (tipo === 'personalizado') {
+        const desde = document.getElementById('reporteDesde')?.value;
+        const hasta = document.getElementById('reporteHasta')?.value;
+        if (!desde || !hasta) {
+            showToast('⚠ Selecciona fecha desde y hasta', 'err');
+            return;
+        }
+        url = '/api/reportes/personalizado?desde=' + desde + '&hasta=' + hasta + '&token=' + getToken();
+    }
+    window.open(url, '_blank');
+}
+
+function initReporteDates() {
+    const hoy = new Date();
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - (hoy.getDay() === 0 ? 6 : hoy.getDay() - 1));
+    const desdeEl = document.getElementById('reporteDesde');
+    const hastaEl = document.getElementById('reporteHasta');
+    if (desdeEl) desdeEl.value = lunes.toISOString().split('T')[0];
+    if (hastaEl) hastaEl.value = hoy.toISOString().split('T')[0];
 }
 
 // ── Usuarios ────────────────────────────────────────────
@@ -882,7 +957,7 @@ async function loadConfig() {
 }
 
 // ── Init
-cargarUmbralesDeuda().then(() => loadDashboard());
+cargarUmbralesDeuda().then(() => { loadDashboard(); initReporteDates(); });
 document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'clientes') loadClientes();
     if (view === 'flota') loadFlota();

@@ -30,6 +30,28 @@ router.get('/disponibles', async (req, res) => {
     }
 });
 
+// GET /api/motorizados/ranking — ranking por servicios completados (últimos 30 días)
+router.get('/ranking', async (req, res) => {
+    try {
+        const { rows } = await pool.query(`
+            SELECT m.id, m.nombre,
+                   COUNT(s.id)::int AS total_servicios,
+                   COALESCE(SUM(s.monto),0)::numeric AS total_ingresos
+            FROM motorizados m
+            LEFT JOIN servicios s ON s.motorizado_id = m.id
+                AND s.estado = 'completado'
+                AND s.fecha_inicio >= NOW() - INTERVAL '30 days'
+            WHERE m.activo = TRUE
+            GROUP BY m.id, m.nombre
+            ORDER BY total_servicios DESC
+            LIMIT 10
+        `);
+        res.json(rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/motorizados/:id — detalle + servicios del día
 router.get('/:id', async (req, res) => {
     try {

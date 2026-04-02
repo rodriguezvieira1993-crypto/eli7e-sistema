@@ -118,9 +118,15 @@ function renderCampos(tipo) {
                 </div>
             </div>
 
+            ${tipo === 'encomienda' ? `
             <div class="field">
-                <label>Descripción / Observaciones</label>
-                <textarea id="s_desc" rows="2" placeholder="Detalles adicionales..."></textarea>
+                <label>Cantidad de paquetes</label>
+                <input type="number" id="s_cantidad_paquetes" min="1" max="99" value="1" placeholder="Ej: 3">
+            </div>` : ''}
+
+            <div class="field">
+                <label>${tipo === 'encomienda' ? 'Detalle de encomienda' : 'Descripción / Observaciones'}</label>
+                <textarea id="s_desc" rows="${tipo === 'encomienda' ? 5 : 2}" placeholder="${tipo === 'encomienda' ? 'Describa los paquetes: contenido, tamaño, peso aproximado, instrucciones especiales...' : 'Detalles adicionales...'}" style="${tipo === 'encomienda' ? 'min-height:100px;' : ''}"></textarea>
             </div>`;
         fillMotosSelect();
         initAutocomplete('s_ruta_de', 'ac_de');
@@ -450,8 +456,9 @@ async function crearServicio(e) {
         const de = document.getElementById('s_ruta_de')?.value || '';
         const hasta = document.getElementById('s_ruta_hasta')?.value || '';
         const clienteNombre = document.getElementById('s_cliente_nombre')?.value || '';
+        const cantPaquetes = document.getElementById('s_cantidad_paquetes')?.value;
         if (de || hasta) {
-            descripcion = `🚩 ${de} → ${hasta}${clienteNombre ? ' | Cliente: ' + clienteNombre : ''}${descripcion ? ' | ' + descripcion : ''}`;
+            descripcion = `🚩 ${de} → ${hasta}${clienteNombre ? ' | Cliente: ' + clienteNombre : ''}${cantPaquetes && cantPaquetes > 1 ? ' | 📦x' + cantPaquetes : ''}${descripcion ? ' | ' + descripcion : ''}`;
         }
     } else if (tipo === 'delivery') {
         const hasta = document.getElementById('s_ruta_hasta')?.value || '';

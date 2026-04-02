@@ -68,6 +68,9 @@ function renderServiciosHoy(servicios) {
     el.innerHTML = servicios.map(s => {
         const iconos = { delivery: '📦', mototaxi: '🛵', encomienda: '📬', compras: '🛒', transporte: '🚐' };
         const estadoCls = { pendiente: 'badge-yellow', en_curso: 'badge-blue', completado: 'badge-green', cancelado: 'badge-red' };
+        const btnCompletar = (s.estado === 'pendiente' || s.estado === 'en_curso')
+            ? `<button onclick="completarServicio('${s.id}')" style="margin-top:4px;padding:5px 10px;font-size:.72rem;font-weight:700;font-family:inherit;background:rgba(0,221,0,.15);border:1px solid rgba(0,221,0,.3);border-radius:6px;color:#00DD00;cursor:pointer;">✅ Completar</button>`
+            : '';
         return `
         <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);">
             <span style="font-size:1.4rem">${iconos[s.tipo] || '📋'}</span>
@@ -78,6 +81,7 @@ function renderServiciosHoy(servicios) {
             <div style="text-align:right;">
                 <div style="font-weight:700;color:var(--g1);">${fmt(s.monto)}</div>
                 <span class="badge ${estadoCls[s.estado] || ''}" style="font-size:.7rem;">${s.estado}</span>
+                ${btnCompletar}
             </div>
         </div>`;
     }).join('');
@@ -144,14 +148,20 @@ async function loadMisServicios() {
     const iconos = { delivery: '📦', mototaxi: '🛵', encomienda: '📬', compras: '🛒', transporte: '🚐' };
     const estadoCls = { pendiente: 'badge-yellow', en_curso: 'badge-blue', completado: 'badge-green', cancelado: 'badge-red' };
 
-    tbody.innerHTML = serviciosSemana.map(s => `
-    <tr>
-        <td>${fmtDate(s.fecha_inicio)}</td>
-        <td>${iconos[s.tipo] || ''} ${s.tipo}</td>
-        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.descripcion || '—'}</td>
-        <td style="font-weight:700;color:var(--g1);">${fmt(s.monto)}</td>
-        <td><span class="badge ${estadoCls[s.estado] || ''}">${s.estado}</span></td>
-    </tr>`).join('');
+    tbody.innerHTML = serviciosSemana.map(s => {
+        const btnCompletar = (s.estado === 'pendiente' || s.estado === 'en_curso')
+            ? `<td><button onclick="completarServicio('${s.id}')" style="padding:5px 10px;font-size:.72rem;font-weight:700;font-family:inherit;background:rgba(0,221,0,.15);border:1px solid rgba(0,221,0,.3);border-radius:6px;color:#00DD00;cursor:pointer;">✅ Completar</button></td>`
+            : '<td></td>';
+        return `
+        <tr>
+            <td>${fmtDate(s.fecha_inicio)}</td>
+            <td>${iconos[s.tipo] || ''} ${s.tipo}</td>
+            <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.descripcion || '—'}</td>
+            <td style="font-weight:700;color:var(--g1);">${fmt(s.monto)}</td>
+            <td><span class="badge ${estadoCls[s.estado] || ''}">${s.estado}</span></td>
+            ${btnCompletar}
+        </tr>`;
+    }).join('');
 }
 
 // ─── MI NÓMINA DETALLADA ──────────────────────────────
@@ -355,6 +365,19 @@ async function cambiarMiClave(e) {
         document.getElementById('claveConfirmar').value = '';
     } else {
         showToast(res?.error || 'Error al cambiar contraseña', 'err');
+    }
+}
+
+// ─── COMPLETAR SERVICIO ──────────────────────────────
+async function completarServicio(id) {
+    if (!confirm('¿Marcar este servicio como completado?')) return;
+    const res = await apiFetch(`/servicios/${id}/cerrar`, { method: 'PATCH' });
+    if (res && !res.error) {
+        showToast('✅ Servicio completado');
+        loadResumen();
+        loadMisServicios();
+    } else {
+        showToast(res?.error || 'Error al completar', 'err');
     }
 }
 
