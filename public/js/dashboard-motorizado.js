@@ -46,7 +46,7 @@ async function loadResumen() {
     const detalle = await apiFetch(`/motorizados/${id}`);
     if (detalle) {
         document.getElementById('kpi-servicios-hoy').textContent = detalle.resumen.count_dia || 0;
-        document.getElementById('kpi-ganancia-hoy').textContent = fmt(detalle.resumen.total_dia);
+        document.getElementById('kpi-ganancia-hoy').textContent = fmt(detalle.resumen.ganancia_neta != null ? detalle.resumen.ganancia_neta : detalle.resumen.total_dia);
         renderServiciosHoy(detalle.servicios_hoy);
     }
 

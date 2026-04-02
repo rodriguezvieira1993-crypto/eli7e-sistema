@@ -76,7 +76,21 @@ router.get('/:id', async (req, res) => {
             [req.params.id]
         );
 
-        res.json({ motorizado: rows[0], servicios_hoy: serviciosHoy, resumen: totalHoy[0] });
+        // Obtener porcentaje empresa para calcular ganancia neta
+        let pctEmpresa = 30;
+        try {
+            const { rows: params } = await pool.query("SELECT valor FROM parametros_sistema WHERE clave='porcentaje_empresa'");
+            if (params[0]) pctEmpresa = parseFloat(params[0].valor);
+        } catch (e) { /* usar default */ }
+
+        const bruto = parseFloat(totalHoy[0].total_dia);
+        const ganancia_neta = parseFloat((bruto - (bruto * pctEmpresa / 100)).toFixed(2));
+
+        res.json({
+            motorizado: rows[0],
+            servicios_hoy: serviciosHoy,
+            resumen: { ...totalHoy[0], total_dia: bruto, ganancia_neta, porcentaje_empresa: pctEmpresa }
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

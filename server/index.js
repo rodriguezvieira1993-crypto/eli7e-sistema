@@ -67,6 +67,11 @@ app.get('/apple-touch-icon.png', async (req, res) => {
     res.redirect('/img/icon-192.png');
 });
 
+// Crear carpeta de uploads si no existe
+const fs = require('fs');
+const uploadsDir = path.join(__dirname, '../public/uploads/chat');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+
 // Servir archivos estáticos del frontend
 app.use(express.static(path.join(__dirname, '../public')));
 
@@ -140,16 +145,24 @@ io.on('connection', (socket) => {
     });
 
     socket.on('chat-mensaje', async (data) => {
-        const { canal, mensaje } = data;
+        const { canal, mensaje, mencion_ids, imagen_url } = data;
         if (!mensaje || !mensaje.trim()) return;
 
         try {
             const { rows } = await pool.query(
-                `INSERT INTO chat_mensajes (canal, autor_id, autor_nombre, autor_rol, mensaje)
-                 VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-                [canal || 'general', user.id, user.nombre, user.rol, mensaje.trim()]
+                `INSERT INTO chat_mensajes (canal, autor_id, autor_nombre, autor_rol, mensaje, imagen_url, mencion_ids)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+                [canal || 'general', user.id, user.nombre, user.rol, mensaje.trim(), imagen_url || null, mencion_ids || null]
             );
             io.to(canal || 'general').emit('chat-nuevo', rows[0]);
+
+            // Push a mencionados
+            if (mencion_ids && mencion_ids.length) {
+                const pushService = require('./pushService');
+                for (const mid of mencion_ids) {
+                    pushService.notifyMotorizado(mid, `💬 ${user.nombre} te mencionó`, mensaje.trim().substring(0, 100), { url: '/' }).catch(() => {});
+                }
+            }
         } catch (err) {
             socket.emit('chat-error', { error: err.message });
         }

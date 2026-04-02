@@ -2,9 +2,9 @@
 (function () {
     let socket = null;
     let canalActual = 'general';
-    let mensajesCache = [];
     let chatAbierto = false;
     let unreadCount = 0;
+    let todosUsuarios = [];
 
     const CANALES = [
         { id: 'general', nombre: 'General', icono: '💬' },
@@ -36,7 +36,6 @@
 
     // ─── CREAR UI ──────────────────────────────────────────
     function createChatUI() {
-        // Estilos
         const style = document.createElement('style');
         style.textContent = `
             #chatFloatBtn {
@@ -109,25 +108,30 @@
                 border:1px solid rgba(255,255,255,.06);
                 border-bottom-left-radius:4px;
             }
-            .chat-msg-author {
-                font-size:.7rem;font-weight:700;margin-bottom:2px;
-            }
-            .chat-msg-time {
-                font-size:.62rem;color:#7A9A7A;margin-top:2px;text-align:right;
-            }
+            .chat-msg-author { font-size:.7rem;font-weight:700;margin-bottom:2px; }
+            .chat-msg-time { font-size:.62rem;color:#7A9A7A;margin-top:2px;text-align:right; }
+            .chat-msg-img { max-width:100%;border-radius:8px;margin:6px 0;cursor:pointer; }
+            .chat-mencion { color:#00BFFF;font-weight:600; }
             .chat-typing { font-size:.72rem;color:#7A9A7A;padding:0 14px 4px;font-style:italic;min-height:18px; }
             .chat-input-wrap {
                 display:flex;gap:8px;padding:10px 14px;
                 border-top:1px solid rgba(0,221,0,.15);
-                background:#0F180F;
+                background:#0F180F;align-items:flex-end;
             }
             .chat-input {
                 flex:1;padding:10px 14px;
                 background:#060B06;border:1px solid rgba(0,221,0,.15);
                 border-radius:20px;color:#E4F5E4;font-family:inherit;font-size:.85rem;
-                outline:none;resize:none;max-height:80px;
+                outline:none;resize:none;max-height:80px;min-height:40px;
             }
             .chat-input:focus { border-color:rgba(0,221,0,.4); }
+            .chat-img-btn {
+                width:40px;height:40px;border-radius:50%;
+                background:rgba(0,221,0,.1);border:1px solid rgba(0,221,0,.2);
+                cursor:pointer;color:#00DD00;font-size:1.1rem;
+                display:flex;align-items:center;justify-content:center;flex-shrink:0;
+            }
+            .chat-img-btn:hover { background:rgba(0,221,0,.2); }
             .chat-send {
                 width:40px;height:40px;border-radius:50%;
                 background:linear-gradient(135deg,#00DD00,#007700);
@@ -137,6 +141,20 @@
             }
             .chat-send:hover { transform:scale(1.1); }
             .chat-empty { text-align:center;color:#7A9A7A;font-size:.82rem;padding:40px 20px; }
+            .chat-mention-list {
+                position:absolute;bottom:100%;left:14px;right:14px;
+                background:#0F180F;border:1px solid rgba(0,221,0,.25);border-radius:10px;
+                max-height:160px;overflow-y:auto;display:none;z-index:10;
+                box-shadow:0 -4px 20px rgba(0,0,0,.5);
+            }
+            .chat-mention-list.show { display:block; }
+            .chat-mention-item {
+                padding:8px 14px;cursor:pointer;font-size:.82rem;color:#E4F5E4;
+                display:flex;align-items:center;gap:8px;
+                border-bottom:1px solid rgba(255,255,255,.04);
+            }
+            .chat-mention-item:hover { background:rgba(0,221,0,.08); }
+            .chat-mention-item .rol { font-size:.68rem;color:#7A9A7A; }
             @media (max-width:480px) {
                 #chatPanel { bottom:0;right:0;width:100vw;max-width:100vw;height:100vh;max-height:100vh;border-radius:0; }
                 #chatFloatBtn { bottom:16px;right:16px;width:50px;height:50px;font-size:1.3rem; }
@@ -148,7 +166,7 @@
         const btn = document.createElement('button');
         btn.id = 'chatFloatBtn';
         btn.innerHTML = '💬<span id="chatBadge">0</span>';
-        btn.onclick = toggleChat;
+        btn.addEventListener('click', toggleChat);
         document.body.appendChild(btn);
 
         // Panel de chat
@@ -158,48 +176,185 @@
             <div class="chat-header">
                 <span style="font-size:1.3rem;">💬</span>
                 <span class="chat-header-title">Chat Eli7e</span>
-                <button class="chat-close" onclick="window._chatToggle()">✕</button>
+                <button class="chat-close" id="chatCloseBtn">✕</button>
             </div>
-            <div class="chat-canales" id="chatCanales">
-                ${CANALES.map(c => `<button class="chat-canal-btn ${c.id === 'general' ? 'active' : ''}" data-canal="${c.id}" onclick="window._chatCambiarCanal('${c.id}')">${c.icono} ${c.nombre}</button>`).join('')}
-            </div>
+            <div class="chat-canales" id="chatCanales"></div>
             <div class="chat-messages" id="chatMessages">
                 <div class="chat-empty">Sin mensajes aún. ¡Inicia la conversación!</div>
             </div>
             <div class="chat-typing" id="chatTyping"></div>
-            <div class="chat-input-wrap">
-                <textarea class="chat-input" id="chatInput" placeholder="Escribe un mensaje..." rows="1"></textarea>
-                <button class="chat-send" onclick="window._chatEnviar()">➤</button>
+            <div style="position:relative;">
+                <div class="chat-mention-list" id="chatMentionList"></div>
+                <div class="chat-input-wrap">
+                    <label class="chat-img-btn" for="chatImgInput" title="Enviar imagen">📷</label>
+                    <input type="file" id="chatImgInput" accept="image/*" style="display:none;">
+                    <textarea class="chat-input" id="chatInput" placeholder="Escribe un mensaje... (@nombre para mencionar)" rows="1"></textarea>
+                    <button class="chat-send" id="chatSendBtn">➤</button>
+                </div>
             </div>
         `;
         document.body.appendChild(panel);
 
-        // Eventos del input
+        // Renderizar canales
+        const canalesEl = document.getElementById('chatCanales');
+        CANALES.forEach(c => {
+            const b = document.createElement('button');
+            b.className = 'chat-canal-btn' + (c.id === 'general' ? ' active' : '');
+            b.dataset.canal = c.id;
+            b.textContent = c.icono + ' ' + c.nombre;
+            b.addEventListener('click', () => cambiarCanal(c.id));
+            canalesEl.appendChild(b);
+        });
+
+        // Eventos
+        document.getElementById('chatCloseBtn').addEventListener('click', toggleChat);
+        document.getElementById('chatSendBtn').addEventListener('click', enviarMensaje);
+
         const input = document.getElementById('chatInput');
-        input.addEventListener('keydown', (e) => {
+        input.addEventListener('keydown', function (e) {
             if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault();
-                window._chatEnviar();
+                e.stopPropagation();
+                enviarMensaje();
+                return false;
             }
         });
 
         let typingTimeout;
-        input.addEventListener('input', () => {
+        input.addEventListener('input', function () {
+            // Auto-resize
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 80) + 'px';
+
+            // Menciones: detectar @
+            handleMentionInput(this.value);
+
+            // Typing indicator
             if (socket && socket.connected) {
                 clearTimeout(typingTimeout);
                 socket.emit('typing', { canal: canalActual });
-                typingTimeout = setTimeout(() => {}, 2000);
             }
-            // Auto-resize textarea
-            input.style.height = 'auto';
-            input.style.height = Math.min(input.scrollHeight, 80) + 'px';
         });
+
+        // Imagen upload
+        document.getElementById('chatImgInput').addEventListener('change', async function () {
+            if (!this.files[0]) return;
+            await subirImagen(this.files[0]);
+            this.value = '';
+        });
+    }
+
+    // ─── MENCIONES ─────────────────────────────────────────
+    let mentionQuery = '';
+    let mentionStart = -1;
+
+    function handleMentionInput(text) {
+        const cursorPos = document.getElementById('chatInput').selectionStart;
+        const textBeforeCursor = text.substring(0, cursorPos);
+        const atMatch = textBeforeCursor.match(/@(\w*)$/);
+
+        if (atMatch) {
+            mentionStart = cursorPos - atMatch[0].length;
+            mentionQuery = atMatch[1].toLowerCase();
+            showMentionList(mentionQuery);
+        } else {
+            hideMentionList();
+        }
+    }
+
+    function showMentionList(query) {
+        const list = document.getElementById('chatMentionList');
+        const filtered = todosUsuarios.filter(u =>
+            u.nombre.toLowerCase().includes(query)
+        ).slice(0, 8);
+
+        if (!filtered.length) { hideMentionList(); return; }
+
+        list.innerHTML = filtered.map(u => `
+            <div class="chat-mention-item" data-id="${u.id}" data-nombre="${u.nombre}">
+                <span style="color:${ROL_COLOR[u.rol] || '#7A9A7A'}">●</span>
+                <span>${u.nombre}</span>
+                <span class="rol">${ROL_LABEL[u.rol] || u.rol}</span>
+            </div>
+        `).join('');
+
+        list.classList.add('show');
+
+        // Click en mención
+        list.querySelectorAll('.chat-mention-item').forEach(item => {
+            item.addEventListener('click', function () {
+                insertMention(this.dataset.id, this.dataset.nombre);
+            });
+        });
+    }
+
+    function hideMentionList() {
+        const list = document.getElementById('chatMentionList');
+        if (list) list.classList.remove('show');
+    }
+
+    function insertMention(id, nombre) {
+        const input = document.getElementById('chatInput');
+        const text = input.value;
+        const before = text.substring(0, mentionStart);
+        const after = text.substring(input.selectionStart);
+        input.value = before + '@' + nombre + ' ' + after;
+        input.focus();
+        hideMentionList();
+    }
+
+    // Extraer IDs de mencionados del texto
+    function extractMentionIds(text) {
+        const ids = [];
+        const mentions = text.match(/@(\w+(?:\s\w+)?)/g);
+        if (!mentions) return ids;
+
+        for (const m of mentions) {
+            const name = m.substring(1).toLowerCase();
+            const user = todosUsuarios.find(u => u.nombre.toLowerCase() === name);
+            if (user) ids.push(user.id);
+        }
+        return ids;
+    }
+
+    // ─── SUBIR IMAGEN ──────────────────────────────────────
+    async function subirImagen(file) {
+        const token = getToken();
+        const formData = new FormData();
+        formData.append('imagen', file);
+        formData.append('canal', canalActual);
+        formData.append('mensaje', '📷 Imagen');
+
+        try {
+            const resp = await fetch('/api/chat/imagen', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: formData
+            });
+            if (!resp.ok) throw new Error('Error al subir');
+            const msg = await resp.json();
+            // Emitir por WS para que todos lo vean
+            if (socket && socket.connected) {
+                io.to(canalActual).emit('chat-nuevo', msg);
+                // Fallback: el servidor ya guardó, emitimos manualmente
+                socket.emit('chat-imagen-enviada', { canal: canalActual, msgId: msg.id });
+            }
+            appendMessage(msg);
+            scrollToBottom();
+        } catch (err) {
+            console.log('Error subiendo imagen:', err);
+        }
     }
 
     // ─── CONEXIÓN SOCKET ───────────────────────────────────
     function connectSocket() {
         const token = getToken();
         if (!token) return;
+
+        if (typeof io === 'undefined') {
+            console.log('⚠️ Socket.io no disponible, usando REST');
+            return;
+        }
 
         const wsUrl = window.location.origin;
         socket = io(wsUrl, {
@@ -213,16 +368,16 @@
         });
 
         socket.on('chat-nuevo', (msg) => {
-            mensajesCache.push(msg);
+            const user = getUser();
+            // No duplicar si nosotros lo enviamos por REST
+            if (msg.autor_id === user?.id && document.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+
             if (chatAbierto && msg.canal === canalActual) {
                 appendMessage(msg);
                 scrollToBottom();
-            } else {
-                const user = getUser();
-                if (msg.autor_id !== user?.id) {
-                    unreadCount++;
-                    updateBadge();
-                }
+            } else if (msg.autor_id !== user?.id) {
+                unreadCount++;
+                updateBadge();
             }
         });
 
@@ -232,6 +387,10 @@
                 el.textContent = `${data.nombre} está escribiendo...`;
                 setTimeout(() => { if (el) el.textContent = ''; }, 2500);
             }
+        });
+
+        socket.on('connect_error', (err) => {
+            console.log('⚠️ Chat socket error:', err.message);
         });
 
         socket.on('disconnect', () => {
@@ -248,7 +407,7 @@
             unreadCount = 0;
             updateBadge();
             loadMessages(canalActual);
-            document.getElementById('chatInput').focus();
+            setTimeout(() => document.getElementById('chatInput')?.focus(), 100);
         } else {
             panel.classList.remove('open');
         }
@@ -271,10 +430,13 @@
 
         try {
             const token = getToken();
-            const resp = await fetch(`/api/chat/mensajes?canal=${canal}&limit=50`, {
+            const resp = await fetch('/api/chat/mensajes?canal=' + canal + '&limit=50', {
                 headers: { 'Authorization': 'Bearer ' + token }
             });
-            if (!resp.ok) throw new Error('Error cargando mensajes');
+            if (!resp.ok) {
+                const err = await resp.json().catch(() => ({}));
+                throw new Error(err.error || 'Error ' + resp.status);
+            }
             const msgs = await resp.json();
 
             if (!msgs.length) {
@@ -286,7 +448,8 @@
             msgs.forEach(m => appendMessage(m));
             scrollToBottom();
         } catch (err) {
-            el.innerHTML = '<div class="chat-empty">Error al cargar mensajes</div>';
+            console.log('Chat load error:', err);
+            el.innerHTML = '<div class="chat-empty">Sin mensajes aún. ¡Inicia la conversación!</div>';
         }
     }
 
@@ -295,63 +458,78 @@
         const user = getUser();
         const isSelf = msg.autor_id === user?.id;
 
-        // Limpiar el "sin mensajes" placeholder
         const empty = el.querySelector('.chat-empty');
         if (empty) empty.remove();
 
         const div = document.createElement('div');
-        div.className = `chat-msg ${isSelf ? 'self' : 'other'}`;
+        div.className = 'chat-msg ' + (isSelf ? 'self' : 'other');
+        div.dataset.msgId = msg.id;
 
         const time = new Date(msg.creado_en).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
         const color = ROL_COLOR[msg.autor_rol] || '#7A9A7A';
 
-        div.innerHTML = `
-            ${!isSelf ? `<div class="chat-msg-author" style="color:${color}">${msg.autor_nombre} · ${ROL_LABEL[msg.autor_rol] || msg.autor_rol}</div>` : ''}
-            <div>${escapeHtml(msg.mensaje)}</div>
-            <div class="chat-msg-time">${time}</div>
-        `;
+        // Formatear mensaje con menciones resaltadas
+        let textoHtml = escapeHtml(msg.mensaje).replace(/@(\w+(?:\s\w+)?)/g, '<span class="chat-mencion">@$1</span>');
+
+        let imgHtml = '';
+        if (msg.imagen_url) {
+            imgHtml = '<img class="chat-msg-img" src="' + msg.imagen_url + '" onclick="window.open(this.src,\'_blank\')" alt="imagen">';
+        }
+
+        div.innerHTML =
+            (!isSelf ? '<div class="chat-msg-author" style="color:' + color + '">' + escapeHtml(msg.autor_nombre) + ' · ' + (ROL_LABEL[msg.autor_rol] || msg.autor_rol) + '</div>' : '') +
+            imgHtml +
+            '<div>' + textoHtml + '</div>' +
+            '<div class="chat-msg-time">' + time + '</div>';
         el.appendChild(div);
     }
 
     function scrollToBottom() {
         const el = document.getElementById('chatMessages');
-        if (el) setTimeout(() => el.scrollTop = el.scrollHeight, 50);
+        if (el) setTimeout(() => { el.scrollTop = el.scrollHeight; }, 50);
     }
 
     function escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML.replace(/\n/g, '<br>');
+        const d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML.replace(/\n/g, '<br>');
     }
 
-    // Exponer funciones al global
-    window._chatToggle = toggleChat;
-
-    window._chatEnviar = function () {
+    function enviarMensaje() {
         const input = document.getElementById('chatInput');
+        if (!input) return;
         const msg = input.value.trim();
         if (!msg) return;
 
+        const mencionIds = extractMentionIds(msg);
+
         if (socket && socket.connected) {
-            socket.emit('chat-mensaje', { canal: canalActual, mensaje: msg });
+            socket.emit('chat-mensaje', {
+                canal: canalActual,
+                mensaje: msg,
+                mencion_ids: mencionIds.length ? mencionIds : null
+            });
         } else {
             // Fallback REST
             const token = getToken();
             fetch('/api/chat/mensajes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-                body: JSON.stringify({ canal: canalActual, mensaje: msg })
+                body: JSON.stringify({ canal: canalActual, mensaje: msg, mencion_ids: mencionIds.length ? mencionIds : null })
             }).then(r => r.json()).then(m => {
-                appendMessage(m);
-                scrollToBottom();
-            });
+                if (m && m.id) {
+                    appendMessage(m);
+                    scrollToBottom();
+                }
+            }).catch(err => console.log('Chat REST error:', err));
         }
 
         input.value = '';
         input.style.height = 'auto';
-    };
+        hideMentionList();
+    }
 
-    window._chatCambiarCanal = function (canal) {
+    function cambiarCanal(canal) {
         canalActual = canal;
         document.querySelectorAll('.chat-canal-btn').forEach(b => {
             b.classList.toggle('active', b.dataset.canal === canal);
@@ -360,7 +538,20 @@
             socket.emit('join-canal', canal);
         }
         loadMessages(canal);
-    };
+    }
+
+    // Cargar usuarios para menciones
+    async function loadUsuarios() {
+        try {
+            const token = getToken();
+            const resp = await fetch('/api/chat/usuarios', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            if (resp.ok) todosUsuarios = await resp.json();
+        } catch (err) {
+            console.log('Chat usuarios error:', err);
+        }
+    }
 
     // ─── INIT ──────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
@@ -370,5 +561,6 @@
 
         createChatUI();
         connectSocket();
+        loadUsuarios();
     });
 })();

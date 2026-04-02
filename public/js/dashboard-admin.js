@@ -474,17 +474,16 @@ async function enviarCierresMasivos() {
 }
 
 function exportarReporte(tipo) {
-    let url = '/api/reportes/' + tipo + '?token=' + getToken();
-    if (tipo === 'personalizado') {
-        const desde = document.getElementById('reporteDesde')?.value;
-        const hasta = document.getElementById('reporteHasta')?.value;
-        if (!desde || !hasta) {
-            showToast('⚠ Selecciona fecha desde y hasta', 'err');
-            return;
-        }
-        url = '/api/reportes/personalizado?desde=' + desde + '&hasta=' + hasta + '&token=' + getToken();
+    const desde = document.getElementById('reporteDesde')?.value;
+    const hasta = document.getElementById('reporteHasta')?.value;
+
+    // Si hay fechas seleccionadas, usar siempre el reporte personalizado con esas fechas
+    if (desde && hasta) {
+        window.open('/api/reportes/personalizado?desde=' + desde + '&hasta=' + hasta + '&token=' + getToken(), '_blank');
+    } else {
+        // Sin fechas: usar el reporte original
+        window.open('/api/reportes/' + tipo + '?token=' + getToken(), '_blank');
     }
-    window.open(url, '_blank');
 }
 
 function initReporteDates() {

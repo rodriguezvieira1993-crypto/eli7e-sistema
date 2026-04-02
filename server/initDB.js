@@ -187,6 +187,28 @@ async function initDB() {
         console.log('⚠️ Migración configuracion_sistema:', err.message);
     }
 
+    // Migración: crear tabla chat_mensajes
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS chat_mensajes (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                canal VARCHAR(50) NOT NULL DEFAULT 'general',
+                autor_id UUID NOT NULL,
+                autor_nombre VARCHAR(100) NOT NULL,
+                autor_rol VARCHAR(20) NOT NULL,
+                mensaje TEXT NOT NULL,
+                imagen_url TEXT,
+                mencion_ids UUID[],
+                creado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_chat_canal ON chat_mensajes(canal)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_chat_fecha ON chat_mensajes(creado_en)');
+        console.log('✅ Tabla chat_mensajes OK');
+    } catch (err) {
+        console.log('⚠️ Migración chat_mensajes:', err.message);
+    }
+
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {
         console.log('🔄 Recreando vista de cobranza...');

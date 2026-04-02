@@ -244,6 +244,8 @@ CREATE TABLE IF NOT EXISTS chat_mensajes (
     autor_nombre    VARCHAR(100) NOT NULL,
     autor_rol       VARCHAR(20) NOT NULL,
     mensaje         TEXT NOT NULL,
+    imagen_url      TEXT,
+    mencion_ids     UUID[],
     creado_en       TIMESTAMP DEFAULT NOW()
 );
 
