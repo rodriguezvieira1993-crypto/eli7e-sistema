@@ -11,33 +11,57 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Generar íconos PWA con fondo negro al iniciar
-(async () => {
+// ── Íconos PWA dinámicos con fondo negro ─────────────────────
+// Se sirven ANTES del static para interceptar /img/icon-*.png
+const _iconCache = {};
+app.get('/img/icon-:size.png', async (req, res) => {
+    const size = parseInt(req.params.size);
+    if (![192, 512].includes(size)) return res.status(404).end();
+
+    // Servir desde cache si ya se generó
+    if (_iconCache[size]) {
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.send(_iconCache[size]);
+    }
+
     try {
         const sharp = require('sharp');
-        const fss = require('fs');
         const logoPath = path.join(__dirname, '../public/img/eli7e_logo.png');
-        if (!fss.existsSync(logoPath)) return;
+        const padding = Math.round(size * 0.15);
+        const logoSize = size - padding * 2;
 
-        for (const size of [192, 512]) {
-            const iconPath = path.join(__dirname, `../public/img/icon-${size}.png`);
-            const padding = Math.round(size * 0.15);
-            const logoSize = size - padding * 2;
+        const logo = await sharp(logoPath)
+            .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+            .toBuffer();
 
-            const logo = await sharp(logoPath)
-                .resize(logoSize, logoSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
-                .toBuffer();
+        const icon = await sharp({
+            create: { width: size, height: size, channels: 4, background: { r: 6, g: 11, b: 6, alpha: 255 } }
+        })
+            .composite([{ input: logo, gravity: 'centre' }])
+            .png()
+            .toBuffer();
 
-            await sharp({ create: { width: size, height: size, channels: 4, background: { r: 6, g: 11, b: 6, alpha: 255 } } })
-                .composite([{ input: logo, gravity: 'centre' }])
-                .png()
-                .toFile(iconPath);
-        }
-        console.log('✅ Íconos PWA generados con fondo negro');
+        _iconCache[size] = icon;
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        res.send(icon);
+        console.log(`✅ Ícono PWA ${size}x${size} generado con fondo negro`);
     } catch (e) {
-        console.log('⚠️ Íconos PWA: usando originales —', e.message);
+        // Fallback: servir el archivo estático original
+        res.sendFile(path.join(__dirname, `../public/img/icon-${size}.png`));
     }
-})();
+});
+
+// Apple touch icon también con fondo negro
+app.get('/apple-touch-icon.png', async (req, res) => {
+    if (_iconCache[192]) {
+        res.set('Content-Type', 'image/png');
+        res.set('Cache-Control', 'public, max-age=86400');
+        return res.send(_iconCache[192]);
+    }
+    res.redirect('/img/icon-192.png');
+});
 
 // Servir archivos estáticos del frontend
 app.use(express.static(path.join(__dirname, '../public')));
