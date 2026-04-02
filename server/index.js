@@ -10,6 +10,9 @@ const app = express();
 const server = http.createServer(app);
 const io = new SocketIO(server, { cors: { origin: '*' } });
 
+// Hacer io accesible desde las rutas
+app.set('io', io);
+
 // ── Middleware ──────────────────────────────────────────────
 app.use(cors());
 app.use(express.json());

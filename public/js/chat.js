@@ -333,14 +333,12 @@
             });
             if (!resp.ok) throw new Error('Error al subir');
             const msg = await resp.json();
-            // Emitir por WS para que todos lo vean
-            if (socket && socket.connected) {
-                io.to(canalActual).emit('chat-nuevo', msg);
-                // Fallback: el servidor ya guardó, emitimos manualmente
-                socket.emit('chat-imagen-enviada', { canal: canalActual, msgId: msg.id });
+            // El servidor se encarga de emitir por socket a todos
+            // Solo agregamos localmente si no llega por WS
+            if (!socket || !socket.connected) {
+                appendMessage(msg);
+                scrollToBottom();
             }
-            appendMessage(msg);
-            scrollToBottom();
         } catch (err) {
             console.log('Error subiendo imagen:', err);
         }

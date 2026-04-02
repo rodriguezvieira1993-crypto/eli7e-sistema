@@ -63,6 +63,10 @@ router.post('/mensajes', async (req, res) => {
             [canal || 'general', req.user.id, req.user.nombre, req.user.rol, mensaje.trim(), mencion_ids || null]
         );
 
+        // Emitir por socket a todos en el canal
+        const io = req.app.get('io');
+        if (io) io.to(canal || 'general').emit('chat-nuevo', rows[0]);
+
         // Notificar mencionados por push
         if (mencion_ids && mencion_ids.length) {
             notificarMenciones(mencion_ids, req.user.nombre, mensaje.trim()).catch(() => {});
@@ -88,6 +92,10 @@ router.post('/imagen', upload.single('imagen'), async (req, res) => {
              VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
             [canal, req.user.id, req.user.nombre, req.user.rol, mensaje, imagenUrl]
         );
+
+        // Emitir por socket a todos en el canal
+        const io = req.app.get('io');
+        if (io) io.to(canal).emit('chat-nuevo', rows[0]);
 
         res.status(201).json(rows[0]);
     } catch (err) {
