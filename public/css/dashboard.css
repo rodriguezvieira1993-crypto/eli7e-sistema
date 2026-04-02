@@ -115,6 +115,15 @@ body {
   border-top: 1px solid var(--border);
 }
 
+.sb-brand {
+  text-align: center;
+  padding: 6px 20px 10px;
+  font-size: .62rem;
+  color: var(--muted);
+  opacity: .6;
+  line-height: 1.3;
+}
+
 .sb-avatar {
   width: 36px;
   height: 36px;
@@ -898,11 +907,37 @@ textarea::placeholder {
 
 @media (max-width:480px) {
   .kpi-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+  }
+
+  .kpi-card {
+    padding: 12px 10px;
+  }
+
+  .kpi-val {
+    font-size: 1.1rem;
+  }
+
+  .kpi-lbl {
+    font-size: .65rem;
+  }
+
+  .kpi-icon {
+    font-size: 1.2rem;
   }
 
   .moto-cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .moto-card {
+    padding: 12px 8px;
+  }
+
+  .moto-name {
+    font-size: .82rem;
   }
 
   .topbar {
@@ -914,12 +949,22 @@ textarea::placeholder {
     font-size: 0.9rem;
   }
 
+  .topbar-right {
+    font-size: .75rem;
+  }
+
   .content {
-    padding: 14px 10px;
+    padding: 12px 8px;
   }
 
   .card {
-    padding: 14px;
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .card-hdr {
+    font-size: .85rem;
+    padding: 12px;
   }
 
   .data-table {
@@ -931,8 +976,117 @@ textarea::placeholder {
     padding: 10px 16px;
   }
 
+  .search-bar {
+    gap: 8px;
+  }
+
   .search-bar input {
     font-size: 0.85rem;
+  }
+
+  .view-title {
+    font-size: 1.2rem;
+  }
+
+  .view-sub {
+    font-size: .75rem;
+  }
+
+  .modal {
+    width: 98vw;
+    max-width: 98vw;
+    max-height: 90vh;
+    margin: 5px;
+    border-radius: 12px;
+  }
+
+  .modal-hdr {
+    padding: 14px 16px;
+    font-size: .9rem;
+  }
+
+  .field label {
+    font-size: .78rem;
+  }
+
+  .field input, .field select, .field textarea {
+    font-size: .88rem;
+    padding: 10px 12px;
+  }
+
+  .tipo-chips {
+    gap: 6px;
+  }
+
+  .tipo-chip, .monto-chip {
+    padding: 10px 10px;
+    min-width: 64px;
+  }
+
+  .tipo-icon {
+    font-size: 1.3rem;
+  }
+
+  .tipo-label {
+    font-size: .6rem;
+  }
+
+  .sb-brand {
+    font-size: .55rem;
+    padding: 4px 12px 8px;
+  }
+
+  .sb-footer {
+    padding: 10px 14px;
+    gap: 8px;
+  }
+
+  .sb-avatar {
+    width: 30px;
+    height: 30px;
+    font-size: .75rem;
+  }
+
+  .sb-name {
+    font-size: .78rem;
+  }
+
+  .modal-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .modal-footer button {
+    width: 100%;
+    text-align: center;
+  }
+
+  .btn-icon {
+    padding: 4px 7px;
+    font-size: .72rem;
+  }
+
+  .moto-icon {
+    font-size: 1.4rem;
+    margin-bottom: 4px;
+  }
+
+  .moto-estado {
+    font-size: .65rem;
+    padding: 2px 8px;
+  }
+
+  .dash-grid {
+    gap: 12px;
+  }
+
+  .grid-2 {
+    gap: 12px;
+  }
+
+  .badge {
+    font-size: .65rem;
+    padding: 2px 8px;
   }
 }
 

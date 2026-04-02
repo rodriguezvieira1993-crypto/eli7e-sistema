@@ -69,6 +69,7 @@ function renderClientes(list) {
       <td style="color:${parseFloat(c.saldo_pendiente) > 0 ? 'var(--warn)' : 'var(--g1)'}">${fmt(c.saldo_pendiente)}</td>
       <td>${c.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
       <td>
+        <button class="btn-icon" onclick="verFichaCliente('${c.id}')" title="Ver detalle">📋</button>
         <button class="btn-icon" onclick="editarCliente('${c.id}')" title="Editar">✏️</button>
         <button class="btn-icon" style="color:#FF4444;" onclick="eliminarCliente('${c.id}','${c.nombre_marca.replace(/'/g, "\\\'")}')" title="Eliminar">🗑️</button>
       </td>
@@ -142,6 +143,55 @@ async function eliminarCliente(id, nombre) {
     }
 }
 
+async function verFichaCliente(id) {
+    const data = await apiFetch('/clientes/' + id);
+    if (!data?.cliente) { showToast('No se pudo cargar', 'err'); return; }
+    const c = data.cliente;
+    const srvs = data.servicios || [];
+    const totalFacturado = srvs.reduce((a, s) => a + parseFloat(s.monto || 0), 0);
+    document.getElementById('fichaClienteCont').innerHTML = `
+    <div style="text-align:center;padding:20px 20px 0;">
+        <div style="font-size:3rem;">🏪</div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--g1);margin:8px 0;">${c.nombre_marca}</div>
+    </div>
+    <div style="padding:20px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div style="background:var(--bg);padding:12px;border-radius:8px;">
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">EMAIL</div>
+                <div style="font-weight:600;font-size:.85rem;">${c.email || '—'}</div>
+            </div>
+            <div style="background:var(--bg);padding:12px;border-radius:8px;">
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">TELEFONO</div>
+                <div style="font-weight:600;">${c.telefono || '—'}</div>
+            </div>
+            <div style="background:var(--bg);padding:12px;border-radius:8px;">
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">RIF</div>
+                <div style="font-weight:600;">${c.rif || '—'}</div>
+            </div>
+            <div style="background:var(--bg);padding:12px;border-radius:8px;">
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">SALDO</div>
+                <div style="font-weight:700;color:${parseFloat(c.saldo_pendiente) > 0 ? 'var(--warn)' : 'var(--g1)'};">${fmt(c.saldo_pendiente)}</div>
+            </div>
+        </div>
+        <div style="background:var(--bg);padding:12px;border-radius:8px;margin-bottom:12px;">
+            <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">DIRECCION</div>
+            <div style="font-size:.85rem;">${c.direccion || '—'}</div>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;border-top:1px solid var(--border);">
+            <span style="color:var(--muted);font-size:.82rem;">Total servicios</span>
+            <span style="font-weight:600;">${srvs.length}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:8px 0;">
+            <span style="color:var(--muted);font-size:.82rem;">Total facturado</span>
+            <span style="font-weight:700;color:var(--g1);">${fmt(totalFacturado)}</span>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);text-align:center;margin-top:8px;">
+            Cliente desde: ${c.creado_en ? fmtDate(c.creado_en) : '—'}
+        </div>
+    </div>`;
+    openModal('modalFichaCliente');
+}
+
 async function loadFlota() {
     const motos = await apiFetch('/motorizados');
     if (!motos) return;
@@ -152,6 +202,7 @@ async function loadFlota() {
       <div class="moto-name">${m.nombre}</div>
       <div class="moto-estado ${`estado-${m.estado}`}">${m.estado.replace('_', ' ')}</div>
       <div style="margin-top:10px;display:flex;gap:6px;justify-content:center;flex-wrap:wrap;">
+        <button class="btn-icon" onclick="verFichaMoto('${m.id}')" title="Ver ficha">📋</button>
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','disponible')">✅</button>
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','en_servicio')">🔄</button>
         <button class="btn-icon" onclick="cambiarEstado('${m.id}','inactivo')">⏸</button>
@@ -212,6 +263,43 @@ async function cambiarClaveMoto(id, nombre) {
     });
     if (res?.ok) showToast('Contraseña actualizada para ' + nombre);
     else showToast(res?.error || 'Error al cambiar contraseña', 'err');
+}
+
+async function verFichaMoto(id) {
+    const data = await apiFetch('/motorizados/' + id);
+    if (!data?.motorizado) { showToast('No se pudo cargar', 'err'); return; }
+    const m = data.motorizado;
+    const r = data.resumen;
+    document.getElementById('fichaMotoCont').innerHTML = `
+    <div style="text-align:center;padding:20px 20px 0;">
+        <div style="font-size:3rem;">🛵</div>
+        <div style="font-size:1.3rem;font-weight:800;color:var(--g1);margin:8px 0;">${m.nombre}</div>
+        <div>${estadoBadge(m.estado)}</div>
+    </div>
+    <div style="padding:20px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div style="background:var(--bg);padding:12px;border-radius:8px;">
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">CEDULA</div>
+                <div style="font-weight:600;">${m.cedula || '—'}</div>
+            </div>
+            <div style="background:var(--bg);padding:12px;border-radius:8px;">
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">TELEFONO</div>
+                <div style="font-weight:600;">${m.telefono || '—'}</div>
+            </div>
+            <div style="background:var(--bg);padding:12px;border-radius:8px;">
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">SERVICIOS HOY</div>
+                <div style="font-weight:700;color:var(--g1);">${r.count_dia || 0}</div>
+            </div>
+            <div style="background:var(--bg);padding:12px;border-radius:8px;">
+                <div style="font-size:.72rem;color:var(--muted);margin-bottom:2px;">GANADO HOY</div>
+                <div style="font-weight:700;color:var(--g1);">${fmt(r.total_dia)}</div>
+            </div>
+        </div>
+        <div style="font-size:.75rem;color:var(--muted);text-align:center;">
+            Registrado: ${m.creado_en ? fmtDate(m.creado_en) : '—'}
+        </div>
+    </div>`;
+    openModal('modalFichaMoto');
 }
 
 // ── Tipos de Servicio (catálogo) ────────────────────────
@@ -701,8 +789,7 @@ async function loadParametros() {
         costo_moto_semanal: '🛵',
         umbral_deuda_critica: '🔴',
         umbral_deuda_alerta: '🟡',
-        max_cuotas_prestamo: '🏦',
-        password_default_moto: '🔑'
+        max_cuotas_prestamo: '🏦'
     };
 
     grid.innerHTML = data.map(p => `

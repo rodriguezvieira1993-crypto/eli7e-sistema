@@ -37,6 +37,11 @@
             <a href="#" class="sb-link" data-view="usuarios"><span>👤</span> Usuarios</a>
             <a href="#" class="sb-link" data-view="parametros"><span>⚙️</span> Parámetros</a>
             <a href="#" class="sb-link" data-view="config"><span>🔧</span> Configuración</a>
+
+            <div class="sb-section">Dev</div>
+            <a href="dashboard-callcenter.html" class="sb-link" target="_blank"><span>📞</span> Ver Call Center</a>
+            <a href="dashboard-contable.html" class="sb-link" target="_blank"><span>💼</span> Ver Contable</a>
+            <a href="dashboard-motorizado.html" class="sb-link" target="_blank"><span>🛵</span> Ver Motorizado</a>
         </nav>
 
         <div class="sb-footer" id="sbUser">
@@ -47,6 +52,7 @@
             </div>
             <button class="sb-logout" onclick="logout()" title="Cerrar sesión">⏻</button>
         </div>
+        <div class="sb-brand">Software de gestión interna<br>desarrollado por <strong>Brandtastika</strong></div>
     </aside>
     <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="toggleSidebar(true)"></div>
 
@@ -634,6 +640,28 @@
                     <button type="submit" class="btn-primary">Aprobar</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Ficha Motorizado -->
+    <div class="modal-overlay" id="modalFichaMoto">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>📋 Ficha del Motorizado</span>
+                <button onclick="closeModal('modalFichaMoto')">✕</button>
+            </div>
+            <div id="fichaMotoCont"><p class="loading-txt">Cargando...</p></div>
+        </div>
+    </div>
+
+    <!-- MODAL: Ficha Cliente -->
+    <div class="modal-overlay" id="modalFichaCliente">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>📋 Detalle del Cliente</span>
+                <button onclick="closeModal('modalFichaCliente')">✕</button>
+            </div>
+            <div id="fichaClienteCont"><p class="loading-txt">Cargando...</p></div>
         </div>
     </div>
 

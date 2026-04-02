@@ -720,6 +720,10 @@
                         <label>Contraseña</label>
                         <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
                     </div>
+                    <div style="display:flex;align-items:center;gap:8px;margin:8px 0 16px;">
+                        <input type="checkbox" id="rememberMe" style="accent-color:#00DD00;width:16px;height:16px;cursor:pointer;">
+                        <label for="rememberMe" style="font-size:.82rem;color:#7a9a7a;cursor:pointer;">Recuérdame</label>
+                    </div>
                     <button type="submit" class="btn-login" id="btnLogin">
                         <span class="btn-text">Ingresar al Sistema</span>
                         <span class="spinner">Verificando...</span>
@@ -727,7 +731,7 @@
                 </form>
             </div>
 
-            <div class="login-footer">Eli7e © 2026 · Puerto Ordaz, Venezuela</div>
+            <div class="login-footer">Eli7e © 2026 · Software de gestión interna desarrollado por <strong style="color:var(--g1);">Brandtastika</strong></div>
         </div>
     </div>
 
@@ -1051,11 +1055,17 @@
                 emailField.setAttribute('autocomplete', 'email');
             }
 
-            if (selectedRole && DEMO[selectedRole]) {
+            // Cargar credenciales recordadas o demo
+            const remembered = localStorage.getItem('eli7e_remember');
+            if (remembered) {
+                loadRemembered();
+            } else if (selectedRole && DEMO[selectedRole]) {
                 const d = DEMO[selectedRole];
                 document.getElementById('email').value = d.email || d.cedula || '';
                 document.getElementById('password').value = d.password;
-                document.getElementById('roleTagText').textContent = d.label;
+            }
+            if (selectedRole && DEMO[selectedRole]) {
+                document.getElementById('roleTagText').textContent = DEMO[selectedRole].label;
                 document.getElementById('roleTag').classList.add('show');
             }
 
@@ -1156,6 +1166,28 @@
             }
         });
 
+        // ─── REMEMBER ME ─────────────────────────────
+        function loadRemembered() {
+            const saved = localStorage.getItem('eli7e_remember');
+            if (saved) {
+                try {
+                    const r = JSON.parse(saved);
+                    document.getElementById('email').value = r.user || '';
+                    document.getElementById('password').value = r.pass || '';
+                    document.getElementById('rememberMe').checked = true;
+                    if (r.role) { selectedRole = r.role; }
+                } catch(e) {}
+            }
+        }
+
+        function saveRemembered(user, pass, role) {
+            if (document.getElementById('rememberMe').checked) {
+                localStorage.setItem('eli7e_remember', JSON.stringify({ user, pass, role }));
+            } else {
+                localStorage.removeItem('eli7e_remember');
+            }
+        }
+
         // ─── LOGIN FORM ──────────────────────────────
         document.getElementById('loginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1190,6 +1222,7 @@
 
                 localStorage.setItem('eli7e_token', data.token);
                 localStorage.setItem('eli7e_user', JSON.stringify(data.user));
+                saveRemembered(document.getElementById('email').value, document.getElementById('password').value, selectedRole);
 
                 if (typeof gsap !== 'undefined') {
                     gsap.to('#loginScreen', {

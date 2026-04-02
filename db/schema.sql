@@ -176,8 +176,7 @@ INSERT INTO parametros_sistema (clave, valor, descripcion) VALUES
 ('costo_moto_semanal', 40, 'Deducción semanal fija por uso de moto ($)'),
 ('umbral_deuda_critica', 50, 'Monto de deuda ($) a partir del cual se marca como crítica (rojo)'),
 ('umbral_deuda_alerta', 20, 'Monto de deuda ($) a partir del cual se marca como alerta (amarillo)'),
-('max_cuotas_prestamo', 52, 'Número máximo de cuotas semanales permitidas para préstamos'),
-('password_default_moto', 0, 'Flag interno — la contraseña por defecto de motorizados es 123456')
+('max_cuotas_prestamo', 52, 'Número máximo de cuotas semanales permitidas para préstamos')
 ON CONFLICT (clave) DO NOTHING;
 
 -- ============================================================

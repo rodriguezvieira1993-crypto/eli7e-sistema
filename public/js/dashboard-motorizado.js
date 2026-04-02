@@ -1,10 +1,34 @@
 // dashboard-motorizado.js — Lógica del panel Motorizado
 
 const motoUser = getUser();
-if (!motoUser || motoUser.rol !== 'motorizado') {
+const isAdmin = motoUser && motoUser.rol === 'admin';
+if (!motoUser || (motoUser.rol !== 'motorizado' && motoUser.rol !== 'admin')) {
     localStorage.removeItem('eli7e_token');
     localStorage.removeItem('eli7e_user');
     window.location.href = '/';
+}
+
+// Si es admin, mostrar selector de motorizado
+let _motoIdOverride = null;
+function getMotoId() { return _motoIdOverride || motoUser.id; }
+
+async function initAdminSelector() {
+    if (!isAdmin) return;
+    const motos = await apiFetch('/motorizados');
+    if (!motos || !motos.length) return;
+    _motoIdOverride = motos[0].id;
+    const bar = document.createElement('div');
+    bar.style.cssText = 'background:rgba(0,221,0,.08);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;';
+    bar.innerHTML = `<span style="font-size:.82rem;color:var(--muted);">🔧 Modo Admin — viendo como:</span>
+        <select id="adminMotoSelect" style="flex:1;min-width:150px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--g1);font-weight:600;font-family:inherit;">
+            ${motos.map(m => `<option value="${m.id}">${m.nombre} (${m.cedula || 'sin cédula'})</option>`).join('')}
+        </select>`;
+    const content = document.querySelector('.content');
+    content.insertBefore(bar, content.firstChild);
+    document.getElementById('adminMotoSelect').addEventListener('change', (e) => {
+        _motoIdOverride = e.target.value;
+        loadResumen();
+    });
 }
 
 function showSpinner(el) {
@@ -14,7 +38,7 @@ function showSpinner(el) {
 
 // ─── RESUMEN (carga inicial) ──────────────────────────────
 async function loadResumen() {
-    const id = motoUser.id;
+    const id = getMotoId();
     showSpinner('serviciosHoyList');
     showSpinner('nominaResumen');
 
@@ -100,7 +124,7 @@ function renderNominaResumen(n) {
 async function loadMisServicios() {
     const tbody = document.getElementById('serviciosBody');
     tbody.innerHTML = '<tr><td colspan="5"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
-    const data = await apiFetch(`/servicios?motorizado_id=${motoUser.id}`);
+    const data = await apiFetch(`/servicios?motorizado_id=${getMotoId()}`);
     if (!data || !data.length) {
         tbody.innerHTML = '<tr><td colspan="5" class="loading-txt">Sin servicios esta semana</td></tr>';
         return;
@@ -134,7 +158,7 @@ async function loadMisServicios() {
 async function loadNominaDetalle() {
     const el = document.getElementById('nominaDetalle');
     showSpinner(el);
-    const nomina = await apiFetch(`/nominas/semana-actual/${motoUser.id}`);
+    const nomina = await apiFetch(`/nominas/semana-actual/${getMotoId()}`);
     if (!nomina) {
         el.innerHTML = '<p class="loading-txt">Error cargando nómina</p>';
         return;
@@ -186,7 +210,7 @@ async function loadNominaDetalle() {
     </div>`;
 
     // Historial de nóminas cerradas
-    const historial = await apiFetch(`/nominas/historial/${motoUser.id}`);
+    const historial = await apiFetch(`/nominas/historial/${getMotoId()}`);
     const tbody = document.getElementById('nominasHistBody');
     if (!historial || !historial.length) {
         tbody.innerHTML = '<tr><td colspan="5" class="loading-txt">Sin nóminas anteriores</td></tr>';
@@ -279,7 +303,7 @@ async function loadHistorial() {
     const tbody = document.getElementById('historialBody');
     tbody.innerHTML = '<tr><td colspan="6"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
 
-    let url = `/servicios?motorizado_id=${motoUser.id}`;
+    let url = `/servicios?motorizado_id=${getMotoId()}`;
     if (desde) url += `&desde=${desde}`;
     if (hasta) url += `&hasta=${hasta}`;
 
@@ -306,7 +330,7 @@ async function loadHistorial() {
 // ─── IMPRIMIR RECIBO DE NÓMINA ──────────────────────────
 function imprimirNomina() {
     const token = getToken();
-    window.open(`/api/reportes/nomina/${motoUser.id}?token=${token}`, '_blank');
+    window.open(`/api/reportes/nomina/${getMotoId()}?token=${token}`, '_blank');
 }
 
 // ─── CAMBIAR CONTRASEÑA ──────────────────────────────
@@ -319,7 +343,7 @@ async function cambiarMiClave(e) {
     if (nueva !== confirmar) { showToast('Las contraseñas no coinciden', 'err'); return; }
     if (nueva.length < 4) { showToast('Mínimo 4 caracteres', 'err'); return; }
 
-    const res = await apiFetch(`/motorizados/${motoUser.id}/password`, {
+    const res = await apiFetch(`/motorizados/${getMotoId()}/password`, {
         method: 'PATCH',
         body: { password_actual: actual, password: nueva }
     });
@@ -345,7 +369,8 @@ document.addEventListener('viewChange', (e) => {
 });
 
 // Carga inicial
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    await initAdminSelector();
     loadResumen();
 
     // Poner fechas por defecto en historial
