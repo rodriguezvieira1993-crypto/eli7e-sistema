@@ -86,14 +86,16 @@ async function initDB() {
                 actualizado_por UUID REFERENCES usuarios(id)
             )
         `);
-        const { rows: paramCount } = await pool.query('SELECT COUNT(*)::int AS n FROM parametros_sistema');
-        if (paramCount[0].n === 0) {
-            await pool.query(`
-                INSERT INTO parametros_sistema (clave, valor, descripcion) VALUES
-                ('porcentaje_empresa', 30, 'Porcentaje que retiene la empresa sobre el monto bruto semanal'),
-                ('costo_moto_semanal', 40, 'Deducción semanal fija por uso de moto ($)')
-            `);
-        }
+        await pool.query(`
+            INSERT INTO parametros_sistema (clave, valor, descripcion) VALUES
+            ('porcentaje_empresa', 30, 'Porcentaje que retiene la empresa sobre el monto bruto semanal'),
+            ('costo_moto_semanal', 40, 'Deducción semanal fija por uso de moto ($)'),
+            ('umbral_deuda_critica', 50, 'Monto de deuda ($) a partir del cual se marca como crítica (rojo)'),
+            ('umbral_deuda_alerta', 20, 'Monto de deuda ($) a partir del cual se marca como alerta (amarillo)'),
+            ('max_cuotas_prestamo', 52, 'Número máximo de cuotas semanales permitidas para préstamos'),
+            ('password_default_moto', 0, 'Flag interno — la contraseña por defecto de motorizados es 123456')
+            ON CONFLICT (clave) DO NOTHING
+        `);
         await pool.query(`
             CREATE TABLE IF NOT EXISTS prestamos (
                 id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -135,6 +137,29 @@ async function initDB() {
         console.log('✅ Tablas nóminas/préstamos/parámetros OK');
     } catch (err) {
         console.log('⚠️ Migración nóminas:', err.message);
+    }
+
+    // Migración: crear tabla configuracion_sistema (clave/valor texto)
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS configuracion_sistema (
+                clave VARCHAR(50) PRIMARY KEY,
+                valor TEXT NOT NULL DEFAULT '',
+                descripcion TEXT,
+                actualizado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await pool.query(`
+            INSERT INTO configuracion_sistema (clave, valor, descripcion) VALUES
+            ('gmail_user', '', 'Correo Gmail para envío de reportes'),
+            ('gmail_pass', '', 'App Password de Gmail'),
+            ('empresa_nombre', 'Delivery Eli7e', 'Nombre de la empresa'),
+            ('empresa_telefono', '', 'Teléfono de contacto de la empresa')
+            ON CONFLICT (clave) DO NOTHING
+        `);
+        console.log('✅ Tabla configuracion_sistema OK');
+    } catch (err) {
+        console.log('⚠️ Migración configuracion_sistema:', err.message);
     }
 
     // SIEMPRE recrear la vista de cobranza (independiente del schema)

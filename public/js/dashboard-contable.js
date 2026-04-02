@@ -552,7 +552,7 @@ function generarReportePersonalizado() {
 }
 
 // ── Init
-loadCobranza();
+cargarUmbralesDeuda().then(() => loadCobranza());
 document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'cobranza') loadCobranza();
     if (view === 'cierre') loadCierre();

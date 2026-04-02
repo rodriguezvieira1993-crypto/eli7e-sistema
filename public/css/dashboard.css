@@ -787,6 +787,29 @@ textarea::placeholder {
   padding: 12px 0;
 }
 
+.spinner-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px 16px;
+  color: var(--muted);
+  font-size: .84rem;
+}
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid var(--border);
+  border-top-color: var(--g1);
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 /* ─── RESPONSIVE ──────────────────────────────── */
 @media (max-width:768px) {
   .sidebar {

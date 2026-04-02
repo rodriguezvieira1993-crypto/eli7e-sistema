@@ -6,6 +6,23 @@ const router = express.Router();
 
 router.use(auth);
 
+// GET /api/parametros/umbrales — umbrales de deuda (para semáforo dinámico)
+router.get('/umbrales', async (req, res) => {
+    try {
+        const { rows } = await pool.query(
+            "SELECT clave, valor FROM parametros_sistema WHERE clave IN ('umbral_deuda_critica', 'umbral_deuda_alerta')"
+        );
+        const map = {};
+        rows.forEach(r => map[r.clave] = parseFloat(r.valor));
+        res.json({
+            critica: map.umbral_deuda_critica || 50,
+            alerta: map.umbral_deuda_alerta || 20
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/parametros — listar todos los parámetros
 router.get('/', async (req, res) => {
     try {

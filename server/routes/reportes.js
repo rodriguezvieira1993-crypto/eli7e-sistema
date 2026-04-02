@@ -507,4 +507,144 @@ router.get('/personalizado', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ══ RECIBO DE NÓMINA (motorizado) ═══════════════════════
+router.get('/nomina/:motorizadoId', async (req, res) => {
+    try {
+        const motoId = req.params.motorizadoId;
+        const semana = req.query.semana; // opcional: lunes de la semana
+
+        // Datos del motorizado
+        const { rows: motoRows } = await pool.query('SELECT * FROM motorizados WHERE id = $1', [motoId]);
+        if (!motoRows[0]) return res.status(404).json({ error: 'Motorizado no encontrado' });
+        const moto = motoRows[0];
+
+        // Si se pide semana específica, buscar nómina cerrada; si no, calcular en vivo
+        let nomina;
+        if (semana) {
+            const { rows: nomRows } = await pool.query(
+                'SELECT * FROM nominas WHERE motorizado_id = $1 AND semana_inicio = $2', [motoId, semana]
+            );
+            nomina = nomRows[0];
+        }
+
+        if (!nomina) {
+            // Calcular en vivo (semana actual)
+            function getLunes(date) {
+                const d = new Date(date);
+                const day = d.getDay();
+                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+                d.setDate(diff); d.setHours(0,0,0,0);
+                return d.toISOString().split('T')[0];
+            }
+            const lunes = semana || getLunes(new Date());
+            const domDate = new Date(lunes); domDate.setDate(domDate.getDate() + 6);
+            const domingo = domDate.toISOString().split('T')[0];
+
+            const { rows: brutoRows } = await pool.query(
+                `SELECT COALESCE(SUM(monto), 0) AS monto_bruto, COUNT(*) AS total_servicios
+                 FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
+                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3`,
+                [motoId, lunes, domingo]
+            );
+            const { rows: params } = await pool.query('SELECT clave, valor FROM parametros_sistema');
+            const paramMap = {}; params.forEach(p => paramMap[p.clave] = parseFloat(p.valor));
+            const pctEmpresa = paramMap.porcentaje_empresa || 30;
+            const costoMoto = paramMap.costo_moto_semanal || 40;
+            const montoBruto = parseFloat(brutoRows[0].monto_bruto);
+            const deduccionEmpresa = parseFloat((montoBruto * pctEmpresa / 100).toFixed(2));
+
+            const { rows: prestActivos } = await pool.query(
+                `SELECT COALESCE(SUM(cuota_semanal), 0) AS ded FROM prestamos
+                 WHERE motorizado_id = $1 AND estado = 'aprobado' AND saldo_pendiente > 0`, [motoId]
+            );
+            const deduccionPrestamos = parseFloat(prestActivos[0].ded);
+            const montoNeto = parseFloat((montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos).toFixed(2));
+
+            nomina = {
+                semana_inicio: lunes, semana_fin: domingo,
+                total_servicios: parseInt(brutoRows[0].total_servicios),
+                monto_bruto: montoBruto, porcentaje_empresa: pctEmpresa,
+                deduccion_empresa: deduccionEmpresa, deduccion_moto: costoMoto,
+                deduccion_prestamos: deduccionPrestamos, monto_neto: montoNeto,
+                estado: 'estimado'
+            };
+        }
+
+        // Servicios de esa semana
+        const { rows: servicios } = await pool.query(
+            `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, c.nombre_marca
+             FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
+             WHERE s.motorizado_id = $1 AND s.estado = 'completado'
+             AND DATE(s.fecha_inicio) >= $2 AND DATE(s.fecha_inicio) <= $3
+             ORDER BY s.fecha_inicio ASC`,
+            [motoId, nomina.semana_inicio, nomina.semana_fin]
+        );
+
+        const estadoLabel = nomina.estado === 'cerrado' ? '<span class="badge badge-green">CERRADA</span>'
+            : '<span class="badge badge-yellow">ESTIMADO</span>';
+
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Recibo Nómina — ${moto.nombre}</title>${estilos}</head><body>
+        <div class="report">
+            ${printBar}
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+                <div>
+                    <h1>🧾 Recibo de Nómina</h1>
+                    <div class="sub">${moto.nombre} — Semana ${nomina.semana_inicio} al ${nomina.semana_fin}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-size:.82rem;color:#7a9a7a;">${estadoLabel}</div>
+                    <div style="font-size:.78rem;color:#7a9a7a;margin-top:4px;">Cédula: ${moto.cedula || '—'}</div>
+                </div>
+            </div>
+
+            <div class="kpi-row">
+                <div class="kpi"><div class="kpi-val">${nomina.total_servicios || servicios.length}</div><div class="kpi-lbl">Servicios</div></div>
+                <div class="kpi"><div class="kpi-val">${fmt(nomina.monto_bruto)}</div><div class="kpi-lbl">Bruto</div></div>
+                <div class="kpi"><div class="kpi-val red">-${fmt(parseFloat(nomina.deduccion_empresa) + parseFloat(nomina.deduccion_moto) + parseFloat(nomina.deduccion_prestamos))}</div><div class="kpi-lbl">Deducciones</div></div>
+                <div class="kpi"><div class="kpi-val green">${fmt(nomina.monto_neto)}</div><div class="kpi-lbl">Neto a Cobrar</div></div>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📦 Servicios Completados</div>
+                <table>
+                    <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Detalle</th><th>Monto</th></tr></thead>
+                    <tbody>
+                        ${servicios.map((s, i) => `<tr>
+                            <td>${i + 1}</td>
+                            <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
+                            <td style="text-transform:capitalize;">${s.tipo}</td>
+                            <td>${s.nombre_marca || '—'}</td>
+                            <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
+                            <td class="green">${fmt(s.monto)}</td>
+                        </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#7a9a7a;">Sin servicios esta semana</td></tr>'}
+                        ${servicios.length ? `<tr class="total-row"><td colspan="5"><strong>TOTAL BRUTO</strong></td><td class="green"><strong>${fmt(nomina.monto_bruto)}</strong></td></tr>` : ''}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="section">
+                <div class="section-title">📉 Deducciones</div>
+                <table>
+                    <thead><tr><th>Concepto</th><th>Detalle</th><th>Monto</th></tr></thead>
+                    <tbody>
+                        <tr><td>Porcentaje empresa</td><td>${nomina.porcentaje_empresa}% del bruto</td><td class="red">-${fmt(nomina.deduccion_empresa)}</td></tr>
+                        <tr><td>Uso de moto</td><td>Tarifa semanal fija</td><td class="red">-${fmt(nomina.deduccion_moto)}</td></tr>
+                        <tr><td>Préstamos</td><td>Cuotas activas</td><td class="red">-${fmt(nomina.deduccion_prestamos)}</td></tr>
+                        <tr class="total-row"><td colspan="2"><strong>TOTAL DEDUCCIONES</strong></td><td class="red"><strong>-${fmt(parseFloat(nomina.deduccion_empresa) + parseFloat(nomina.deduccion_moto) + parseFloat(nomina.deduccion_prestamos))}</strong></td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div style="text-align:center;padding:24px;background:#0f180f;border-radius:10px;border:2px solid rgba(0,221,0,.3);margin-bottom:20px;">
+                <div style="font-size:.85rem;color:#7a9a7a;margin-bottom:4px;">MONTO NETO A COBRAR</div>
+                <div style="font-size:2.4rem;font-weight:900;color:#00dd00;">${fmt(nomina.monto_neto)}</div>
+            </div>
+
+            <div class="footer">Eli7e Sistema de Gestión — Recibo de nómina generado el ${hoy()}</div>
+        </div></body></html>`;
+
+        res.send(html);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

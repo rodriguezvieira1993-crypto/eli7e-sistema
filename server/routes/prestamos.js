@@ -45,7 +45,11 @@ router.post('/', async (req, res) => {
     const { monto, cuotas, nota } = req.body;
     if (!monto || monto <= 0) return res.status(400).json({ error: 'Monto inválido' });
 
-    const numCuotas = Math.min(Math.max(parseInt(cuotas) || 1, 1), 52);
+    // Obtener máximo de cuotas configurable
+    const { rows: paramRows } = await pool.query("SELECT valor FROM parametros_sistema WHERE clave = 'max_cuotas_prestamo'");
+    const maxCuotas = paramRows[0] ? parseInt(paramRows[0].valor) : 52;
+
+    const numCuotas = Math.min(Math.max(parseInt(cuotas) || 1, 1), maxCuotas);
     const cuotaSemanal = parseFloat((monto / numCuotas).toFixed(2));
 
     try {

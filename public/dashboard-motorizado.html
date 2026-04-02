@@ -26,6 +26,9 @@
             <a href="#" class="sb-link" data-view="nomina"><span>💰</span> Mi Nómina</a>
             <a href="#" class="sb-link" data-view="prestamos"><span>🏦</span> Préstamos</a>
             <a href="#" class="sb-link" data-view="historial"><span>📋</span> Historial</a>
+
+            <div class="sb-section">Cuenta</div>
+            <a href="#" class="sb-link" onclick="openModal('modalCambiarClave'); return false;"><span>🔑</span> Cambiar Contraseña</a>
         </nav>
 
         <div class="sb-footer" id="sbUser">
@@ -144,6 +147,7 @@
                         <h1 class="view-title">Mi Nómina</h1>
                         <span class="view-sub">Desglose de tu nómina semanal</span>
                     </div>
+                    <button class="btn-primary" onclick="imprimirNomina()">🖨️ Imprimir Recibo</button>
                 </div>
 
                 <div class="card" id="nominaDetalle">
@@ -269,6 +273,34 @@
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('modalPrestamo')">Cancelar</button>
                     <button type="submit" class="btn-primary">Enviar Solicitud</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL: Cambiar Contraseña -->
+    <div class="modal-overlay" id="modalCambiarClave">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span>🔑 Cambiar Contraseña</span>
+                <button onclick="closeModal('modalCambiarClave')">✕</button>
+            </div>
+            <form onsubmit="cambiarMiClave(event)">
+                <div class="field">
+                    <label>Contraseña actual</label>
+                    <input type="password" id="claveActual" required minlength="4">
+                </div>
+                <div class="field">
+                    <label>Nueva contraseña</label>
+                    <input type="password" id="claveNueva" required minlength="4">
+                </div>
+                <div class="field">
+                    <label>Confirmar nueva contraseña</label>
+                    <input type="password" id="claveConfirmar" required minlength="4">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalCambiarClave')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Cambiar</button>
                 </div>
             </form>
         </div>

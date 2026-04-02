@@ -166,11 +166,21 @@ function fmtDate(iso) {
     return d.toLocaleDateString('es-VE') + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' });
 }
 
-// Semáforo de deuda
+// Semáforo de deuda (umbrales dinámicos desde parámetros del sistema)
+let _umbralCritica = 50, _umbralAlerta = 20, _umbralesCargados = false;
+async function cargarUmbralesDeuda() {
+    if (_umbralesCargados) return;
+    const data = await apiFetch('/parametros/umbrales');
+    if (data && !data.error) {
+        _umbralCritica = data.critica;
+        _umbralAlerta = data.alerta;
+        _umbralesCargados = true;
+    }
+}
 function semaforoDeuda(deuda) {
     const d = parseFloat(deuda);
-    if (d > 50) return '<span class="badge badge-red">🔴 Crítica</span>';
-    if (d > 20) return '<span class="badge badge-yellow">🟡 Alerta</span>';
+    if (d > _umbralCritica) return '<span class="badge badge-red">🔴 Crítica</span>';
+    if (d > _umbralAlerta) return '<span class="badge badge-yellow">🟡 Alerta</span>';
     if (d > 0) return '<span class="badge badge-green">🟢 Bajo</span>';
     return '<span class="badge badge-blue">✅ Al día</span>';
 }

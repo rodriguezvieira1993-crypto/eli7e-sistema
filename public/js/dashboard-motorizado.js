@@ -7,9 +7,16 @@ if (!motoUser || motoUser.rol !== 'motorizado') {
     window.location.href = '/';
 }
 
+function showSpinner(el) {
+    if (typeof el === 'string') el = document.getElementById(el);
+    if (el) el.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div>';
+}
+
 // ─── RESUMEN (carga inicial) ──────────────────────────────
 async function loadResumen() {
     const id = motoUser.id;
+    showSpinner('serviciosHoyList');
+    showSpinner('nominaResumen');
 
     // Servicios hoy (detalle del motorizado)
     const detalle = await apiFetch(`/motorizados/${id}`);
@@ -91,8 +98,9 @@ function renderNominaResumen(n) {
 
 // ─── MIS SERVICIOS (semana actual) ──────────────────────────
 async function loadMisServicios() {
-    const data = await apiFetch(`/servicios?motorizado_id=${motoUser.id}`);
     const tbody = document.getElementById('serviciosBody');
+    tbody.innerHTML = '<tr><td colspan="5"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
+    const data = await apiFetch(`/servicios?motorizado_id=${motoUser.id}`);
     if (!data || !data.length) {
         tbody.innerHTML = '<tr><td colspan="5" class="loading-txt">Sin servicios esta semana</td></tr>';
         return;
@@ -124,8 +132,9 @@ async function loadMisServicios() {
 
 // ─── MI NÓMINA DETALLADA ──────────────────────────────
 async function loadNominaDetalle() {
-    const nomina = await apiFetch(`/nominas/semana-actual/${motoUser.id}`);
     const el = document.getElementById('nominaDetalle');
+    showSpinner(el);
+    const nomina = await apiFetch(`/nominas/semana-actual/${motoUser.id}`);
     if (!nomina) {
         el.innerHTML = '<p class="loading-txt">Error cargando nómina</p>';
         return;
@@ -198,8 +207,9 @@ async function loadNominaDetalle() {
 
 // ─── PRÉSTAMOS ──────────────────────────────────────────
 async function loadPrestamos() {
-    const data = await apiFetch('/prestamos');
     const tbody = document.getElementById('prestamosBody');
+    tbody.innerHTML = '<tr><td colspan="6"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
+    const data = await apiFetch('/prestamos');
     if (!data || !data.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">No tienes préstamos registrados</td></tr>';
         return;
@@ -266,13 +276,14 @@ async function solicitarPrestamo(e) {
 async function loadHistorial() {
     const desde = document.getElementById('histDesde').value;
     const hasta = document.getElementById('histHasta').value;
+    const tbody = document.getElementById('historialBody');
+    tbody.innerHTML = '<tr><td colspan="6"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
 
     let url = `/servicios?motorizado_id=${motoUser.id}`;
     if (desde) url += `&desde=${desde}`;
     if (hasta) url += `&hasta=${hasta}`;
 
     const data = await apiFetch(url);
-    const tbody = document.getElementById('historialBody');
     if (!data || !data.length) {
         tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin servicios en este período</td></tr>';
         return;
@@ -290,6 +301,37 @@ async function loadHistorial() {
         <td style="font-weight:700;color:var(--g1);">${fmt(s.monto)}</td>
         <td><span class="badge ${estadoCls[s.estado] || ''}">${s.estado}</span></td>
     </tr>`).join('');
+}
+
+// ─── IMPRIMIR RECIBO DE NÓMINA ──────────────────────────
+function imprimirNomina() {
+    const token = getToken();
+    window.open(`/api/reportes/nomina/${motoUser.id}?token=${token}`, '_blank');
+}
+
+// ─── CAMBIAR CONTRASEÑA ──────────────────────────────
+async function cambiarMiClave(e) {
+    e.preventDefault();
+    const actual = document.getElementById('claveActual').value;
+    const nueva = document.getElementById('claveNueva').value;
+    const confirmar = document.getElementById('claveConfirmar').value;
+
+    if (nueva !== confirmar) { showToast('Las contraseñas no coinciden', 'err'); return; }
+    if (nueva.length < 4) { showToast('Mínimo 4 caracteres', 'err'); return; }
+
+    const res = await apiFetch(`/motorizados/${motoUser.id}/password`, {
+        method: 'PATCH',
+        body: { password_actual: actual, password: nueva }
+    });
+    if (res?.ok) {
+        showToast('Contraseña actualizada');
+        closeModal('modalCambiarClave');
+        document.getElementById('claveActual').value = '';
+        document.getElementById('claveNueva').value = '';
+        document.getElementById('claveConfirmar').value = '';
+    } else {
+        showToast(res?.error || 'Error al cambiar contraseña', 'err');
+    }
 }
 
 // ─── VIEW CHANGE HANDLER ──────────────────────────────

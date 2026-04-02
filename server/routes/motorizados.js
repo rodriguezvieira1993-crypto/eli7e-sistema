@@ -79,13 +79,28 @@ router.post('/', requireRol('admin'), async (req, res) => {
     }
 });
 
-// PATCH /api/motorizados/:id/password — cambiar contraseña (solo admin)
-router.patch('/:id/password', requireRol('admin'), async (req, res) => {
-    const { password } = req.body;
+// PATCH /api/motorizados/:id/password — cambiar contraseña (admin o el propio motorizado)
+router.patch('/:id/password', async (req, res) => {
+    // Permitir si es admin O si el motorizado cambia su propia contraseña
+    if (req.user.rol !== 'admin' && req.user.id !== req.params.id) {
+        return res.status(403).json({ error: 'Sin permiso' });
+    }
+
+    const { password, password_actual } = req.body;
     if (!password || password.length < 4) return res.status(400).json({ error: 'Contraseña mínimo 4 caracteres' });
 
     try {
         const bcrypt = require('bcryptjs');
+
+        // Si es motorizado cambiando su propia clave, verificar la actual
+        if (req.user.rol === 'motorizado') {
+            if (!password_actual) return res.status(400).json({ error: 'Debes ingresar tu contraseña actual' });
+            const { rows } = await pool.query('SELECT password FROM motorizados WHERE id = $1', [req.params.id]);
+            if (!rows[0]) return res.status(404).json({ error: 'No encontrado' });
+            const match = await bcrypt.compare(password_actual, rows[0].password);
+            if (!match) return res.status(401).json({ error: 'Contraseña actual incorrecta' });
+        }
+
         const hash = await bcrypt.hash(password, 10);
         await pool.query('UPDATE motorizados SET password = $1 WHERE id = $2', [hash, req.params.id]);
         res.json({ ok: true });

@@ -556,8 +556,10 @@ async function loadNominasAdmin() {
             <td>${cerrada
                 ? '<span class="badge badge-green">Cerrada</span>'
                 : '<span class="badge badge-yellow">Abierta</span>'}</td>
-            <td>${cerrada
-                ? '—'
+            <td>
+                <button class="btn-icon" onclick="window.open('/api/reportes/nomina/${m.motorizado_id}?semana=${semana}&token='+getToken(),'_blank')" title="Imprimir recibo">🖨️</button>
+                ${cerrada
+                ? ''
                 : `<button class="btn-icon" onclick="cerrarNominaUno('${m.motorizado_id}','${semana}','${m.nombre}')" title="Cerrar nómina">🔒</button>`}
             </td>
         </tr>`;
@@ -696,7 +698,11 @@ async function loadParametros() {
 
     const iconos = {
         porcentaje_empresa: '📊',
-        costo_moto_semanal: '🛵'
+        costo_moto_semanal: '🛵',
+        umbral_deuda_critica: '🔴',
+        umbral_deuda_alerta: '🟡',
+        max_cuotas_prestamo: '🏦',
+        password_default_moto: '🔑'
     };
 
     grid.innerHTML = data.map(p => `
@@ -754,12 +760,42 @@ async function guardarParametro(clave) {
     }
 }
 
-function guardarGmail() {
-    showToast('Configuración de Gmail guardada (local)');
+async function guardarGmail() {
+    const gmail_user = document.getElementById('gmailUser').value;
+    const gmail_pass = document.getElementById('gmailPass').value;
+    const res = await apiFetch('/configuracion', {
+        method: 'PUT',
+        body: { gmail_user, gmail_pass }
+    });
+    if (res?.ok) showToast('Configuración de Gmail guardada');
+    else showToast(res?.error || 'Error al guardar Gmail', 'err');
+}
+
+async function guardarEmpresa() {
+    const empresa_nombre = document.getElementById('empresaNombre').value;
+    const empresa_telefono = document.getElementById('empresaTel').value;
+    const res = await apiFetch('/configuracion', {
+        method: 'PUT',
+        body: { empresa_nombre, empresa_telefono }
+    });
+    if (res?.ok) showToast('Datos de empresa guardados');
+    else showToast(res?.error || 'Error al guardar', 'err');
+}
+
+async function loadConfig() {
+    const data = await apiFetch('/configuracion');
+    if (!data) return;
+    const map = {};
+    data.forEach(c => map[c.clave] = c.valor);
+    const el = (id, val) => { const e = document.getElementById(id); if (e && val) e.value = val; };
+    el('gmailUser', map.gmail_user);
+    el('gmailPass', map.gmail_pass);
+    el('empresaNombre', map.empresa_nombre);
+    el('empresaTel', map.empresa_telefono);
 }
 
 // ── Init
-loadDashboard();
+cargarUmbralesDeuda().then(() => loadDashboard());
 document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'clientes') loadClientes();
     if (view === 'flota') loadFlota();
@@ -770,5 +806,6 @@ document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'parametros') loadParametros();
     if (view === 'cierres') loadCierresAdmin();
     if (view === 'usuarios') loadUsuarios();
+    if (view === 'config') loadConfig();
     if (view === 'dashboard') loadDashboard();
 });

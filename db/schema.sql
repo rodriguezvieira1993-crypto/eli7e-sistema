@@ -173,7 +173,11 @@ CREATE TABLE IF NOT EXISTS parametros_sistema (
 
 INSERT INTO parametros_sistema (clave, valor, descripcion) VALUES
 ('porcentaje_empresa', 30, 'Porcentaje que retiene la empresa sobre el monto bruto semanal'),
-('costo_moto_semanal', 40, 'Deducción semanal fija por uso de moto ($)')
+('costo_moto_semanal', 40, 'Deducción semanal fija por uso de moto ($)'),
+('umbral_deuda_critica', 50, 'Monto de deuda ($) a partir del cual se marca como crítica (rojo)'),
+('umbral_deuda_alerta', 20, 'Monto de deuda ($) a partir del cual se marca como alerta (amarillo)'),
+('max_cuotas_prestamo', 52, 'Número máximo de cuotas semanales permitidas para préstamos'),
+('password_default_moto', 0, 'Flag interno — la contraseña por defecto de motorizados es 123456')
 ON CONFLICT (clave) DO NOTHING;
 
 -- ============================================================
@@ -213,6 +217,23 @@ CREATE TABLE IF NOT EXISTS nominas (
     creado_en           TIMESTAMP DEFAULT NOW(),
     UNIQUE(motorizado_id, semana_inicio)
 );
+
+-- ============================================================
+-- 10b. CONFIGURACIÓN GENERAL DEL SISTEMA (clave/valor texto)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS configuracion_sistema (
+    clave       VARCHAR(50) PRIMARY KEY,
+    valor       TEXT NOT NULL DEFAULT '',
+    descripcion TEXT,
+    actualizado_en TIMESTAMP DEFAULT NOW()
+);
+
+INSERT INTO configuracion_sistema (clave, valor, descripcion) VALUES
+('gmail_user', '', 'Correo Gmail para envío de reportes'),
+('gmail_pass', '', 'App Password de Gmail'),
+('empresa_nombre', 'Delivery Eli7e', 'Nombre de la empresa'),
+('empresa_telefono', '', 'Teléfono de contacto de la empresa')
+ON CONFLICT (clave) DO NOTHING;
 
 -- ============================================================
 -- 11. ÍNDICES para performance (IF NOT EXISTS)
