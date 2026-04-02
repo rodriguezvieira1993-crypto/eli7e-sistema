@@ -86,7 +86,8 @@ router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
                 await pushService.notifyMotorizado(
                     motorizado_id,
                     `${emoji} Nuevo servicio asignado`,
-                    `${tipo.charAt(0).toUpperCase() + tipo.slice(1)} $${parseFloat(monto).toFixed(2)}${desc}`
+                    `${tipo.charAt(0).toUpperCase() + tipo.slice(1)} $${parseFloat(monto).toFixed(2)}${desc}`,
+                    { servicioId: rows[0].id }
                 );
             } catch (pushErr) { /* no bloquear si push falla */ }
         }
@@ -94,8 +95,8 @@ router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// PATCH /api/servicios/:id/cerrar
-router.patch('/:id/cerrar', requireRol('admin', 'call_center'), async (req, res) => {
+// PATCH /api/servicios/:id/cerrar (motorizado puede cerrar sus propios servicios)
+router.patch('/:id/cerrar', requireRol('admin', 'call_center', 'motorizado'), async (req, res) => {
     try {
         const { rows } = await pool.query(
             `UPDATE servicios SET estado='completado', fecha_fin=NOW() WHERE id=$1 RETURNING *`,

@@ -167,9 +167,32 @@
         return outputArray;
     }
 
+    // ─── GUARDAR TOKEN PARA EL SERVICE WORKER ─────────────────
+    async function cacheTokenForSW() {
+        const token = localStorage.getItem('eli7e_token');
+        if (!token) return;
+        try {
+            const cache = await caches.open('eli7e-auth');
+            await cache.put('/auth-token', new Response(token));
+        } catch (e) { /* no crítico */ }
+    }
+
+    // Responder al SW cuando pide el token
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.addEventListener('message', (e) => {
+            if (e.data && e.data.type === 'GET_TOKEN') {
+                const token = localStorage.getItem('eli7e_token');
+                e.ports[0].postMessage({ token: token || null });
+            }
+        });
+    }
+
     // ─── INIT ───────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', async () => {
         const reg = await registerSW();
+
+        // Guardar token en cache para que el SW pueda completar servicios
+        await cacheTokenForSW();
 
         // Si ya tiene permiso, re-suscribir silenciosamente
         if (reg && 'Notification' in window && Notification.permission === 'granted') {
@@ -177,7 +200,6 @@
         }
 
         // Mostrar banner de instalación en TODOS los dispositivos móviles
-        // después de 3 segundos (da tiempo a que cargue la página)
         if (!window.matchMedia('(display-mode: standalone)').matches && !window.navigator.standalone) {
             setTimeout(showInstallBanner, 3000);
         }
