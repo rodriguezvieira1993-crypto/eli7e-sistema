@@ -78,12 +78,20 @@ router.post('/mensajes', async (req, res) => {
     }
 });
 
-// POST /api/chat/imagen — subir imagen
+// POST /api/chat/imagen — subir imagen (se guarda como base64 en PostgreSQL)
 router.post('/imagen', upload.single('imagen'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No se recibió imagen' });
 
-        const imagenUrl = '/uploads/chat/' + req.file.filename;
+        const fs = require('fs');
+        const fileBuffer = fs.readFileSync(req.file.path);
+        const base64 = fileBuffer.toString('base64');
+        const mimeType = req.file.mimetype || 'image/jpeg';
+        const imagenUrl = `data:${mimeType};base64,${base64}`;
+
+        // Eliminar archivo temporal del disco
+        fs.unlink(req.file.path, () => {});
+
         const canal = req.body.canal || 'general';
         const mensaje = req.body.mensaje || '';
 

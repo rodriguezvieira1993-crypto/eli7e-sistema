@@ -70,15 +70,15 @@ async function generarNotaPago(clienteId, nombreMarca, montoPagado) {
 
     var filasHTML = servicios.map(function (s, i) {
         var d = s.fecha_inicio ? new Date(s.fecha_inicio) : null;
-        var isoDate = d ? d.toISOString().slice(0, 10) : '';
         var fecha = d ? d.toLocaleDateString('es-VE') + ' ' + d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '—';
-        return '<tr data-fecha="' + isoDate + '">' +
-            '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;" class="row-num">' + (i + 1) + '</td>' +
-            '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;">' + fecha + '</td>' +
-            '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;text-transform:capitalize;">' + s.tipo + '</td>' +
-            '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;">' + (s.motorizado_nombre || '—') + '</td>' +
-            '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;max-width:200px;font-size:.8rem;">' + (s.descripcion || '—') + '</td>' +
-            '<td style="padding:10px 12px;border-bottom:1px solid #1a3a1a;text-align:right;font-weight:700;" data-monto="' + parseFloat(s.monto) + '">$' + parseFloat(s.monto).toFixed(2) + '</td>' +
+        var tdEdit = 'padding:10px 12px;border-bottom:1px solid #1a3a1a;';
+        return '<tr>' +
+            '<td style="' + tdEdit + '">' + (i + 1) + '</td>' +
+            '<td contenteditable="true" style="' + tdEdit + 'cursor:text;outline:none;" onfocus="this.style.background=\'rgba(0,221,0,.08)\'" onblur="this.style.background=\'none\'">' + fecha + '</td>' +
+            '<td contenteditable="true" style="' + tdEdit + 'text-transform:capitalize;cursor:text;outline:none;" onfocus="this.style.background=\'rgba(0,221,0,.08)\'" onblur="this.style.background=\'none\'">' + s.tipo + '</td>' +
+            '<td contenteditable="true" style="' + tdEdit + 'cursor:text;outline:none;" onfocus="this.style.background=\'rgba(0,221,0,.08)\'" onblur="this.style.background=\'none\'">' + (s.motorizado_nombre || '—') + '</td>' +
+            '<td contenteditable="true" style="' + tdEdit + 'max-width:200px;font-size:.8rem;cursor:text;outline:none;" onfocus="this.style.background=\'rgba(0,221,0,.08)\'" onblur="this.style.background=\'none\'">' + (s.descripcion || '—') + '</td>' +
+            '<td contenteditable="true" style="' + tdEdit + 'text-align:right;font-weight:700;cursor:text;outline:none;" onfocus="this.style.background=\'rgba(0,221,0,.08)\'" onblur="this.style.background=\'none\'">$' + parseFloat(s.monto).toFixed(2) + '</td>' +
             '</tr>';
     }).join('');
 
@@ -121,19 +121,12 @@ async function generarNotaPago(clienteId, nombreMarca, montoPagado) {
         '.nota-total { background:#f8f8f8; }' +
         '.nota-total .amount { color:#006600; }' +
         '.nota-footer { color:#999; border-top:1px solid #eee; }' +
-        '.nota-actions { display:none !important; } .nota-filtro { display:none !important; } }' +
+        '.nota-actions { display:none !important; } [contenteditable] { outline:none; } }' +
         '</style></head><body>' +
         '<div class="nota-container">' +
         '<div class="nota-header"><div class="nota-brand"><div><h1>Eli7e</h1><span>Servicios de Mensajería &amp; Delivery</span></div></div>' +
-        '<div class="nota-info"><strong>' + numNota + '</strong>Fecha: ' + fechaNota + '<br>Servicios: ' + servicios.length + '</div></div>' +
-        '<div class="nota-cliente"><h3>Facturado a</h3><p>' + nombreMarca + '</p></div>' +
-        '<div class="nota-filtro" style="padding:16px 40px;border-bottom:1px solid #1a3a1a;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">' +
-        '<span style="font-size:.78rem;color:#888;">Filtrar por fecha:</span>' +
-        '<input type="date" id="notaDesde" style="color-scheme:dark;padding:8px 10px;background:#0d1f0d;border:1px solid #1a3a1a;border-radius:6px;color:#e0e0e0;font-family:inherit;font-size:.82rem;">' +
-        '<input type="date" id="notaHasta" style="color-scheme:dark;padding:8px 10px;background:#0d1f0d;border:1px solid #1a3a1a;border-radius:6px;color:#e0e0e0;font-family:inherit;font-size:.82rem;">' +
-        '<button onclick="filtrarNota()" style="padding:8px 16px;background:linear-gradient(135deg,#00dd00,#00aa00);color:#000;border:none;border-radius:6px;font-family:inherit;font-weight:700;font-size:.82rem;cursor:pointer;">Filtrar</button>' +
-        '<button onclick="document.getElementById(\'notaDesde\').value=\'\';document.getElementById(\'notaHasta\').value=\'\';filtrarNota()" style="padding:8px 12px;background:#222;color:#888;border:1px solid #333;border-radius:6px;font-family:inherit;font-size:.82rem;cursor:pointer;">Limpiar</button>' +
-        '</div>' +
+        '<div class="nota-info"><strong contenteditable="true">' + numNota + '</strong><span contenteditable="true">Fecha: ' + fechaNota + '</span><br><span contenteditable="true">Servicios: ' + servicios.length + '</span></div></div>' +
+        '<div class="nota-cliente"><h3>Facturado a</h3><p contenteditable="true">' + nombreMarca + '</p></div>' +
         '<table class="nota-table"><thead><tr>' +
         '<th>#</th><th>Fecha</th><th>Tipo</th><th>Motorizado</th><th>Detalle</th><th style="text-align:right;">Monto</th>' +
         '</tr></thead><tbody>' + filasHTML + '</tbody></table>';
@@ -157,26 +150,7 @@ async function generarNotaPago(clienteId, nombreMarca, montoPagado) {
         '<div class="nota-actions">' +
         '<button class="btn-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>' +
         '<button class="btn-close" onclick="window.close()">Cerrar</button>' +
-        '</div>' +
-        '<script>' +
-        'function filtrarNota(){' +
-        'var desde=document.getElementById("notaDesde").value;' +
-        'var hasta=document.getElementById("notaHasta").value;' +
-        'var rows=document.querySelectorAll(".nota-table tbody tr");' +
-        'var total=0,count=0,num=0;' +
-        'rows.forEach(function(r){' +
-        'var f=r.getAttribute("data-fecha");' +
-        'var show=true;' +
-        'if(desde&&f<desde)show=false;' +
-        'if(hasta&&f>hasta)show=false;' +
-        'r.style.display=show?"":"none";' +
-        'if(show){num++;total+=parseFloat(r.querySelector("[data-monto]").getAttribute("data-monto"));r.querySelector(".row-num").textContent=num;count++;}' +
-        '});' +
-        'var amt=document.querySelector(".nota-total .amount");if(amt)amt.textContent="$"+total.toFixed(2);' +
-        'var info=document.querySelector(".nota-info");if(info){var parts=info.innerHTML.split("Servicios:");if(parts.length>1)info.innerHTML=parts[0]+"Servicios: "+count+"</div>";}' +
-        '}' +
-        '<\/script>' +
-        '</body></html>';
+        '</div></body></html>';
 
     var w = window.open('', '_blank', 'width=900,height=700');
     w.document.write(html);

@@ -25,7 +25,8 @@ const estilos = `
         .kpi-lbl { font-size:.75rem; color:#7a9a7a; }
         table { width:100%; border-collapse:collapse; margin-bottom:20px; }
         th { background:#0f180f; color:#00dd00; font-size:.75rem; text-transform:uppercase; padding:10px 12px; text-align:left; border-bottom:2px solid rgba(0,221,0,.18); }
-        td { padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.04); font-size:.85rem; }
+        td { padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.04); font-size:.85rem; cursor:text; }
+        td:focus { outline:none; background:rgba(0,221,0,.08); }
         tr:hover { background:rgba(0,221,0,.03); }
         .total-row { font-weight:700; border-top:2px solid rgba(0,221,0,.18); }
         .total-row td { padding-top:12px; }
@@ -42,8 +43,9 @@ const estilos = `
         .print-bar { display:flex; justify-content:flex-end; gap:8px; margin-bottom:16px; }
         .print-bar button { padding:8px 18px; border-radius:8px; border:1px solid rgba(0,221,0,.3); background:#0f180f; color:#00dd00; font-family:inherit; font-size:.85rem; cursor:pointer; transition:all .2s; }
         .print-bar button:hover { background:#00dd00; color:#000; }
-        @media print { body { background:#fff; color:#000; } th { background:#f0f0f0; color:#000; border-bottom:2px solid #000; } td { border-bottom:1px solid #ddd; } .kpi { border:1px solid #ddd; } .kpi-val, h1, .section-title, .green { color:#000; } .print-bar { display:none !important; } }
+        @media print { body { background:#fff; color:#000; } th { background:#f0f0f0; color:#000; border-bottom:2px solid #000; } td { border-bottom:1px solid #ddd; cursor:default; } td:focus { background:none; } .kpi { border:1px solid #ddd; } .kpi-val, h1, .section-title, .green { color:#000; } .print-bar { display:none !important; } }
     </style>
+    <script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('td,.kpi-val,.sub,h1,p').forEach(function(el){el.setAttribute('contenteditable','true')})});</script>
 `;
 
 const fmt = v => '$' + parseFloat(v || 0).toFixed(2);
