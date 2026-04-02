@@ -67,6 +67,25 @@ body {
   flex: 1;
   overflow-y: auto;
   padding: 12px 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--g3) transparent;
+}
+
+.sb-nav::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sb-nav::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sb-nav::-webkit-scrollbar-thumb {
+  background: var(--g3);
+  border-radius: 4px;
+}
+
+.sb-nav::-webkit-scrollbar-thumb:hover {
+  background: var(--g2);
 }
 
 .sb-section {

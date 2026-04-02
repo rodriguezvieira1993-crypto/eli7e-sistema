@@ -138,6 +138,11 @@ async function initDB() {
         console.log('⚠️ Migración nóminas:', err.message);
     }
 
+    // Migración: eliminar parámetro obsoleto password_default_moto
+    try {
+        await pool.query("DELETE FROM parametros_sistema WHERE clave = 'password_default_moto'");
+    } catch (err) { /* ya eliminado */ }
+
     // Migración: crear tabla configuracion_sistema (clave/valor texto)
     try {
         await pool.query(`

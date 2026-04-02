@@ -255,9 +255,9 @@ function switchView(viewName) {
     // Navegación por tabs (GSAP-enhanced)
     document.querySelectorAll('.sb-link').forEach(link => {
         link.addEventListener('click', (e) => {
-            e.preventDefault();
             const view = link.dataset.view;
-            if (!view) return;
+            if (!view) return;          // links reales (href externo) navegan normal
+            e.preventDefault();
 
             // Sidebar active state
             const oldActive = document.querySelector('.sb-link.active');
