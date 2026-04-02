@@ -1,22 +1,17 @@
 // sw.js — Service Worker para Eli7e PWA + Push Notifications
-const CACHE_NAME = 'eli7e-v2';
+const CACHE_NAME = 'eli7e-v1';
 
-// Instalar — cachear recursos esenciales
+// Instalar
 self.addEventListener('install', (e) => {
     e.waitUntil(
         caches.open(CACHE_NAME).then(cache =>
-            cache.addAll([
-                '/',
-                '/css/dashboard.css',
-                '/img/eli7e_logo.png',
-                '/img/icon-192.png'
-            ])
+            cache.addAll(['/', '/css/dashboard.css', '/img/eli7e_logo.png', '/img/icon-192.png'])
         )
     );
     self.skipWaiting();
 });
 
-// Activar — limpiar caches viejos
+// Activar
 self.addEventListener('activate', (e) => {
     e.waitUntil(
         caches.keys().then(names =>
@@ -26,11 +21,10 @@ self.addEventListener('activate', (e) => {
     self.clients.claim();
 });
 
-// Fetch — network first, fallback to cache
+// Fetch — network first
 self.addEventListener('fetch', (e) => {
     if (e.request.method !== 'GET') return;
     if (e.request.url.includes('/api/')) return;
-
     e.respondWith(
         fetch(e.request)
             .then(resp => {
@@ -44,15 +38,12 @@ self.addEventListener('fetch', (e) => {
     );
 });
 
-// Push — recibir notificación del servidor
+// Push — recibir notificación
 self.addEventListener('push', (e) => {
     let data = { title: 'Eli7e', body: 'Nueva notificación' };
+    try { data = e.data.json(); } catch (err) { data.body = e.data ? e.data.text() : 'Nueva notificación'; }
 
-    try {
-        data = e.data.json();
-    } catch (err) {
-        data.body = e.data ? e.data.text() : 'Nueva notificación';
-    }
+    const servicioId = data.data && data.data.servicioId;
 
     const options = {
         body: data.body,
@@ -64,15 +55,12 @@ self.addEventListener('push', (e) => {
             { action: 'completar', title: '✅ Completado' },
             { action: 'abrir', title: '📱 Abrir' }
         ],
-        tag: data.data && data.data.servicioId ? 'servicio-' + data.data.servicioId : 'eli7e-notification',
+        tag: servicioId ? 'servicio-' + servicioId : 'eli7e-notification',
         renotify: true,
-        requireInteraction: true,  // NO se cierra sola — persiste hasta que el usuario actúe
-        silent: false
+        requireInteraction: true
     };
 
-    e.waitUntil(
-        self.registration.showNotification(data.title, options)
-    );
+    e.waitUntil(self.registration.showNotification(data.title, options));
 });
 
 // Click en notificación
@@ -82,79 +70,67 @@ self.addEventListener('notificationclick', (e) => {
     const url = data.url || '/dashboard-motorizado.html';
 
     if (e.action === 'completar' && servicioId) {
-        // Marcar servicio como completado vía API
         e.notification.close();
         e.waitUntil(
-            completarServicio(servicioId).then(() => {
-                // Mostrar notificación de confirmación
-                return self.registration.showNotification('✅ Servicio completado', {
+            completarServicio(servicioId).then(() =>
+                self.registration.showNotification('✅ Servicio completado', {
                     body: 'El servicio fue marcado como completado',
                     icon: '/img/icon-192.png',
-                    badge: '/img/icon-192.png',
                     tag: 'servicio-completado',
-                    requireInteraction: false,
-                    vibrate: [100]
-                });
+                    requireInteraction: false
+                })
+            ).catch(() => {
+                // Si falla completar, abrir la app
+                return clients.openWindow(url);
             })
         );
         return;
     }
 
-    if (e.action === 'abrir' || !e.action) {
-        // Abrir/enfocar la app
-        e.notification.close();
-        e.waitUntil(
-            clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
-                for (const client of windowClients) {
-                    if (client.url.includes(url) && 'focus' in client) {
-                        return client.focus();
-                    }
-                }
-                return clients.openWindow(url);
-            })
-        );
-    }
+    // Abrir o tap genérico
+    e.notification.close();
+    e.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
+            for (const client of windowClients) {
+                if (client.url.includes(url) && 'focus' in client) return client.focus();
+            }
+            return clients.openWindow(url);
+        })
+    );
 });
 
-// Completar servicio desde la notificación
+// Completar servicio desde notificación
 async function completarServicio(servicioId) {
-    // Obtener token del motorizado desde IndexedDB o cache
-    const allClients = await clients.matchAll({ type: 'window' });
     let token = null;
 
-    // Intentar obtener token de una ventana abierta
-    for (const client of allClients) {
-        try {
-            const resp = await new Promise((resolve, reject) => {
-                const ch = new MessageChannel();
-                ch.port1.onmessage = (ev) => resolve(ev.data);
-                setTimeout(() => reject('timeout'), 3000);
-                client.postMessage({ type: 'GET_TOKEN' }, [ch.port2]);
-            });
-            if (resp && resp.token) { token = resp.token; break; }
-        } catch (e) { /* continuar con siguiente cliente */ }
-    }
-
-    if (!token) {
-        // Fallback: buscar en cache de la app
-        try {
-            const cache = await caches.open('eli7e-auth');
-            const resp = await cache.match('/auth-token');
-            if (resp) token = await resp.text();
-        } catch (e) { /* sin token */ }
-    }
-
-    if (!token) return;
-
+    // Obtener token de cache
     try {
-        await fetch(`/api/servicios/${servicioId}/cerrar`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
+        const cache = await caches.open('eli7e-auth');
+        const resp = await cache.match('/auth-token');
+        if (resp) token = await resp.text();
+    } catch (e) { /* sin cache */ }
+
+    // Si no hay cache, pedir a ventana abierta
+    if (!token) {
+        try {
+            const allClients = await clients.matchAll({ type: 'window' });
+            for (const client of allClients) {
+                const resp = await new Promise((resolve, reject) => {
+                    const ch = new MessageChannel();
+                    ch.port1.onmessage = (ev) => resolve(ev.data);
+                    setTimeout(() => reject('timeout'), 2000);
+                    client.postMessage({ type: 'GET_TOKEN' }, [ch.port2]);
+                });
+                if (resp && resp.token) { token = resp.token; break; }
             }
-        });
-    } catch (err) {
-        console.log('⚠️ Error completando servicio:', err.message);
+        } catch (e) { /* sin ventana */ }
     }
+
+    if (!token) throw new Error('Sin token');
+
+    const resp = await fetch(`/api/servicios/${servicioId}/cerrar`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }
+    });
+    if (!resp.ok) throw new Error('Error API');
 }
