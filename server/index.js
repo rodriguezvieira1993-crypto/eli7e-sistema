@@ -29,6 +29,7 @@ app.use('/api/parametros', require('./routes/parametros'));
 app.use('/api/prestamos', require('./routes/prestamos'));
 app.use('/api/nominas', require('./routes/nominas'));
 app.use('/api/configuracion', require('./routes/configuracion'));
+app.use('/api/push', require('./routes/push'));
 
 // ── Reset DB: limpiar datos de prueba (solo admin) ──────────
 app.post('/api/admin/reset-db', require('./middleware/auth'), (req, res, next) => {
@@ -60,6 +61,9 @@ app.get('*', (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 initDB().then(() => {
+    // Inicializar push notifications (auto-genera VAPID keys si no existen)
+    require('./pushService').init().catch(err => console.log('⚠️ Push init:', err.message));
+
     app.listen(PORT, () => {
         console.log(`✅ Eli7e Sistema corriendo en http://localhost:${PORT}`);
         console.log(`   Admin: admin@eli7e.com / eli7e2026`);

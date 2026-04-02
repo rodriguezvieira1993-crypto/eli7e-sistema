@@ -143,6 +143,27 @@ async function initDB() {
         await pool.query("DELETE FROM parametros_sistema WHERE clave = 'password_default_moto'");
     } catch (err) { /* ya eliminado */ }
 
+    // Migración: crear tabla push_subscriptions
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS push_subscriptions (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                user_id UUID NOT NULL,
+                user_rol VARCHAR(20) NOT NULL,
+                endpoint TEXT NOT NULL UNIQUE,
+                p256dh TEXT NOT NULL,
+                auth_key TEXT NOT NULL,
+                creado_en TIMESTAMP DEFAULT NOW(),
+                actualizado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_push_rol ON push_subscriptions(user_rol)');
+        console.log('✅ Tabla push_subscriptions OK');
+    } catch (err) {
+        console.log('⚠️ Migración push_subscriptions:', err.message);
+    }
+
     // Migración: crear tabla configuracion_sistema (clave/valor texto)
     try {
         await pool.query(`

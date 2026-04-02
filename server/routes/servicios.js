@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
 const { requireRol } = auth;
+const pushService = require('../pushService');
 const router = express.Router();
 
 router.use(auth);
@@ -76,6 +77,18 @@ router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
         // Marcar motorizado como en servicio
         if (motorizado_id) {
             await pool.query("UPDATE motorizados SET estado='en_servicio' WHERE id=$1", [motorizado_id]);
+
+            // Enviar push notification al motorizado
+            try {
+                const tipoEmoji = { mototaxi: '🛵', delivery: '📦', encomienda: '📬', compras: '🛒', transporte: '🚐' };
+                const emoji = tipoEmoji[tipo] || '📋';
+                const desc = descripcion ? ` — ${descripcion.substring(0, 80)}` : '';
+                await pushService.notifyMotorizado(
+                    motorizado_id,
+                    `${emoji} Nuevo servicio asignado`,
+                    `${tipo.charAt(0).toUpperCase() + tipo.slice(1)} $${parseFloat(monto).toFixed(2)}${desc}`
+                );
+            } catch (pushErr) { /* no bloquear si push falla */ }
         }
         res.status(201).json(rows[0]);
     } catch (err) { res.status(500).json({ error: err.message }); }
