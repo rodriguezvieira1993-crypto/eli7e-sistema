@@ -552,6 +552,56 @@ function generarReportePersonalizado() {
     window.open(url, '_blank');
 }
 
+// ══════════════════════════════════════════════════════════
+// ── NÓMINAS (vista contable, solo lectura + imprimir) ────
+// ══════════════════════════════════════════════════════════
+async function loadNominasContable() {
+    const input = document.getElementById('nominaSemanaInput');
+    let semana = input?.value || '';
+
+    if (!semana) {
+        const hoy = new Date();
+        const day = hoy.getDay();
+        const diff = hoy.getDate() - day + (day === 0 ? -6 : 1);
+        const lunes = new Date(hoy);
+        lunes.setDate(diff);
+        semana = lunes.toISOString().split('T')[0];
+        if (input) input.value = semana;
+    }
+
+    const data = await apiFetch(`/nominas/resumen-semanal?semana=${semana}`);
+    if (!data) return;
+
+    document.getElementById('nominaSemanaLabel').textContent =
+        `Semana: ${data.semana_inicio} → ${data.semana_fin}`;
+
+    const tbody = document.getElementById('nominasContBody');
+    if (!data.motorizados?.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="loading-txt">Sin motorizados activos</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = data.motorizados.map(m => {
+        const cerrada = m.nomina_estado === 'cerrado';
+        return `
+        <tr>
+            <td><strong>${m.nombre}</strong></td>
+            <td>${m.total_servicios}</td>
+            <td style="font-weight:600;">${fmt(m.monto_bruto)}</td>
+            <td style="color:#FF6B6B;">-${fmt(m.deduccion_empresa)}</td>
+            <td style="color:#FF6B6B;">-${fmt(m.deduccion_moto)}</td>
+            <td style="color:#FF6B6B;">-${fmt(m.deduccion_prestamos)}</td>
+            <td style="font-weight:800;color:var(--g1);font-size:1.05rem;">${fmt(m.monto_neto)}</td>
+            <td>${cerrada
+                ? '<span class="badge badge-green">Cerrada</span>'
+                : '<span class="badge badge-yellow">Abierta</span>'}</td>
+            <td>
+                <button class="btn-icon" onclick="window.open('/api/reportes/nomina/${m.motorizado_id}?semana=${semana}&token='+getToken(),'_blank')" title="Imprimir recibo">🖨️</button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
 // ── Init
 cargarUmbralesDeuda().then(() => loadCobranza());
 document.addEventListener('viewChange', ({ detail: { view } }) => {
@@ -559,4 +609,5 @@ document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'cierre') loadCierre();
     if (view === 'pagos') loadPagosForm();
     if (view === 'reportes') loadReportesView();
+    if (view === 'nominas') loadNominasContable();
 });
