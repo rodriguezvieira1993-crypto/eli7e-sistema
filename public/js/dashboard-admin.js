@@ -622,7 +622,7 @@ async function eliminarUsuario(id, nombre) {
 }
 
 async function resetDatos() {
-    if (!confirm('⚠️ ¿Seguro que quieres borrar TODOS los servicios, pagos, cierres y notas?\n\nEsta acción NO se puede deshacer.')) return;
+    if (!confirm('⚠️ ¿Seguro que quieres borrar TODOS los datos operativos?\n\nSe borrarán: servicios, pagos, cierres, notas, nóminas, préstamos, gastos, chat y push.\n\nNO se borran: clientes, motorizados, usuarios, configuración, parámetros ni tarifas.\n\nEsta acción NO se puede deshacer.')) return;
     const res = await apiFetch('/admin/reset-db', { method: 'POST', body: {} });
     if (res?.ok) {
         showToast('✅ Datos de prueba limpiados');
