@@ -208,6 +208,13 @@ async function initDB() {
     } catch (err) {
         console.log('⚠️ Migración chat_mensajes:', err.message);
     }
+    // Migración: agregar campo pago_completo a servicios (cuando el moto cobra completo sin descuento empresa)
+    try {
+        await pool.query(`ALTER TABLE servicios ADD COLUMN IF NOT EXISTS pago_completo BOOLEAN DEFAULT FALSE`);
+        console.log('✅ Campo pago_completo en servicios OK');
+    } catch (err) {
+        console.log('⚠️ Migración pago_completo:', err.message);
+    }
 
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {

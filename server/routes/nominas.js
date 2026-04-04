@@ -29,12 +29,23 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
         const lunes = getLunes(new Date());
         const domingo = getDomingo(lunes);
 
-        // Monto bruto: servicios completados en la semana
+        // Monto bruto normal (sin pago_completo): se aplica porcentaje
         const { rows: brutoRows } = await pool.query(
             `SELECT COALESCE(SUM(monto), 0) AS monto_bruto, COUNT(*) AS total_servicios
              FROM servicios
              WHERE motorizado_id = $1 AND estado = 'completado'
-               AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3`,
+               AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+               AND (pago_completo IS NULL OR pago_completo = FALSE)`,
+            [motoId, lunes, domingo]
+        );
+
+        // Monto de servicios pago_completo: van íntegros al motorizado
+        const { rows: completoRows } = await pool.query(
+            `SELECT COALESCE(SUM(monto), 0) AS monto_completo, COUNT(*) AS total_completos
+             FROM servicios
+             WHERE motorizado_id = $1 AND estado = 'completado'
+               AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+               AND pago_completo = TRUE`,
             [motoId, lunes, domingo]
         );
 
@@ -45,8 +56,11 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
         const pctEmpresa = paramMap.porcentaje_empresa || 30;
         const costoMoto = paramMap.costo_moto_semanal || 40;
 
-        const montoBruto = parseFloat(brutoRows[0].monto_bruto);
-        const deduccionEmpresa = parseFloat((montoBruto * pctEmpresa / 100).toFixed(2));
+        const montoBrutoNormal = parseFloat(brutoRows[0].monto_bruto);
+        const montoBrutoCompleto = parseFloat(completoRows[0].monto_completo);
+        const montoBruto = montoBrutoNormal + montoBrutoCompleto;
+        const totalServicios = parseInt(brutoRows[0].total_servicios) + parseInt(completoRows[0].total_completos);
+        const deduccionEmpresa = parseFloat((montoBrutoNormal * pctEmpresa / 100).toFixed(2));
 
         // Préstamos aprobados con saldo pendiente
         const { rows: prestamosActivos } = await pool.query(
@@ -62,8 +76,9 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
             motorizado_id: motoId,
             semana_inicio: lunes,
             semana_fin: domingo,
-            total_servicios: parseInt(brutoRows[0].total_servicios),
+            total_servicios: totalServicios,
             monto_bruto: montoBruto,
+            monto_pago_completo: montoBrutoCompleto,
             porcentaje_empresa: pctEmpresa,
             deduccion_empresa: deduccionEmpresa,
             deduccion_moto: costoMoto,
@@ -108,15 +123,27 @@ router.get('/resumen-semanal', requireRol('admin'), async (req, res) => {
 
         const resumen = [];
         for (const moto of motos) {
-            // Bruto semanal
+            // Bruto normal (se aplica porcentaje)
             const { rows: bruto } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_bruto, COUNT(*) AS total_servicios
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3`,
+                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+                 AND (pago_completo IS NULL OR pago_completo = FALSE)`,
                 [moto.id, lunes, domingo]
             );
-            const montoBruto = parseFloat(bruto[0].monto_bruto);
-            const deduccionEmpresa = parseFloat((montoBruto * pctEmpresa / 100).toFixed(2));
+            // Bruto pago_completo (sin porcentaje)
+            const { rows: completo } = await pool.query(
+                `SELECT COALESCE(SUM(monto), 0) AS monto_completo, COUNT(*) AS total_completos
+                 FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
+                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+                 AND pago_completo = TRUE`,
+                [moto.id, lunes, domingo]
+            );
+            const montoBrutoNormal = parseFloat(bruto[0].monto_bruto);
+            const montoBrutoCompleto = parseFloat(completo[0].monto_completo);
+            const montoBruto = montoBrutoNormal + montoBrutoCompleto;
+            const totalServicios = parseInt(bruto[0].total_servicios) + parseInt(completo[0].total_completos);
+            const deduccionEmpresa = parseFloat((montoBrutoNormal * pctEmpresa / 100).toFixed(2));
 
             // Préstamos
             const { rows: prest } = await pool.query(
@@ -137,8 +164,9 @@ router.get('/resumen-semanal', requireRol('admin'), async (req, res) => {
                 motorizado_id: moto.id,
                 nombre: moto.nombre,
                 cedula: moto.cedula,
-                total_servicios: parseInt(bruto[0].total_servicios),
+                total_servicios: totalServicios,
                 monto_bruto: montoBruto,
+                monto_pago_completo: montoBrutoCompleto,
                 deduccion_empresa: deduccionEmpresa,
                 deduccion_moto: costoMoto,
                 deduccion_prestamos: deduccionPrestamos,
@@ -170,15 +198,26 @@ router.post('/cerrar', requireRol('admin'), async (req, res) => {
         const pctEmpresa = paramMap.porcentaje_empresa || 30;
         const costoMoto = paramMap.costo_moto_semanal || 40;
 
-        // Bruto
+        // Bruto normal (se aplica porcentaje)
         const { rows: bruto } = await pool.query(
             `SELECT COALESCE(SUM(monto), 0) AS monto_bruto
              FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-             AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3`,
+             AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+             AND (pago_completo IS NULL OR pago_completo = FALSE)`,
             [motorizado_id, lunes, domingo]
         );
-        const montoBruto = parseFloat(bruto[0].monto_bruto);
-        const deduccionEmpresa = parseFloat((montoBruto * pctEmpresa / 100).toFixed(2));
+        // Bruto pago_completo (sin porcentaje)
+        const { rows: completo } = await pool.query(
+            `SELECT COALESCE(SUM(monto), 0) AS monto_completo
+             FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
+             AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+             AND pago_completo = TRUE`,
+            [motorizado_id, lunes, domingo]
+        );
+        const montoBrutoNormal = parseFloat(bruto[0].monto_bruto);
+        const montoBrutoCompleto = parseFloat(completo[0].monto_completo);
+        const montoBruto = montoBrutoNormal + montoBrutoCompleto;
+        const deduccionEmpresa = parseFloat((montoBrutoNormal * pctEmpresa / 100).toFixed(2));
 
         // Préstamos activos
         const { rows: prestActivos } = await pool.query(
@@ -243,11 +282,21 @@ router.post('/cerrar-todas', requireRol('admin'), async (req, res) => {
             const { rows: bruto } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_bruto
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3`,
+                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+                 AND (pago_completo IS NULL OR pago_completo = FALSE)`,
                 [moto.id, lunes, domingo]
             );
-            const montoBruto = parseFloat(bruto[0].monto_bruto);
-            const deduccionEmpresa = parseFloat((montoBruto * pctEmpresa / 100).toFixed(2));
+            const { rows: completo } = await pool.query(
+                `SELECT COALESCE(SUM(monto), 0) AS monto_completo
+                 FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
+                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+                 AND pago_completo = TRUE`,
+                [moto.id, lunes, domingo]
+            );
+            const montoBrutoNormal = parseFloat(bruto[0].monto_bruto);
+            const montoBrutoCompleto = parseFloat(completo[0].monto_completo);
+            const montoBruto = montoBrutoNormal + montoBrutoCompleto;
+            const deduccionEmpresa = parseFloat((montoBrutoNormal * pctEmpresa / 100).toFixed(2));
 
             const { rows: prestActivos } = await pool.query(
                 `SELECT id, cuota_semanal, saldo_pendiente FROM prestamos

@@ -125,12 +125,26 @@ function renderCampos(tipo) {
             </div>` : ''}
 
             <div class="field">
+                <label>💰 Pago al motorizado</label>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <label class="toggle-switch" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="s_pago_completo" style="display:none;">
+                        <div class="toggle-track" style="width:44px;height:24px;border-radius:12px;background:rgba(255,255,255,.1);border:1px solid var(--border);position:relative;transition:all .3s;">
+                            <div class="toggle-thumb" style="width:20px;height:20px;border-radius:50%;background:var(--muted);position:absolute;top:1px;left:1px;transition:all .3s;"></div>
+                        </div>
+                        <span id="s_pago_completo_label" style="font-size:.85rem;color:var(--muted);">Normal (se descuenta % empresa)</span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="field">
                 <label>${tipo === 'encomienda' ? 'Detalle de encomienda' : 'Descripción / Observaciones'}</label>
                 <textarea id="s_desc" rows="${tipo === 'encomienda' ? 5 : 2}" placeholder="${tipo === 'encomienda' ? 'Describa los paquetes: contenido, tamaño, peso aproximado, instrucciones especiales...' : 'Detalles adicionales...'}" style="${tipo === 'encomienda' ? 'min-height:100px;' : ''}"></textarea>
             </div>`;
         fillMotosSelect();
         initAutocomplete('s_ruta_de', 'ac_de');
         initAutocomplete('s_ruta_hasta', 'ac_hasta');
+        initPagoCompletoToggle();
     } else if (tipo === 'delivery') {
         container.innerHTML = `
             <div class="field">
@@ -166,10 +180,24 @@ function renderCampos(tipo) {
             <div class="field">
                 <label>Descripción / Observaciones</label>
                 <textarea id="s_desc" rows="2" placeholder="Detalles del pedido..."></textarea>
+            </div>
+
+            <div class="field">
+                <label>💰 Pago al motorizado</label>
+                <div style="display:flex;gap:10px;align-items:center;">
+                    <label class="toggle-switch" style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;">
+                        <input type="checkbox" id="s_pago_completo" style="display:none;">
+                        <div class="toggle-track" style="width:44px;height:24px;border-radius:12px;background:rgba(255,255,255,.1);border:1px solid var(--border);position:relative;transition:all .3s;">
+                            <div class="toggle-thumb" style="width:20px;height:20px;border-radius:50%;background:var(--muted);position:absolute;top:1px;left:1px;transition:all .3s;"></div>
+                        </div>
+                        <span id="s_pago_completo_label" style="font-size:.85rem;color:var(--muted);">Normal (se descuenta % empresa)</span>
+                    </label>
+                </div>
             </div>`;
         fillMotosSelect();
         initClienteAutocomplete();
         initAutocomplete('s_ruta_hasta', 'ac_hasta');
+        initPagoCompletoToggle();
     } else {
         // Campos por defecto para los demás tipos
         container.innerHTML = `
@@ -473,6 +501,7 @@ async function crearServicio(e) {
         motorizado_id: document.getElementById('s_motorizado').value,
         monto,
         descripcion,
+        pago_completo: document.getElementById('s_pago_completo')?.checked || false,
     };
 
     const res = await apiFetch('/servicios', { method: 'POST', body });
@@ -489,6 +518,7 @@ async function crearServicio(e) {
             tipo: res.tipo,
             monto: res.monto,
             estado: res.estado || 'pendiente',
+            pago_completo: res.pago_completo || body.pago_completo || false,
             descripcion: descripcion || '',
             hora: new Date().toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }),
             motorizado_nombre: allMotosCC.find(m => m.id === body.motorizado_id)?.nombre || '—'
@@ -525,7 +555,7 @@ function renderUltimos() {
       <div class="ultimo-card">
         <div class="ultimo-top">
           <span class="ultimo-tipo">${TIPO_EMOJI[s.tipo] || '📋'} ${s.tipo.toUpperCase()}</span>
-          <span class="ultimo-monto">${fmt(s.monto)}</span>
+          <span class="ultimo-monto">${fmt(s.monto)}${s.pago_completo ? ' <span style="font-size:.65rem;background:rgba(0,221,0,.2);color:#00DD00;padding:1px 6px;border-radius:4px;margin-left:4px;">💰 P.C.</span>' : ''}</span>
         </div>
         <div class="ultimo-detalle">
           ${s.motorizado_nombre ? '🛵 ' + s.motorizado_nombre : ''}
@@ -547,6 +577,7 @@ async function loadUltimos() {
         estado: s.estado,
         cliente_id: s.cliente_id,
         motorizado_id: s.motorizado_id,
+        pago_completo: s.pago_completo || false,
         descripcion: s.descripcion || '',
         hora: s.fecha_inicio ? new Date(s.fecha_inicio).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '',
         motorizado_nombre: s.motorizado_nombre || '—'
@@ -783,6 +814,39 @@ async function eliminarClienteCC(id, nombre) {
     } else {
         showToast('❌ ' + (res?.error || 'Error al eliminar'), 'err');
     }
+}
+
+// ── Toggle Pago Completo ─────────────────────────────
+function initPagoCompletoToggle() {
+    const checkbox = document.getElementById('s_pago_completo');
+    if (!checkbox) return;
+    const track = checkbox.parentElement.querySelector('.toggle-track');
+    const thumb = track?.querySelector('.toggle-thumb');
+    const label = document.getElementById('s_pago_completo_label');
+
+    checkbox.addEventListener('change', () => {
+        if (checkbox.checked) {
+            track.style.background = 'rgba(0,221,0,.3)';
+            track.style.borderColor = '#00DD00';
+            thumb.style.transform = 'translateX(20px)';
+            thumb.style.background = '#00DD00';
+            if (label) {
+                label.textContent = '💰 Pago Completo (moto cobra todo)';
+                label.style.color = '#00DD00';
+                label.style.fontWeight = '700';
+            }
+        } else {
+            track.style.background = 'rgba(255,255,255,.1)';
+            track.style.borderColor = 'var(--border)';
+            thumb.style.transform = 'translateX(0)';
+            thumb.style.background = 'var(--muted)';
+            if (label) {
+                label.textContent = 'Normal (se descuenta % empresa)';
+                label.style.color = 'var(--muted)';
+                label.style.fontWeight = '400';
+            }
+        }
+    });
 }
 
 // ── Init

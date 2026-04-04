@@ -332,8 +332,12 @@ async function verFichaMoto(id) {
         <div>${estadoBadge(m.estado)}</div>
     </div>
     <div style="padding:20px;">
-        <form onsubmit="guardarFichaMoto(event, '${m.id}', '${m.nombre.replace(/'/g,"\\'")}')">
+        <form onsubmit="guardarFichaMoto(event, '${m.id}')">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+            <div class="field" style="margin:0;grid-column:1/-1;">
+                <label style="font-size:.72rem;color:var(--muted);">NOMBRE</label>
+                <input id="fichaMoto_nombre" value="${m.nombre}" placeholder="Nombre completo" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:inherit;">
+            </div>
             <div class="field" style="margin:0;">
                 <label style="font-size:.72rem;color:var(--muted);">CEDULA</label>
                 <input id="fichaMoto_cedula" value="${m.cedula || ''}" placeholder="V-12345678" style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;color:var(--text);font-family:inherit;">
@@ -360,10 +364,12 @@ async function verFichaMoto(id) {
     openModal('modalFichaMoto');
 }
 
-async function guardarFichaMoto(e, id, nombre) {
+async function guardarFichaMoto(e, id) {
     e.preventDefault();
+    const nombre = document.getElementById('fichaMoto_nombre').value.trim();
     const cedula = document.getElementById('fichaMoto_cedula').value.trim();
     const telefono = document.getElementById('fichaMoto_telefono').value.trim();
+    if (!nombre) { showToast('El nombre es obligatorio', 'err'); return; }
     const res = await apiFetch('/motorizados/' + id, {
         method: 'PUT',
         body: { nombre, cedula, telefono }
@@ -730,7 +736,7 @@ async function loadNominasAdmin() {
         <tr>
             <td><strong>${m.nombre}</strong></td>
             <td>${m.total_servicios}</td>
-            <td style="font-weight:600;">${fmt(m.monto_bruto)}</td>
+            <td style="font-weight:600;">${fmt(m.monto_bruto)}${m.monto_pago_completo > 0 ? ' <span title="$' + parseFloat(m.monto_pago_completo).toFixed(2) + ' en pago completo (sin % empresa)" style="font-size:.65rem;background:rgba(0,221,0,.15);color:#00DD00;padding:1px 5px;border-radius:3px;cursor:help;">💰</span>' : ''}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_empresa)}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_moto)}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_prestamos)}</td>

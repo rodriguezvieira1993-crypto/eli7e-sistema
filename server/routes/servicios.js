@@ -13,7 +13,8 @@ router.get('/', async (req, res) => {
         const { estado, hoy, limit, motorizado_id, desde, hasta } = req.query;
         let query = `
       SELECT s.*, c.nombre_marca AS cliente_nombre, m.nombre AS motorizado_nombre,
-             EXISTS(SELECT 1 FROM notas_entrega n WHERE n.servicio_id = s.id) AS tiene_nota
+             EXISTS(SELECT 1 FROM notas_entrega n WHERE n.servicio_id = s.id) AS tiene_nota,
+             COALESCE(s.pago_completo, FALSE) AS pago_completo
       FROM servicios s
       LEFT JOIN clientes c ON c.id = s.cliente_id
       LEFT JOIN motorizados m ON m.id = s.motorizado_id
@@ -66,13 +67,13 @@ router.get('/cliente/:id', async (req, res) => {
 
 // POST /api/servicios
 router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
-    const { tipo, cliente_id, motorizado_id, monto, descripcion } = req.body;
+    const { tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo } = req.body;
     if (!tipo || !monto) return res.status(400).json({ error: 'tipo y monto son requeridos' });
     try {
         const { rows } = await pool.query(
-            `INSERT INTO servicios (tipo, cliente_id, motorizado_id, monto, descripcion, operador_id, estado)
-       VALUES ($1,$2,$3,$4,$5,$6,'pendiente') RETURNING *`,
-            [tipo, cliente_id || null, motorizado_id || null, monto, descripcion || null, req.user.id]
+            `INSERT INTO servicios (tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo, operador_id, estado)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,'pendiente') RETURNING *`,
+            [tipo, cliente_id || null, motorizado_id || null, monto, descripcion || null, pago_completo || false, req.user.id]
         );
         // Marcar motorizado como en servicio
         if (motorizado_id) {
@@ -115,14 +116,14 @@ router.patch('/:id/cerrar', requireRol('admin', 'call_center', 'motorizado'), as
 
 // PUT /api/servicios/:id — editar servicio
 router.put('/:id', requireRol('admin', 'call_center'), async (req, res) => {
-    const { tipo, cliente_id, motorizado_id, monto, descripcion } = req.body;
+    const { tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo } = req.body;
     try {
         const { rows } = await pool.query(
             `UPDATE servicios SET tipo=COALESCE($1,tipo), cliente_id=COALESCE($2,cliente_id),
              motorizado_id=COALESCE($3,motorizado_id), monto=COALESCE($4,monto),
-             descripcion=COALESCE($5,descripcion) WHERE id=$6
+             descripcion=COALESCE($5,descripcion), pago_completo=COALESCE($6,pago_completo) WHERE id=$7
              RETURNING *`,
-            [tipo, cliente_id, motorizado_id, monto, descripcion, req.params.id]
+            [tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo, req.params.id]
         );
         if (!rows[0]) return res.status(404).json({ error: 'Servicio no encontrado' });
         res.json(rows[0]);

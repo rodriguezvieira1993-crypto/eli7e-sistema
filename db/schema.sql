@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS servicios (
     operador_id     UUID REFERENCES usuarios(id) ON DELETE SET NULL,
     estado          VARCHAR(20) DEFAULT 'pendiente' CHECK (estado IN ('pendiente','en_curso','completado','cancelado')),
     descripcion     TEXT,
+    pago_completo   BOOLEAN DEFAULT FALSE,
     fecha_inicio    TIMESTAMP DEFAULT NOW(),
     fecha_fin       TIMESTAMP,
     creado_en       TIMESTAMP DEFAULT NOW()
