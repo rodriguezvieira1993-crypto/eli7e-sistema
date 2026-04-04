@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Eli7e — Manual de Usuario</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#060B06;--card:#0D150D;--card2:#111A11;--border:#1a3a1a;--text:#E4F5E4;--muted:#7a9a7a;--g1:#00DD00;--g2:#00FF41;--warn:#FF9800;--err:#FF4444}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Outfit',sans-serif;background:var(--bg);color:var(--text);line-height:1.7;padding:0}
+.hero{background:linear-gradient(135deg,#0a1a0a 0%,#0d2d0d 50%,#0a1a0a 100%);padding:80px 40px;text-align:center;border-bottom:2px solid var(--g1)}
+.hero h1{font-size:3rem;font-weight:800;background:linear-gradient(135deg,#00dd00,#00ff41);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px;letter-spacing:-1px}
+.hero p{color:var(--muted);font-size:1.1rem;max-width:600px;margin:0 auto}
+.hero .version{display:inline-block;background:rgba(0,221,0,.1);border:1px solid rgba(0,221,0,.3);color:var(--g1);padding:4px 16px;border-radius:20px;font-size:.8rem;margin-top:16px}
+.container{max-width:900px;margin:0 auto;padding:40px 24px}
+.toc{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:30px;margin-bottom:40px}
+.toc h2{color:var(--g1);font-size:1.2rem;margin-bottom:16px}
+.toc a{display:block;color:var(--text);text-decoration:none;padding:8px 16px;border-radius:8px;transition:.2s;font-size:.95rem}
+.toc a:hover{background:rgba(0,221,0,.06);color:var(--g1)}
+.toc a span{margin-right:8px}
+.section{margin-bottom:50px}
+.section-title{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid var(--border)}
+.section-title .icon{font-size:2rem}
+.section-title h2{font-size:1.6rem;font-weight:700}
+.section-title .badge{background:rgba(0,221,0,.1);color:var(--g1);padding:3px 12px;border-radius:12px;font-size:.75rem;font-weight:600}
+.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px}
+.card h3{color:var(--g1);font-size:1.05rem;margin-bottom:10px}
+.card p,.card li{color:var(--text);font-size:.9rem;line-height:1.8}
+.card ul{padding-left:20px}
+.card ul li{margin-bottom:4px}
+.step{display:flex;gap:16px;align-items:flex-start;margin-bottom:16px;padding:16px;background:var(--card2);border:1px solid var(--border);border-radius:10px}
+.step-num{min-width:36px;height:36px;background:linear-gradient(135deg,#00dd00,#00aa00);color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.9rem;flex-shrink:0}
+.step-content h4{font-size:.95rem;font-weight:700;margin-bottom:4px}
+.step-content p{font-size:.85rem;color:var(--muted)}
+.tip{background:rgba(0,221,0,.05);border:1px solid rgba(0,221,0,.2);border-radius:10px;padding:14px 18px;margin:12px 0;font-size:.85rem}
+.tip::before{content:'💡 ';font-size:1rem}
+.warn{background:rgba(255,152,0,.05);border:1px solid rgba(255,152,0,.2);border-radius:10px;padding:14px 18px;margin:12px 0;font-size:.85rem;color:var(--warn)}
+.warn::before{content:'⚠️ ';font-size:1rem}
+.danger{background:rgba(255,68,68,.05);border:1px solid rgba(255,68,68,.2);border-radius:10px;padding:14px 18px;margin:12px 0;font-size:.85rem;color:var(--err)}
+.danger::before{content:'🚨 ';font-size:1rem}
+.diagram{background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:24px;margin:16px 0;text-align:center}
+.diagram .flow{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin:12px 0}
+.diagram .flow .node{background:rgba(0,221,0,.08);border:1px solid rgba(0,221,0,.25);border-radius:10px;padding:10px 16px;font-size:.82rem;font-weight:600}
+.diagram .flow .arrow{color:var(--g1);font-size:1.2rem}
+.diagram .caption{color:var(--muted);font-size:.78rem;margin-top:8px}
+table{width:100%;border-collapse:collapse;margin:12px 0;font-size:.85rem}
+th{background:var(--card2);color:var(--g1);padding:10px 14px;text-align:left;font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border)}
+td{padding:10px 14px;border-bottom:1px solid var(--border)}
+.key{display:inline-block;background:rgba(0,221,0,.1);color:var(--g1);padding:2px 8px;border-radius:4px;font-size:.8rem;font-weight:600}
+.emoji-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:12px 0}
+.emoji-card{background:var(--card2);border:1px solid var(--border);border-radius:10px;padding:16px;text-align:center}
+.emoji-card .em{font-size:2rem;display:block;margin-bottom:6px}
+.emoji-card .name{font-weight:700;font-size:.88rem}
+.emoji-card .desc{color:var(--muted);font-size:.78rem;margin-top:4px}
+.sidebar-preview{display:flex;flex-direction:column;gap:6px;max-width:220px;margin:12px auto}
+.sidebar-preview .link{display:flex;align-items:center;gap:8px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:.82rem}
+.sidebar-preview .link.active{border-color:var(--g1);background:rgba(0,221,0,.06)}
+.formula{background:#0a1a0a;border:2px solid var(--border);border-radius:12px;padding:20px;margin:12px 0;font-family:monospace;font-size:.88rem;color:var(--g1);text-align:center;line-height:2}
+footer{text-align:center;padding:40px;color:var(--muted);font-size:.82rem;border-top:1px solid var(--border)}
+@media print{body{background:#fff;color:#111}
+.hero{background:#f5f5f5;border-color:#006600}
+.hero h1{-webkit-text-fill-color:#006600}
+.card,.step,.toc,.diagram{background:#fafafa;border-color:#ddd}
+th{background:#f0f0f0;color:#006600}
+td{border-color:#eee}
+.tip,.warn,.danger{border-color:#ddd}
+.step-num{background:#006600;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
+@media(max-width:600px){.hero{padding:40px 20px}.hero h1{font-size:2rem}.container{padding:20px 16px}.flow{flex-direction:column}.emoji-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div class="hero">
+    <h1>📗 Manual de Usuario</h1>
+    <p>Guía completa del Sistema de Gestión Eli7e — Delivery & Mensajería</p>
+    <div class="version">Versión 2.0 — Abril 2026</div>
+</div>
+
+<div class="container">
+
+<!-- TABLA DE CONTENIDOS -->
+<div class="toc">
+    <h2>📑 Tabla de Contenidos</h2>
+    <a href="#intro"><span>1.</span> Introducción al Sistema</a>
+    <a href="#login"><span>2.</span> Inicio de Sesión</a>
+    <a href="#admin"><span>3.</span> Módulo Administrador</a>
+    <a href="#callcenter"><span>4.</span> Módulo Call Center</a>
+    <a href="#contable"><span>5.</span> Módulo Contable</a>
+    <a href="#motorizado"><span>6.</span> Módulo Motorizado</a>
+    <a href="#chat"><span>7.</span> Chat Interno</a>
+    <a href="#pwa"><span>8.</span> Instalación como App (PWA)</a>
+    <a href="#faq"><span>9.</span> Preguntas Frecuentes</a>
+</div>
+
+<!-- 1. INTRODUCCIÓN -->
+<div class="section" id="intro">
+    <div class="section-title">
+        <span class="icon">🏢</span>
+        <h2>1. Introducción al Sistema</h2>
+    </div>
+    <div class="card">
+        <h3>¿Qué es Eli7e?</h3>
+        <p>Eli7e es un sistema de gestión integral para empresas de delivery y mensajería motorizada. Permite administrar servicios, motorizados, clientes (marcas aliadas), cobranza, nóminas, préstamos, gastos y reportes desde cualquier dispositivo con acceso a internet.</p>
+    </div>
+
+    <div class="card">
+        <h3>🧩 Módulos del Sistema</h3>
+        <div class="emoji-grid">
+            <div class="emoji-card">
+                <span class="em">👑</span>
+                <div class="name">Administrador</div>
+                <div class="desc">Control total del sistema, flota, clientes, nóminas, préstamos y configuración</div>
+            </div>
+            <div class="emoji-card">
+                <span class="em">📞</span>
+                <div class="name">Call Center</div>
+                <div class="desc">Registro de servicios, asignación de motorizados, gestión de clientes</div>
+            </div>
+            <div class="emoji-card">
+                <span class="em">💼</span>
+                <div class="name">Contable</div>
+                <div class="desc">Cobranza, cierres diarios, pagos, gastos, nóminas y reportes financieros</div>
+            </div>
+            <div class="emoji-card">
+                <span class="em">🛵</span>
+                <div class="name">Motorizado</div>
+                <div class="desc">Ver servicios asignados, ganancias del día y solicitar préstamos</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="diagram">
+        <strong style="color:var(--g1);">Flujo General de Operación</strong>
+        <div class="flow">
+            <div class="node">📞 Call Center<br><small>Registra servicio</small></div>
+            <span class="arrow">→</span>
+            <div class="node">🛵 Motorizado<br><small>Ejecuta entrega</small></div>
+            <span class="arrow">→</span>
+            <div class="node">💼 Contable<br><small>Cobra y cierra</small></div>
+            <span class="arrow">→</span>
+            <div class="node">👑 Admin<br><small>Supervisa todo</small></div>
+        </div>
+        <div class="caption">Cada módulo se conecta entre sí en tiempo real</div>
+    </div>
+</div>
+
+<!-- 2. LOGIN -->
+<div class="section" id="login">
+    <div class="section-title">
+        <span class="icon">🔐</span>
+        <h2>2. Inicio de Sesión</h2>
+    </div>
+    <div class="card">
+        <h3>¿Cómo ingresar?</h3>
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>Abrir el sistema</h4>
+                <p>Ingresa a la URL del sistema desde tu navegador (Chrome, Safari, etc.) en cualquier dispositivo.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>Ingresar credenciales</h4>
+                <p><strong>Usuarios del sistema (Admin, Call Center, Contable):</strong> Usa tu email y contraseña.<br>
+                <strong>Motorizados:</strong> Usa tu número de cédula como usuario y tu contraseña.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>Acceder al dashboard</h4>
+                <p>El sistema te redirige automáticamente al panel correspondiente según tu rol.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>Usuarios por defecto</h3>
+        <table>
+            <tr><th>Rol</th><th>Usuario</th><th>Contraseña</th></tr>
+            <tr><td>Administrador</td><td>admin@eli7e.com</td><td>eli7e2026</td></tr>
+            <tr><td>Call Center</td><td>callcenter@eli7e.com</td><td>eli7e2026</td></tr>
+            <tr><td>Contable</td><td>contable@eli7e.com</td><td>eli7e2026</td></tr>
+            <tr><td>Motorizado</td><td>Su cédula (ej: V-12345678)</td><td>123456</td></tr>
+        </table>
+        <div class="warn">Se recomienda cambiar las contraseñas por defecto inmediatamente después del primer inicio de sesión.</div>
+    </div>
+</div>
+
+<!-- 3. ADMIN -->
+<div class="section" id="admin">
+    <div class="section-title">
+        <span class="icon">👑</span>
+        <h2>3. Módulo Administrador</h2>
+        <span class="badge">ACCESO TOTAL</span>
+    </div>
+
+    <div class="card">
+        <h3>📊 Dashboard (Vista General)</h3>
+        <p>Al ingresar verás 4 indicadores principales (KPIs):</p>
+        <table>
+            <tr><th>KPI</th><th>Qué muestra</th></tr>
+            <tr><td>💰 Ingresos Hoy</td><td>Total facturado en el día actual</td></tr>
+            <tr><td>📦 Servicios Hoy</td><td>Cantidad de servicios registrados hoy</td></tr>
+            <tr><td>🛵 Motos Activas</td><td>Motorizados disponibles/en servicio</td></tr>
+            <tr><td>⚠️ Deuda Pendiente</td><td>Total que deben las marcas aliadas</td></tr>
+        </table>
+        <p style="margin-top:12px">También verás:</p>
+        <ul>
+            <li><strong>Estado de Flota:</strong> Tarjetas con el estado actual de cada motorizado (disponible, en servicio, inactivo)</li>
+            <li><strong>Deudas Prioritarias:</strong> Top de marcas con mayor deuda pendiente</li>
+            <li><strong>🏆 Ranking:</strong> Gráfica de barras del mejor motorizado en los últimos 30 días</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>🏪 Clientes / Marcas</h3>
+        <p>Gestión completa de las marcas aliadas:</p>
+        <ul>
+            <li><strong>Crear cliente:</strong> Botón "+ Nuevo Cliente" → llenar nombre, email, teléfono, RIF</li>
+            <li><strong>Editar:</strong> Clic en ✏️ en la tabla → modificar datos → Guardar</li>
+            <li><strong>Ver ficha:</strong> Clic en el nombre → ver servicios, deuda y detalle completo</li>
+            <li><strong>Eliminar:</strong> Clic en 🗑️ → confirmar eliminación permanente</li>
+            <li><strong>Buscar:</strong> Usa la barra de búsqueda para filtrar por nombre de marca</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>🛵 Flota de Motorizados</h3>
+        <p>Administra tu equipo de motorizados:</p>
+        <ul>
+            <li><strong>Agregar:</strong> "+ Nuevo Motorizado" → nombre, cédula (para login), teléfono, contraseña</li>
+            <li><strong>Ver ficha:</strong> Clic en la tarjeta → ver/editar nombre, cédula, teléfono, cambiar contraseña</li>
+            <li><strong>Cambiar estado:</strong> Desde la ficha puedes marcar como disponible, en servicio o inactivo</li>
+            <li><strong>Desactivar:</strong> Clic en 🗑️ → el motorizado se desactiva (no se borra)</li>
+        </ul>
+        <div class="tip">El nombre, cédula y teléfono del motorizado se pueden editar directamente desde la ficha.</div>
+    </div>
+
+    <div class="card">
+        <h3>🧾 Nóminas Semanales</h3>
+        <p>Calcula automáticamente el pago semanal de cada motorizado.</p>
+        <div class="formula">
+            Neto = Bruto Normal − (Bruto Normal × % Empresa) + Bruto Pago Completo − Costo Moto − Cuota Préstamos
+        </div>
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>Seleccionar semana</h4>
+                <p>Usa el selector de fecha para elegir la semana a consultar, o déjalo vacío para la semana actual.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>Revisar la tabla</h4>
+                <p>Verás: nombre, servicios, bruto, deducciones (empresa, moto, préstamos) y neto. Si hay un 💰 junto al bruto, significa que tiene servicios con <strong>Pago Completo</strong> (sin descuento empresa).</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>Cerrar nómina</h4>
+                <p>Clic en 🔒 para cerrar la nómina individual, o "Cerrar Todas" para cerrar todas a la vez. Esto descuenta automáticamente los préstamos.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+                <h4>Imprimir recibo</h4>
+                <p>Clic en 🖨️ para abrir el recibo de nómina en una ventana nueva → "Imprimir" o "Guardar como PDF".</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>🏦 Préstamos</h3>
+        <p>Gestiona préstamos a motorizados con cuotas semanales automáticas:</p>
+        <ul>
+            <li>Los motorizados solicitan préstamos desde su app</li>
+            <li>El admin ve las solicitudes y puede <strong>aprobar</strong> (ajustando cuotas) o <strong>rechazar</strong></li>
+            <li>Al cerrar nómina, la cuota semanal se descuenta automáticamente</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>⚙️ Parámetros del Sistema</h3>
+        <table>
+            <tr><th>Parámetro</th><th>Qué controla</th><th>Default</th></tr>
+            <tr><td>Porcentaje Empresa</td><td>% que retiene la empresa del bruto</td><td>30%</td></tr>
+            <tr><td>Costo Moto Semanal</td><td>Deducción fija semanal por uso de moto</td><td>$40</td></tr>
+            <tr><td>Umbral Deuda Crítica</td><td>Monto para marcar deuda como roja</td><td>$50</td></tr>
+            <tr><td>Umbral Deuda Alerta</td><td>Monto para marcar deuda como amarilla</td><td>$20</td></tr>
+        </table>
+    </div>
+
+    <div class="card">
+        <h3>🔧 Configuración</h3>
+        <ul>
+            <li><strong>Gmail SMTP:</strong> Configura el correo para envío de reportes automáticos</li>
+            <li><strong>Datos de Empresa:</strong> Nombre y teléfono que aparecen en las notas de pago</li>
+            <li><strong>🗑️ Reset:</strong> Borra TODOS los datos operativos (servicios, pagos, nóminas, etc.) sin borrar clientes, motorizados ni usuarios</li>
+        </ul>
+        <div class="danger">El botón de "Limpiar datos de prueba" borra TODO excepto clientes, motorizados, usuarios, configuración y tarifas. Esta acción es IRREVERSIBLE.</div>
+    </div>
+</div>
+
+<!-- 4. CALL CENTER -->
+<div class="section" id="callcenter">
+    <div class="section-title">
+        <span class="icon">📞</span>
+        <h2>4. Módulo Call Center</h2>
+        <span class="badge">OPERACIONES</span>
+    </div>
+
+    <div class="card">
+        <h3>📝 Registrar un Servicio</h3>
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>Seleccionar tipo de servicio</h4>
+                <p>Haz clic en uno de los chips: 📦 Delivery, 🛵 Mototaxi, 📬 Encomienda, 🛒 Compras, 🚐 Transporte</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>Completar el formulario</h4>
+                <p>Según el tipo seleccionado aparecen campos dinámicos: cliente/marca, ruta (desde/hasta), motorizado, monto (con tarifas rápidas), descripción.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>💰 Pago Completo (opcional)</h4>
+                <p>Activa el toggle verde si el motorizado debe cobrar el 100% sin descuento de empresa. Cuando está activado dice <strong>"💰 Pago Completo (moto cobra todo)"</strong>.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+                <h4>Registrar</h4>
+                <p>Clic en "Registrar Servicio" → el servicio aparece en el historial reciente con badge 💰 P.C. si es pago completo.</p>
+            </div>
+        </div>
+
+        <div class="diagram">
+            <strong style="color:var(--g1);">Flujo de un Servicio</strong>
+            <div class="flow">
+                <div class="node">📝 Registrar<br><small>(pendiente)</small></div>
+                <span class="arrow">→</span>
+                <div class="node">🛵 En Curso<br><small>(motorizado sale)</small></div>
+                <span class="arrow">→</span>
+                <div class="node">✅ Completado<br><small>(cerrar servicio)</small></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>📋 Historial Reciente</h3>
+        <p>Debajo del formulario verás los últimos 10 servicios del día con botones para:</p>
+        <ul>
+            <li><span class="key">✅ Cerrar</span> — Marca el servicio como completado</li>
+            <li><span class="key">✏️ Editar</span> — Modifica datos del servicio</li>
+            <li><span class="key">🗑️ Borrar</span> — Elimina el servicio</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>🛵 Flota Disponible</h3>
+        <p>En la pestaña "Flota" del sidebar verás los motorizados disponibles con su estado actual para asignar servicios rápidamente.</p>
+    </div>
+
+    <div class="card">
+        <h3>🏪 Clientes</h3>
+        <p>El call center también puede gestionar clientes: agregar nuevos, editar y buscar marcas aliadas.</p>
+    </div>
+</div>
+
+<!-- 5. CONTABLE -->
+<div class="section" id="contable">
+    <div class="section-title">
+        <span class="icon">💼</span>
+        <h2>5. Módulo Contable</h2>
+        <span class="badge">FINANZAS</span>
+    </div>
+
+    <div class="card">
+        <h3>💰 Cobranza</h3>
+        <p>Panel principal con la deuda de cada marca aliada:</p>
+        <ul>
+            <li><strong>KPIs:</strong> Deuda total, cuentas críticas, facturado hoy</li>
+            <li><strong>Filtros:</strong> Por marca y por nivel de deuda (crítica, alerta, normal)</li>
+            <li><strong>Semáforo:</strong> 🔴 Crítica (&gt;$50) | 🟡 Alerta ($20-$50) | 🟢 Normal (&lt;$20)</li>
+            <li><strong>Acciones:</strong> 💰 Pagar (registra pago rápido) | 📄 Nota (genera nota de pago)</li>
+        </ul>
+    </div>
+
+    <div class="card">
+        <h3>🧾 Cierre Diario de Caja</h3>
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>Revisar desglose</h4>
+                <p>Ver servicios completados del día por tipo (delivery, mototaxi, encomienda...) con subtotales.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>Marcar servicios cobrados</h4>
+                <p>En la sección de checkboxes, marca ☑ los servicios que efectivamente se cobraron. Los botones "Todos/Ninguno" facilitan la selección.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>Validar cierre</h4>
+                <p>El monto cobrado se auto-llena con los servicios marcados. Agrega notas si es necesario y clic en "Validar y Cerrar el Día".</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>✅ Registrar Pago</h3>
+        <p>Cuando una marca cancela su deuda:</p>
+        <ul>
+            <li>Selecciona la marca → verás el detalle de lo que debe (servicios y pagos previos)</li>
+            <li>Ingresa el monto recibido (se auto-llena con la deuda real)</li>
+            <li>Selecciona método: 📱 Pago Móvil | 💵 Efectivo | 💲 Divisas</li>
+            <li>Al confirmar se genera automáticamente una nota de pago editable e imprimible</li>
+        </ul>
+        <div class="tip">La nota de pago se abre en una ventana nueva con diseño profesional. Puedes editar cualquier campo antes de imprimir.</div>
+    </div>
+
+    <div class="card">
+        <h3>🏷️ Gastos de la Empresa</h3>
+        <p>Registra los egresos operativos de Eli7e:</p>
+        <div class="emoji-grid">
+            <div class="emoji-card"><span class="em">🍽️</span><div class="name">Cenas</div></div>
+            <div class="emoji-card"><span class="em">👕</span><div class="name">Uniformes</div></div>
+            <div class="emoji-card"><span class="em">🔧</span><div class="name">Repuestos</div></div>
+            <div class="emoji-card"><span class="em">📦</span><div class="name">Cajas</div></div>
+            <div class="emoji-card"><span class="em">⛽</span><div class="name">Combustible</div></div>
+            <div class="emoji-card"><span class="em">🛠️</span><div class="name">Mantenimiento</div></div>
+            <div class="emoji-card"><span class="em">🏢</span><div class="name">Servicios</div></div>
+            <div class="emoji-card"><span class="em">📄</span><div class="name">Papelería</div></div>
+            <div class="emoji-card"><span class="em">📋</span><div class="name">Otros</div></div>
+        </div>
+        <p style="margin-top:12px">Cada gasto incluye: descripción, monto, categoría, fecha y nota opcional. Se visualiza con KPIs (total del mes, registros, mayor categoría) y un desglose visual por categoría con barras de progreso.</p>
+    </div>
+
+    <div class="card">
+        <h3>📊 Reportes</h3>
+        <p>Genera reportes descargables:</p>
+        <ul>
+            <li><strong>Reporte Semanal:</strong> Resumen de deuda y pagos por marca</li>
+            <li><strong>Cobranzas Pendientes:</strong> Listado completo de facturas sin cobrar</li>
+            <li><strong>Historial de Cierres:</strong> Todos los cierres diarios del mes</li>
+            <li><strong>Reporte Personalizado:</strong> Filtra por cliente y rango de fechas</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 6. MOTORIZADO -->
+<div class="section" id="motorizado">
+    <div class="section-title">
+        <span class="icon">🛵</span>
+        <h2>6. Módulo Motorizado</h2>
+        <span class="badge">CAMPO</span>
+    </div>
+    <div class="card">
+        <h3>Funciones principales</h3>
+        <ul>
+            <li><strong>Ver servicios asignados:</strong> Lista de servicios pendientes y completados del día</li>
+            <li><strong>Resumen del día:</strong> Total de servicios, monto bruto, ganancia neta estimada</li>
+            <li><strong>Nómina semanal:</strong> Consulta su nómina actual con deducciones</li>
+            <li><strong>Solicitar préstamo:</strong> Envía solicitud con monto y cuotas deseadas</li>
+            <li><strong>Cambiar contraseña:</strong> Requiere la contraseña actual</li>
+        </ul>
+        <div class="tip">El motorizado inicia sesión con su <strong>número de cédula</strong> (ej: V-12345678) y contraseña.</div>
+    </div>
+</div>
+
+<!-- 7. CHAT -->
+<div class="section" id="chat">
+    <div class="section-title">
+        <span class="icon">💬</span>
+        <h2>7. Chat Interno</h2>
+    </div>
+    <div class="card">
+        <p>Sistema de mensajería en tiempo real integrado en todos los módulos (icono 💬 flotante abajo a la derecha):</p>
+        <ul>
+            <li><strong>Canal General:</strong> Todos los usuarios pueden escribir y leer</li>
+            <li><strong>Menciones:</strong> Escribe @nombre para mencionar a otro usuario</li>
+            <li><strong>Notificaciones Push:</strong> Se envían cuando te mencionan</li>
+            <li><strong>Imágenes:</strong> Se pueden enviar fotos desde el chat</li>
+        </ul>
+    </div>
+</div>
+
+<!-- 8. PWA -->
+<div class="section" id="pwa">
+    <div class="section-title">
+        <span class="icon">📱</span>
+        <h2>8. Instalación como App (PWA)</h2>
+    </div>
+    <div class="card">
+        <h3>Instalar en el celular</h3>
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>Abrir en Chrome</h4>
+                <p>Navega a la URL del sistema desde Google Chrome en tu teléfono.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>Instalar</h4>
+                <p>Busca el botón "Instalar App" en la pantalla de login, o toca los 3 puntos del navegador → "Agregar a pantalla de inicio".</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>Usar como app nativa</h4>
+                <p>Se abrirá a pantalla completa como una app, sin barra del navegador. Recibirás notificaciones push.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 9. FAQ -->
+<div class="section" id="faq">
+    <div class="section-title">
+        <span class="icon">❓</span>
+        <h2>9. Preguntas Frecuentes</h2>
+    </div>
+
+    <div class="card">
+        <h3>¿Qué es "Pago Completo"?</h3>
+        <p>Normalmente, al motorizado se le descuenta un porcentaje para la empresa (ej: 30%). Cuando un servicio se marca como <strong>Pago Completo</strong>, el monto va íntegro al motorizado sin ningún descuento.</p>
+    </div>
+
+    <div class="card">
+        <h3>¿Qué pasa si borro un servicio?</h3>
+        <p>El servicio se elimina permanentemente de la base de datos, junto con su nota de entrega si tenía una. El monto se resta del facturado.</p>
+    </div>
+
+    <div class="card">
+        <h3>¿Puedo usar el sistema desde el celular?</h3>
+        <p>Sí, el sistema es 100% responsive y se puede instalar como app (PWA). Funciona en cualquier dispositivo con navegador moderno.</p>
+    </div>
+
+    <div class="card">
+        <h3>¿Cómo se calcula la nómina?</h3>
+        <div class="formula">
+            Neto = (Bruto Normal × (1 − %Empresa/100)) + Bruto Pago Completo − Costo Moto − Cuota Préstamos
+        </div>
+        <p>Ejemplo: Si un motorizado hizo $100 en servicios normales y $20 en pago completo, con 30% empresa y $40 moto:</p>
+        <div class="formula">
+            Neto = ($100 × 0.70) + $20 − $40 = $70 + $20 − $40 = <strong style="font-size:1.2rem">$50</strong>
+        </div>
+    </div>
+
+    <div class="card">
+        <h3>¿El botón de reset borra clientes y motorizados?</h3>
+        <p><strong>NO.</strong> Solo borra datos operativos: servicios, pagos, cierres, notas, nóminas, préstamos, gastos, chat y suscripciones push. Los clientes, motorizados, usuarios, configuración, parámetros y tarifas se mantienen intactos.</p>
+    </div>
+
+    <div class="card">
+        <h3>¿Puedo editar el nombre de un motorizado?</h3>
+        <p>Sí. Ve a Admin → Flota → clic en la tarjeta del motorizado → en la ficha que se abre puedes editar nombre, cédula y teléfono.</p>
+    </div>
+</div>
+
+</div>
+
+<footer>
+    <p>📗 Manual de Usuario — Sistema Eli7e v2.0</p>
+    <p>Desarrollado por <strong>Brandtastika</strong> — Abril 2026</p>
+    <p style="margin-top:8px">Para imprimir: Usa Ctrl+P (o ⌘+P en Mac) → "Guardar como PDF"</p>
+</footer>
+
+</body>
+</html>
