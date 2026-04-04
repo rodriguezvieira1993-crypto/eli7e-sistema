@@ -216,6 +216,27 @@ async function initDB() {
         console.log('⚠️ Migración pago_completo:', err.message);
     }
 
+    // Migración: crear tabla gastos (gastos de la empresa)
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS gastos (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                descripcion VARCHAR(255) NOT NULL,
+                monto NUMERIC(10,2) NOT NULL,
+                categoria VARCHAR(50) DEFAULT 'otros' CHECK (categoria IN ('cenas','uniformes','repuestos','cajas','combustible','mantenimiento','servicios','papeleria','otros')),
+                fecha DATE DEFAULT CURRENT_DATE,
+                nota TEXT,
+                registrado_por UUID REFERENCES usuarios(id),
+                creado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_gastos_fecha ON gastos(fecha)');
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_gastos_categoria ON gastos(categoria)');
+        console.log('✅ Tabla gastos OK');
+    } catch (err) {
+        console.log('⚠️ Migración gastos:', err.message);
+    }
+
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {
         console.log('🔄 Recreando vista de cobranza...');

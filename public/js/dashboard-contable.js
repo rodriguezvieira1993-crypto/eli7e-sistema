@@ -602,6 +602,210 @@ async function loadNominasContable() {
     }).join('');
 }
 
+// ══════════════════════════════════════════════════════════
+// ── GASTOS DE LA EMPRESA ────────────────────────────────
+// ══════════════════════════════════════════════════════════
+const CAT_ICONS = {
+    cenas: '🍽️', uniformes: '👕', repuestos: '🔧', cajas: '📦',
+    combustible: '⛽', mantenimiento: '🛠️', servicios: '🏢',
+    papeleria: '📄', otros: '📋'
+};
+const CAT_COLORS = {
+    cenas: '#FF9500', uniformes: '#5856D6', repuestos: '#FF3B30', cajas: '#AF52DE',
+    combustible: '#FF6B6B', mantenimiento: '#34C759', servicios: '#007AFF',
+    papeleria: '#FFCC00', otros: '#8E8E93'
+};
+
+async function loadGastosView() {
+    // Defaults para filtros de fecha: inicio del mes → hoy
+    const hoy = new Date();
+    const inicio = new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+    const elDesde = document.getElementById('gastosDesde');
+    const elHasta = document.getElementById('gastosHasta');
+    if (elDesde && !elDesde.value) elDesde.value = inicio.toISOString().split('T')[0];
+    if (elHasta && !elHasta.value) elHasta.value = hoy.toISOString().split('T')[0];
+
+    await Promise.all([loadGastosResumen(), loadGastos()]);
+}
+
+async function loadGastosResumen() {
+    const desde = document.getElementById('gastosDesde')?.value || '';
+    const hasta = document.getElementById('gastosHasta')?.value || '';
+    let url = '/gastos/resumen';
+    if (desde && hasta) url += `?desde=${desde}&hasta=${hasta}`;
+
+    const data = await apiFetch(url);
+    if (!data) return;
+
+    document.getElementById('kpi-totalGastos').textContent = fmt(data.total_gastos);
+    document.getElementById('kpi-regGastos').textContent = data.total_registros;
+
+    // Mayor categoría
+    if (data.por_categoria && data.por_categoria.length > 0) {
+        const top = data.por_categoria[0];
+        document.getElementById('kpi-topCategoria').innerHTML =
+            `${CAT_ICONS[top.categoria] || '📋'} ${top.categoria.charAt(0).toUpperCase() + top.categoria.slice(1)}`;
+    } else {
+        document.getElementById('kpi-topCategoria').textContent = '—';
+    }
+
+    // Grid de categorías
+    const grid = document.getElementById('gastosCategoriasGrid');
+    if (data.por_categoria && data.por_categoria.length > 0) {
+        grid.innerHTML = data.por_categoria.map(c => {
+            const pct = data.total_gastos > 0 ? ((parseFloat(c.total) / data.total_gastos) * 100).toFixed(0) : 0;
+            const color = CAT_COLORS[c.categoria] || '#8E8E93';
+            return `
+            <div style="background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center;">
+                <div style="font-size:1.5rem;margin-bottom:4px;">${CAT_ICONS[c.categoria] || '📋'}</div>
+                <div style="font-size:.78rem;font-weight:600;text-transform:capitalize;margin-bottom:6px;">${c.categoria}</div>
+                <div style="font-weight:800;color:${color};font-size:1.05rem;">${fmt(c.total)}</div>
+                <div style="font-size:.7rem;color:var(--muted);margin-top:2px;">${c.cantidad} reg · ${pct}%</div>
+                <div style="height:3px;background:rgba(255,255,255,.06);border-radius:2px;margin-top:8px;">
+                    <div style="height:100%;width:${pct}%;background:${color};border-radius:2px;transition:width .4s;"></div>
+                </div>
+            </div>`;
+        }).join('');
+    } else {
+        grid.innerHTML = '<p style="color:var(--muted);font-size:.85rem;text-align:center;padding:12px 0;grid-column:1/-1;">Sin gastos registrados en este periodo</p>';
+    }
+}
+
+async function loadGastos() {
+    const categoria = document.getElementById('gastosFiltroCategoria')?.value || 'todas';
+    const desde = document.getElementById('gastosDesde')?.value || '';
+    const hasta = document.getElementById('gastosHasta')?.value || '';
+
+    let url = '/gastos?';
+    if (categoria !== 'todas') url += `categoria=${categoria}&`;
+    if (desde) url += `desde=${desde}&`;
+    if (hasta) url += `hasta=${hasta}&`;
+
+    const data = await apiFetch(url);
+    if (!data) return;
+
+    const tbody = document.getElementById('gastosBody');
+    if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin gastos registrados</td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = data.map(g => {
+        const color = CAT_COLORS[g.categoria] || '#8E8E93';
+        return `
+        <tr>
+            <td style="white-space:nowrap;">${g.fecha}</td>
+            <td><strong>${g.descripcion}</strong></td>
+            <td>
+                <span style="display:inline-flex;align-items:center;gap:4px;background:${color}22;color:${color};padding:3px 10px;border-radius:6px;font-size:.78rem;font-weight:600;">
+                    ${CAT_ICONS[g.categoria] || '📋'} ${g.categoria}
+                </span>
+            </td>
+            <td style="font-weight:700;color:#FF6B6B;">${fmt(g.monto)}</td>
+            <td style="font-size:.8rem;color:var(--muted);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${g.nota || ''}">${g.nota || '—'}</td>
+            <td style="display:flex;gap:4px;">
+                <button class="btn-icon" onclick="editarGasto('${g.id}')" title="Editar">✏️</button>
+                <button class="btn-icon" onclick="eliminarGasto('${g.id}')" title="Eliminar" style="color:#FF4444;">🗑️</button>
+            </td>
+        </tr>`;
+    }).join('');
+
+    // También actualizar resumen
+    loadGastosResumen();
+}
+
+// Cache de gastos para editar
+let _gastosCache = [];
+
+async function editarGasto(id) {
+    // Buscar en cache o recargar
+    if (!_gastosCache.length) {
+        _gastosCache = await apiFetch('/gastos') || [];
+    }
+    const g = _gastosCache.find(x => x.id === id);
+    if (!g) {
+        // Intentar buscar directo
+        const all = await apiFetch('/gastos') || [];
+        _gastosCache = all;
+        const found = all.find(x => x.id === id);
+        if (!found) { showToast('❌ Gasto no encontrado', 'err'); return; }
+        fillGastoModal(found);
+    } else {
+        fillGastoModal(g);
+    }
+}
+
+function fillGastoModal(g) {
+    document.getElementById('modalGastoTitle').textContent = '✏️ Editar Gasto';
+    document.getElementById('g_id').value = g.id;
+    document.getElementById('g_descripcion').value = g.descripcion;
+    document.getElementById('g_monto').value = parseFloat(g.monto).toFixed(2);
+    document.getElementById('g_fecha').value = g.fecha;
+    document.getElementById('g_nota').value = g.nota || '';
+
+    // Seleccionar categoría
+    const radio = document.querySelector(`input[name="g_categoria"][value="${g.categoria}"]`);
+    if (radio) radio.checked = true;
+
+    openModal('modalGasto');
+}
+
+async function guardarGasto() {
+    const id = document.getElementById('g_id').value;
+    const descripcion = document.getElementById('g_descripcion').value.trim();
+    const monto = parseFloat(document.getElementById('g_monto').value);
+    const categoria = document.querySelector('input[name="g_categoria"]:checked')?.value || 'otros';
+    const fecha = document.getElementById('g_fecha').value || new Date().toISOString().split('T')[0];
+    const nota = document.getElementById('g_nota').value.trim();
+
+    if (!descripcion) { showToast('❌ La descripción es obligatoria', 'err'); return; }
+    if (!monto || monto <= 0) { showToast('❌ Ingresa un monto válido', 'err'); return; }
+
+    const body = { descripcion, monto, categoria, fecha, nota: nota || null };
+
+    let res;
+    if (id) {
+        // Editar
+        res = await apiFetch('/gastos/' + id, { method: 'PUT', body });
+    } else {
+        // Crear
+        res = await apiFetch('/gastos', { method: 'POST', body });
+    }
+
+    if (res?.id) {
+        showToast(id ? '✅ Gasto actualizado' : '✅ Gasto registrado');
+        closeModal('modalGasto');
+        limpiarModalGasto();
+        _gastosCache = [];
+        loadGastos();
+    } else {
+        showToast('❌ Error: ' + (res?.error || 'desconocido'), 'err');
+    }
+}
+
+async function eliminarGasto(id) {
+    if (!confirm('¿Eliminar este gasto?')) return;
+    const res = await apiFetch('/gastos/' + id, { method: 'DELETE' });
+    if (res?.ok) {
+        showToast('✅ Gasto eliminado');
+        _gastosCache = [];
+        loadGastos();
+    } else {
+        showToast('❌ Error al eliminar', 'err');
+    }
+}
+
+function limpiarModalGasto() {
+    document.getElementById('g_id').value = '';
+    document.getElementById('g_descripcion').value = '';
+    document.getElementById('g_monto').value = '';
+    document.getElementById('g_fecha').value = new Date().toISOString().split('T')[0];
+    document.getElementById('g_nota').value = '';
+    document.getElementById('modalGastoTitle').textContent = '➕ Nuevo Gasto';
+    const firstRadio = document.querySelector('input[name="g_categoria"]');
+    if (firstRadio) firstRadio.checked = true;
+}
+
 // ── Init
 cargarUmbralesDeuda().then(() => loadCobranza());
 document.addEventListener('viewChange', ({ detail: { view } }) => {
@@ -610,4 +814,5 @@ document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'pagos') loadPagosForm();
     if (view === 'reportes') loadReportesView();
     if (view === 'nominas') loadNominasContable();
+    if (view === 'gastos') loadGastosView();
 });

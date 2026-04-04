@@ -36,6 +36,7 @@
             <a href="#" class="sb-link" data-view="cierre"><span>🧾</span> Cierre Diario</a>
             <a href="#" class="sb-link" data-view="pagos"><span>✅</span> Registrar Pago</a>
             <a href="#" class="sb-link" data-view="nominas"><span>🧾</span> Nóminas</a>
+            <a href="#" class="sb-link" data-view="gastos"><span>🏷️</span> Gastos Empresa</a>
             <a href="#" class="sb-link" data-view="reportes"><span>📊</span> Reportes</a>
         </nav>
         <div class="sb-footer">
@@ -382,6 +383,92 @@
                 </div>
             </div>
 
+            <!-- ══ GASTOS DE LA EMPRESA ═════════════════════════════ -->
+            <div class="view" id="view-gastos">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Gastos de la Empresa</h1>
+                        <span class="view-sub">Control de egresos operativos</span>
+                    </div>
+                    <button class="btn-primary" onclick="openModal('modalGasto')">➕ Nuevo Gasto</button>
+                </div>
+
+                <!-- KPIs Gastos -->
+                <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+                    <div class="kpi-card">
+                        <div class="kpi-icon">💸</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-totalGastos">$0.00</div>
+                            <div class="kpi-lbl">Total del Mes</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon">📝</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-regGastos">0</div>
+                            <div class="kpi-lbl">Registros</div>
+                        </div>
+                    </div>
+                    <div class="kpi-card">
+                        <div class="kpi-icon">📊</div>
+                        <div class="kpi-body">
+                            <div class="kpi-val" id="kpi-topCategoria">—</div>
+                            <div class="kpi-lbl">Mayor Categoría</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Resumen por Categoría -->
+                <div class="card" style="margin-bottom:20px;">
+                    <div class="card-hdr">📊 Desglose por Categoría</div>
+                    <div id="gastosCategoriasGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;padding:8px 0;">
+                        <p class="loading-txt">Cargando...</p>
+                    </div>
+                </div>
+
+                <!-- Filtros -->
+                <div class="card">
+                    <div class="card-hdr" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+                        <span>📋 Historial de Gastos</span>
+                        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                            <select id="gastosFiltroCategoria" onchange="loadGastos()"
+                                style="padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--card2);color:var(--text);font-family:inherit;font-size:.82rem;">
+                                <option value="todas">Todas las categorías</option>
+                                <option value="cenas">🍽️ Cenas</option>
+                                <option value="uniformes">👕 Uniformes</option>
+                                <option value="repuestos">🔧 Repuestos</option>
+                                <option value="cajas">📦 Cajas</option>
+                                <option value="combustible">⛽ Combustible</option>
+                                <option value="mantenimiento">🛠️ Mantenimiento</option>
+                                <option value="servicios">🏢 Servicios</option>
+                                <option value="papeleria">📄 Papelería</option>
+                                <option value="otros">📋 Otros</option>
+                            </select>
+                            <input type="date" id="gastosDesde"
+                                style="color-scheme:dark;padding:6px 10px;background:#0F180F;border:1px solid rgba(0,221,0,.3);border-radius:6px;color:#E4F5E4;font-family:inherit;font-size:.82rem;">
+                            <input type="date" id="gastosHasta"
+                                style="color-scheme:dark;padding:6px 10px;background:#0F180F;border:1px solid rgba(0,221,0,.3);border-radius:6px;color:#E4F5E4;font-family:inherit;font-size:.82rem;">
+                            <button class="btn-icon" onclick="loadGastos()" style="font-size:.8rem;">🔍 Filtrar</button>
+                        </div>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Descripción</th>
+                                <th>Categoría</th>
+                                <th>Monto</th>
+                                <th>Nota</th>
+                                <th>Acción</th>
+                            </tr>
+                        </thead>
+                        <tbody id="gastosBody">
+                            <tr><td colspan="6" class="loading-txt">Cargando...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
         </main>
     </div>
 
@@ -419,6 +506,78 @@
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeModal('modalPagoRapido')">Cancelar</button>
                 <button class="btn-primary" onclick="confirmarPagoRapido()">Confirmar Pago</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: Registrar/Editar Gasto -->
+    <div class="modal-overlay" id="modalGasto">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span id="modalGastoTitle">➕ Nuevo Gasto</span>
+                <button onclick="closeModal('modalGasto')">✕</button>
+            </div>
+            <input type="hidden" id="g_id">
+            <div class="field">
+                <label>Descripción *</label>
+                <input id="g_descripcion" placeholder="Ej: Cena equipo, compra de cajas, repuesto moto..." maxlength="255">
+            </div>
+            <div class="field">
+                <label>Monto (USD) *</label>
+                <input type="number" id="g_monto" step="0.01" placeholder="0.00">
+            </div>
+            <div class="field">
+                <label>Categoría</label>
+                <div id="g_categorias" style="display:flex;gap:6px;flex-wrap:wrap;">
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="cenas" style="display:none;" checked>
+                        🍽️ Cenas
+                    </label>
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="uniformes" style="display:none;">
+                        👕 Uniformes
+                    </label>
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="repuestos" style="display:none;">
+                        🔧 Repuestos
+                    </label>
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="cajas" style="display:none;">
+                        📦 Cajas
+                    </label>
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="combustible" style="display:none;">
+                        ⛽ Combustible
+                    </label>
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="mantenimiento" style="display:none;">
+                        🛠️ Mant.
+                    </label>
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="servicios" style="display:none;">
+                        🏢 Servicios
+                    </label>
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="papeleria" style="display:none;">
+                        📄 Papelería
+                    </label>
+                    <label class="metodo-chip" style="text-align:center;padding:8px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:.78rem;">
+                        <input type="radio" name="g_categoria" value="otros" style="display:none;">
+                        📋 Otros
+                    </label>
+                </div>
+            </div>
+            <div class="field">
+                <label>Fecha</label>
+                <input type="date" id="g_fecha" style="color-scheme:dark;">
+            </div>
+            <div class="field">
+                <label>Nota / Observación</label>
+                <textarea id="g_nota" rows="2" placeholder="Detalle adicional (opcional)"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('modalGasto')">Cancelar</button>
+                <button class="btn-primary" onclick="guardarGasto()">Guardar Gasto</button>
             </div>
         </div>
     </div>

@@ -95,6 +95,7 @@ app.use('/api/nominas', require('./routes/nominas'));
 app.use('/api/configuracion', require('./routes/configuracion'));
 app.use('/api/push', require('./routes/push'));
 app.use('/api/chat', require('./routes/chat'));
+app.use('/api/gastos', require('./routes/gastos'));
 
 // ── Reset DB: limpiar datos de prueba (solo admin) ──────────
 app.post('/api/admin/reset-db', require('./middleware/auth'), (req, res, next) => {

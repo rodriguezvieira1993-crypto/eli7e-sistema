@@ -254,6 +254,23 @@ CREATE INDEX IF NOT EXISTS idx_chat_canal ON chat_mensajes(canal);
 CREATE INDEX IF NOT EXISTS idx_chat_fecha ON chat_mensajes(creado_en);
 
 -- ============================================================
+-- 13. GASTOS DE LA EMPRESA
+-- ============================================================
+CREATE TABLE IF NOT EXISTS gastos (
+    id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    descripcion     VARCHAR(255) NOT NULL,
+    monto           NUMERIC(10,2) NOT NULL,
+    categoria       VARCHAR(50) DEFAULT 'otros' CHECK (categoria IN ('cenas','uniformes','repuestos','cajas','combustible','mantenimiento','servicios','papeleria','otros')),
+    fecha           DATE DEFAULT CURRENT_DATE,
+    nota            TEXT,
+    registrado_por  UUID REFERENCES usuarios(id),
+    creado_en       TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_gastos_fecha ON gastos(fecha);
+CREATE INDEX IF NOT EXISTS idx_gastos_categoria ON gastos(categoria);
+
+-- ============================================================
 -- 11. ÍNDICES para performance (IF NOT EXISTS)
 -- ============================================================
 CREATE INDEX IF NOT EXISTS idx_servicios_cliente ON servicios(cliente_id);
