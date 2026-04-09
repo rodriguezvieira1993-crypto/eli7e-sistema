@@ -76,7 +76,7 @@ function renderServiciosHoy(servicios) {
             <span style="font-size:1.4rem">${iconos[s.tipo] || '📋'}</span>
             <div style="flex:1;min-width:0;">
                 <div style="font-weight:600;font-size:.88rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.descripcion || s.tipo}</div>
-                <div style="font-size:.78rem;color:var(--muted);">${s.nombre_marca || 'Sin cliente'} · ${fmtDate(s.fecha_inicio)}</div>
+                <div style="font-size:.78rem;color:var(--muted);">${s.nombre_marca || '—'} · ${fmtDate(s.fecha_inicio)}</div>
             </div>
             <div style="text-align:right;">
                 <div style="font-weight:700;color:var(--g1);">${fmt(s.monto)}</div>
@@ -127,10 +127,10 @@ function renderNominaResumen(n) {
 // ─── MIS SERVICIOS (semana actual) ──────────────────────────
 async function loadMisServicios() {
     const tbody = document.getElementById('serviciosBody');
-    tbody.innerHTML = '<tr><td colspan="5"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
     const data = await apiFetch(`/servicios?motorizado_id=${getMotoId()}`);
     if (!data || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-txt">Sin servicios esta semana</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin servicios esta semana</td></tr>';
         return;
     }
     // Filtrar solo esta semana
@@ -141,7 +141,7 @@ async function loadMisServicios() {
 
     const serviciosSemana = data.filter(s => new Date(s.fecha_inicio) >= lunes);
     if (!serviciosSemana.length) {
-        tbody.innerHTML = '<tr><td colspan="5" class="loading-txt">Sin servicios esta semana</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin servicios esta semana</td></tr>';
         return;
     }
 
@@ -156,6 +156,7 @@ async function loadMisServicios() {
         <tr>
             <td>${fmtDate(s.fecha_inicio)}</td>
             <td>${iconos[s.tipo] || ''} ${s.tipo}</td>
+            <td style="font-weight:600;">${s.cliente_nombre || '—'}</td>
             <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${s.descripcion || '—'}</td>
             <td style="font-weight:700;color:var(--g1);">${fmt(s.monto)}</td>
             <td><span class="badge ${estadoCls[s.estado] || ''}">${s.estado}</span></td>

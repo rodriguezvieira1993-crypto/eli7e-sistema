@@ -2,6 +2,7 @@ let allClientesCC = [];
 let allMotosCC = [];
 let serviciosRecientes = [];
 let tarifasCC = []; // Tarifas dinámicas desde el backend
+let _acAbortController = null; // Para limpiar event listeners de autocomplete al cambiar tipo
 const TIPO_EMOJI = { mototaxi: '🛵', delivery: '📦', encomienda: '📬', compras: '🛒', flete: '🚛', transporte: '🚐' };
 
 // Cargar zonas custom guardadas en localStorage
@@ -82,13 +83,21 @@ function selectTipo(el) {
 
 // ── Renderizar campos dinámicos según tipo ───────────
 function renderCampos(tipo) {
+    // Limpiar event listeners previos de autocomplete
+    if (_acAbortController) { _acAbortController.abort(); }
+    _acAbortController = new AbortController();
+
     const container = document.getElementById('camposDinamicos');
 
     if (['mototaxi', 'encomienda', 'compras', 'transporte'].includes(tipo)) {
         container.innerHTML = `
             <div class="field">
                 <label>Cliente *</label>
-                <input type="text" id="s_cliente_nombre" placeholder="Nombre del cliente" required>
+                <input type="hidden" id="s_cliente">
+                <div class="autocomplete-wrap">
+                    <input type="text" id="s_cliente_search" placeholder="Escriba el nombre del cliente..." autocomplete="off">
+                    <div class="autocomplete-list" id="ac_cliente"></div>
+                </div>
             </div>
 
             <div class="field">
@@ -142,6 +151,7 @@ function renderCampos(tipo) {
                 <textarea id="s_desc" rows="${tipo === 'encomienda' ? 5 : 2}" placeholder="${tipo === 'encomienda' ? 'Describa los paquetes: contenido, tamaño, peso aproximado, instrucciones especiales...' : 'Detalles adicionales...'}" style="${tipo === 'encomienda' ? 'min-height:100px;' : ''}"></textarea>
             </div>`;
         fillMotosSelect();
+        initClienteAutocomplete();
         initAutocomplete('s_ruta_de', 'ac_de');
         initAutocomplete('s_ruta_hasta', 'ac_hasta');
         initPagoCompletoToggle();
@@ -249,6 +259,7 @@ function initClienteAutocomplete() {
     const list = document.getElementById('ac_cliente');
     const hidden = document.getElementById('s_cliente');
     if (!input || !list) return;
+    const signal = _acAbortController ? _acAbortController.signal : undefined;
 
     input.addEventListener('input', () => {
         const val = input.value.toLowerCase().trim();
@@ -263,14 +274,14 @@ function initClienteAutocomplete() {
             new RegExp('(' + val + ')', 'gi'), '<u>$1</u>'
         )}</strong></div>`).join('');
         list.style.display = 'block';
-    });
+    }, { signal });
 
     input.addEventListener('focus', () => {
         if (input.value.length >= 1) input.dispatchEvent(new Event('input'));
-    });
+    }, { signal });
     input.addEventListener('blur', () => {
-        setTimeout(() => { list.style.display = 'none'; }, 150);
-    });
+        setTimeout(() => { if (list) list.style.display = 'none'; }, 150);
+    }, { signal });
 }
 
 function selectCliente(id, nombre) {
@@ -284,6 +295,7 @@ function initAutocomplete(inputId, listId) {
     const input = document.getElementById(inputId);
     const list = document.getElementById(listId);
     if (!input || !list) return;
+    const signal = _acAbortController ? _acAbortController.signal : undefined;
 
     const allZonas = () => [...ZONAS, ...zonasCustom.filter(z => !ZONAS.includes(z))];
 
@@ -302,22 +314,22 @@ function initAutocomplete(inputId, listId) {
             new RegExp(`(${val})`, 'gi'), '<strong>$1</strong>'
         )}</div>`).join('');
         list.style.display = 'block';
-    });
+    }, { signal });
 
     input.addEventListener('focus', () => {
         if (input.value.length >= 1) input.dispatchEvent(new Event('input'));
-    });
+    }, { signal });
 
     input.addEventListener('blur', () => {
         setTimeout(() => {
-            list.style.display = 'none';
+            if (list) list.style.display = 'none';
             // Si el usuario escribió algo que no está en la lista, guardarlo
             const typed = input.value.trim();
             if (typed && !allZonas().some(z => z.toLowerCase() === typed.toLowerCase())) {
                 saveCustomZona(typed);
             }
         }, 200);
-    });
+    }, { signal });
 }
 
 function selectZona(inputId, listId, zona) {
@@ -483,7 +495,7 @@ async function crearServicio(e) {
     if (['mototaxi', 'encomienda', 'compras', 'transporte'].includes(tipo)) {
         const de = document.getElementById('s_ruta_de')?.value || '';
         const hasta = document.getElementById('s_ruta_hasta')?.value || '';
-        const clienteNombre = document.getElementById('s_cliente_nombre')?.value || '';
+        const clienteNombre = document.getElementById('s_cliente_search')?.value || '';
         const cantPaquetes = document.getElementById('s_cantidad_paquetes')?.value;
         if (de || hasta) {
             descripcion = `🚩 ${de} → ${hasta}${clienteNombre ? ' | Cliente: ' + clienteNombre : ''}${cantPaquetes && cantPaquetes > 1 ? ' | 📦x' + cantPaquetes : ''}${descripcion ? ' | ' + descripcion : ''}`;
@@ -823,6 +835,7 @@ function initPagoCompletoToggle() {
     const track = checkbox.parentElement.querySelector('.toggle-track');
     const thumb = track?.querySelector('.toggle-thumb');
     const label = document.getElementById('s_pago_completo_label');
+    const signal = _acAbortController ? _acAbortController.signal : undefined;
 
     checkbox.addEventListener('change', () => {
         if (checkbox.checked) {
@@ -846,7 +859,7 @@ function initPagoCompletoToggle() {
                 label.style.fontWeight = '400';
             }
         }
-    });
+    }, { signal });
 }
 
 // ── Init
