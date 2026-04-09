@@ -237,6 +237,23 @@ async function initDB() {
         console.log('⚠️ Migración gastos:', err.message);
     }
 
+    // Migración única: borrar servicios de prueba del 9 de abril 2026
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, tipo, descripcion, monto FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09'`
+        );
+        if (rows.length > 0) {
+            console.log(`🗑️ Encontrados ${rows.length} servicios de prueba del 9/04/2026:`);
+            rows.forEach(r => console.log(`   - ${r.tipo} | ${r.descripcion || '—'} | $${r.monto}`));
+            // Borrar notas de entrega asociadas primero
+            await pool.query(`DELETE FROM notas_entrega WHERE servicio_id IN (SELECT id FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09')`);
+            const { rowCount } = await pool.query(`DELETE FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09'`);
+            console.log(`✅ Eliminados ${rowCount} servicios de prueba del 9/04/2026`);
+        }
+    } catch (err) {
+        console.log('⚠️ Limpieza 9/04:', err.message);
+    }
+
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {
         console.log('🔄 Recreando vista de cobranza...');
