@@ -416,7 +416,12 @@ router.get('/personalizado', async (req, res) => {
         if (isAll && servicios.length) {
             const marcas = {};
             servicios.forEach(s => {
-                const m = s.cliente_nombre || 'Sin marca';
+                let m = s.cliente_nombre || '';
+                if (!m && s.descripcion) {
+                    const match = s.descripcion.match(/Cliente:\s*([^|]+)/i);
+                    if (match) m = match[1].trim();
+                }
+                if (!m) m = 'Sin marca';
                 if (!marcas[m]) marcas[m] = { servicios: 0, facturado: 0 };
                 marcas[m].servicios++;
                 marcas[m].facturado += parseFloat(s.monto || 0);
@@ -457,16 +462,24 @@ router.get('/personalizado', async (req, res) => {
                 <table>
                     <thead><tr><th>#</th><th>Fecha</th>${isAll ? '<th>Marca</th>' : ''}<th>Tipo</th><th>Ubicación / Destino</th><th>Motorizado</th><th>Monto</th><th>Estado</th></tr></thead>
                     <tbody>
-                        ${servicios.map((s, i) => `<tr>
+                        ${servicios.map((s, i) => {
+                            // Fallback: extraer nombre del cliente de la descripción si no hay cliente_id
+                            let clienteLabel = s.cliente_nombre || '—';
+                            if (clienteLabel === '—' && s.descripcion) {
+                                const m = s.descripcion.match(/Cliente:\\s*([^|]+)/i);
+                                if (m) clienteLabel = m[1].trim();
+                            }
+                            return `<tr>
                             <td>${i + 1}</td>
                             <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
-                            ${isAll ? '<td>' + (s.cliente_nombre || '—') + '</td>' : ''}
+                            ${isAll ? '<td>' + clienteLabel + '</td>' : ''}
                             <td style="text-transform:capitalize;">${s.tipo}</td>
                             <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
                             <td>${s.motorizado_nombre || '—'}</td>
                             <td class="green">${fmt(s.monto)}</td>
                             <td>${s.estado === 'completado' ? '<span class="badge badge-green">✓</span>' : '<span class="badge badge-yellow">Pend</span>'}</td>
-                        </tr>`).join('') || '<tr><td colspan="8">Sin servicios en este rango</td></tr>'}
+                        </tr>`;
+                        }).join('') || '<tr><td colspan="8">Sin servicios en este rango</td></tr>'}
                         <tr class="total-row">
                             <td colspan="${isAll ? 6 : 5}"><strong>TOTAL</strong></td>
                             <td class="green"><strong>${fmt(totalFacturado)}</strong></td>
@@ -615,7 +628,7 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
                             <td>${i + 1}</td>
                             <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
                             <td style="text-transform:capitalize;">${s.tipo}</td>
-                            <td>${s.nombre_marca || '—'}</td>
+                            <td>${s.nombre_marca || (s.descripcion && s.descripcion.match(/Cliente:\s*([^|]+)/i) ? s.descripcion.match(/Cliente:\s*([^|]+)/i)[1].trim() : '—')}</td>
                             <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
                             <td class="green">${fmt(s.monto)}</td>
                         </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:#7a9a7a;">Sin servicios esta semana</td></tr>'}

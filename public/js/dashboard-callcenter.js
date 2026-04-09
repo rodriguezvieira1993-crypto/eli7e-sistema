@@ -507,9 +507,27 @@ async function crearServicio(e) {
         }
     }
 
+    // Si escribió un nombre de cliente pero no lo seleccionó del autocomplete, auto-crear el cliente
+    let clienteId = document.getElementById('s_cliente')?.value || null;
+    const clienteSearch = document.getElementById('s_cliente_search')?.value?.trim() || '';
+    if (!clienteId && clienteSearch) {
+        // Buscar si ya existe (por si escribió el nombre exacto sin seleccionar)
+        const existente = allClientesCC.find(c => c.nombre_marca.toLowerCase() === clienteSearch.toLowerCase());
+        if (existente) {
+            clienteId = existente.id;
+        } else {
+            // Auto-crear cliente nuevo
+            const nuevoCliente = await apiFetch('/clientes', { method: 'POST', body: { nombre_marca: clienteSearch } });
+            if (nuevoCliente?.id) {
+                clienteId = nuevoCliente.id;
+                allClientesCC.push(nuevoCliente); // Actualizar lista local
+            }
+        }
+    }
+
     const body = {
         tipo,
-        cliente_id: document.getElementById('s_cliente')?.value || null,
+        cliente_id: clienteId,
         motorizado_id: document.getElementById('s_motorizado').value,
         monto,
         descripcion,
