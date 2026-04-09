@@ -52,7 +52,7 @@ router.get('/ranking', async (req, res) => {
     }
 });
 
-// GET /api/motorizados/:id — detalle + servicios del día
+// GET /api/motorizados/:id — detalle + servicios de la semana
 router.get('/:id', async (req, res) => {
     try {
         const { rows } = await pool.query(
@@ -60,19 +60,24 @@ router.get('/:id', async (req, res) => {
         );
         if (!rows[0]) return res.status(404).json({ error: 'Motorizado no encontrado' });
 
+        // Calcular inicio de semana (lunes a la 1:00 AM como corte de día)
+        // NOW() - interval '1 hour' hace que entre 12am y 1am aún cuente como el día anterior
         const { rows: serviciosHoy } = await pool.query(
             `SELECT s.*, c.nombre_marca
        FROM servicios s
        LEFT JOIN clientes c ON c.id = s.cliente_id
-       WHERE s.motorizado_id = $1 AND DATE(s.fecha_inicio) = CURRENT_DATE
+       WHERE s.motorizado_id = $1
+         AND s.fecha_inicio >= date_trunc('week', (NOW() - interval '1 hour'))  + interval '1 hour'
        ORDER BY s.fecha_inicio DESC`,
             [req.params.id]
         );
 
-        const { rows: totalHoy } = await pool.query(
-            `SELECT COALESCE(SUM(monto),0) AS total_dia, COUNT(*) AS count_dia
+        const { rows: totalSemana } = await pool.query(
+            `SELECT COALESCE(SUM(monto),0) AS total_semana, COUNT(*) AS count_semana
        FROM servicios
-       WHERE motorizado_id=$1 AND DATE(fecha_inicio)=CURRENT_DATE AND estado='completado'`,
+       WHERE motorizado_id=$1
+         AND fecha_inicio >= date_trunc('week', (NOW() - interval '1 hour')) + interval '1 hour'
+         AND estado='completado'`,
             [req.params.id]
         );
 
@@ -83,13 +88,13 @@ router.get('/:id', async (req, res) => {
             if (params[0]) pctEmpresa = parseFloat(params[0].valor);
         } catch (e) { /* usar default */ }
 
-        const bruto = parseFloat(totalHoy[0].total_dia);
+        const bruto = parseFloat(totalSemana[0].total_semana);
         const ganancia_neta = parseFloat((bruto - (bruto * pctEmpresa / 100)).toFixed(2));
 
         res.json({
             motorizado: rows[0],
             servicios_hoy: serviciosHoy,
-            resumen: { ...totalHoy[0], total_dia: bruto, ganancia_neta, porcentaje_empresa: pctEmpresa }
+            resumen: { ...totalSemana[0], total_semana: bruto, ganancia_neta, porcentaje_empresa: pctEmpresa }
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

@@ -45,8 +45,8 @@ async function loadResumen() {
     // Servicios hoy (detalle del motorizado)
     const detalle = await apiFetch(`/motorizados/${id}`);
     if (detalle) {
-        document.getElementById('kpi-servicios-hoy').textContent = detalle.resumen.count_dia || 0;
-        document.getElementById('kpi-ganancia-hoy').textContent = fmt(detalle.resumen.ganancia_neta != null ? detalle.resumen.ganancia_neta : detalle.resumen.total_dia);
+        document.getElementById('kpi-servicios-hoy').textContent = detalle.resumen.count_semana || 0;
+        document.getElementById('kpi-ganancia-hoy').textContent = fmt(detalle.resumen.ganancia_neta != null ? detalle.resumen.ganancia_neta : detalle.resumen.total_semana);
         renderServiciosHoy(detalle.servicios_hoy);
     }
 
@@ -62,7 +62,7 @@ async function loadResumen() {
 function renderServiciosHoy(servicios) {
     const el = document.getElementById('serviciosHoyList');
     if (!servicios || !servicios.length) {
-        el.innerHTML = '<p class="loading-txt" style="padding:20px;">Sin servicios hoy</p>';
+        el.innerHTML = '<p class="loading-txt" style="padding:20px;">Sin servicios esta semana</p>';
         return;
     }
     el.innerHTML = servicios.map(s => {
