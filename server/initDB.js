@@ -254,6 +254,61 @@ async function initDB() {
         console.log('⚠️ Limpieza 9/04:', err.message);
     }
 
+    // Migración: vincular servicios huérfanos (sin cliente_id) a clientes extraídos de la descripción
+    try {
+        const { rows: huerfanos } = await pool.query(`
+            SELECT id, descripcion
+            FROM servicios
+            WHERE cliente_id IS NULL
+              AND descripcion ~* 'Cliente:\\s*[^|]+'
+        `);
+        if (huerfanos.length > 0) {
+            console.log(`🔗 Vinculando ${huerfanos.length} servicios huérfanos a clientes...`);
+            let vinculados = 0;
+            let creados = 0;
+            for (const s of huerfanos) {
+                const match = s.descripcion.match(/Cliente:\s*([^|]+)/i);
+                if (!match) continue;
+                const nombre = match[1].trim();
+                if (!nombre) continue;
+
+                // Buscar cliente existente (case-insensitive)
+                let { rows: cli } = await pool.query(
+                    `SELECT id FROM clientes WHERE LOWER(nombre_marca) = LOWER($1) LIMIT 1`,
+                    [nombre]
+                );
+                let clienteId = cli[0]?.id;
+
+                // Crear si no existe
+                if (!clienteId) {
+                    try {
+                        const { rows: nuevo } = await pool.query(
+                            `INSERT INTO clientes (nombre_marca, activo) VALUES ($1, TRUE) RETURNING id`,
+                            [nombre]
+                        );
+                        clienteId = nuevo[0].id;
+                        creados++;
+                    } catch (e) {
+                        // Conflicto de unique — buscar de nuevo
+                        const { rows: retry } = await pool.query(
+                            `SELECT id FROM clientes WHERE LOWER(nombre_marca) = LOWER($1) LIMIT 1`,
+                            [nombre]
+                        );
+                        clienteId = retry[0]?.id;
+                    }
+                }
+
+                if (clienteId) {
+                    await pool.query(`UPDATE servicios SET cliente_id = $1 WHERE id = $2`, [clienteId, s.id]);
+                    vinculados++;
+                }
+            }
+            console.log(`✅ Servicios vinculados: ${vinculados} | Clientes nuevos creados: ${creados}`);
+        }
+    } catch (err) {
+        console.log('⚠️ Vinculación huérfanos:', err.message);
+    }
+
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {
         console.log('🔄 Recreando vista de cobranza...');
