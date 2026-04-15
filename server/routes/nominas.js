@@ -2,41 +2,31 @@ const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
 const { requireRol } = auth;
+const { getSemanaActual, weekWindow } = require('../util/weekRange');
 const router = express.Router();
 
 router.use(auth);
 
-// Helper: obtener lunes de la semana para una fecha
-function getLunes(date) {
-    const d = new Date(date);
-    const day = d.getDay();
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-    d.setDate(diff);
-    d.setHours(0, 0, 0, 0);
-    return d.toISOString().split('T')[0];
-}
-
 function getDomingo(lunesStr) {
     const d = new Date(lunesStr);
     d.setDate(d.getDate() + 6);
-    return d.toISOString().split('T')[0];
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
 }
 
 // GET /api/nominas/semana-actual/:motorizadoId — cálculo en tiempo real (sin cerrar)
 router.get('/semana-actual/:motorizadoId', async (req, res) => {
     try {
         const motoId = req.params.motorizadoId;
-        const lunes = getLunes(new Date());
-        const domingo = getDomingo(lunes);
+        const { lunes, domingo } = getSemanaActual();
 
         // Monto bruto normal (sin pago_completo): se aplica porcentaje
         const { rows: brutoRows } = await pool.query(
             `SELECT COALESCE(SUM(monto), 0) AS monto_bruto, COUNT(*) AS total_servicios
              FROM servicios
              WHERE motorizado_id = $1 AND estado = 'completado'
-               AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+               AND ${weekWindow('fecha_inicio', '$2')}
                AND (pago_completo IS NULL OR pago_completo = FALSE)`,
-            [motoId, lunes, domingo]
+            [motoId, lunes]
         );
 
         // Monto de servicios pago_completo: van íntegros al motorizado
@@ -44,9 +34,9 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
             `SELECT COALESCE(SUM(monto), 0) AS monto_completo, COUNT(*) AS total_completos
              FROM servicios
              WHERE motorizado_id = $1 AND estado = 'completado'
-               AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+               AND ${weekWindow('fecha_inicio', '$2')}
                AND pago_completo = TRUE`,
-            [motoId, lunes, domingo]
+            [motoId, lunes]
         );
 
         // Parámetros del sistema
@@ -106,7 +96,7 @@ router.get('/historial/:motorizadoId', async (req, res) => {
 // GET /api/nominas/resumen-semanal — resumen de todos los motorizados para la semana actual (admin)
 router.get('/resumen-semanal', requireRol('admin'), async (req, res) => {
     try {
-        const lunes = req.query.semana || getLunes(new Date());
+        const lunes = req.query.semana || getSemanaActual().lunes;
         const domingo = getDomingo(lunes);
 
         // Parámetros
@@ -127,17 +117,17 @@ router.get('/resumen-semanal', requireRol('admin'), async (req, res) => {
             const { rows: bruto } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_bruto, COUNT(*) AS total_servicios
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+                 AND ${weekWindow('fecha_inicio', '$2')}
                  AND (pago_completo IS NULL OR pago_completo = FALSE)`,
-                [moto.id, lunes, domingo]
+                [moto.id, lunes]
             );
             // Bruto pago_completo (sin porcentaje)
             const { rows: completo } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_completo, COUNT(*) AS total_completos
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+                 AND ${weekWindow('fecha_inicio', '$2')}
                  AND pago_completo = TRUE`,
-                [moto.id, lunes, domingo]
+                [moto.id, lunes]
             );
             const montoBrutoNormal = parseFloat(bruto[0].monto_bruto);
             const montoBrutoCompleto = parseFloat(completo[0].monto_completo);
@@ -202,17 +192,17 @@ router.post('/cerrar', requireRol('admin'), async (req, res) => {
         const { rows: bruto } = await pool.query(
             `SELECT COALESCE(SUM(monto), 0) AS monto_bruto
              FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-             AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+             AND ${weekWindow('fecha_inicio', '$2')}
              AND (pago_completo IS NULL OR pago_completo = FALSE)`,
-            [motorizado_id, lunes, domingo]
+            [motorizado_id, lunes]
         );
         // Bruto pago_completo (sin porcentaje)
         const { rows: completo } = await pool.query(
             `SELECT COALESCE(SUM(monto), 0) AS monto_completo
              FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-             AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+             AND ${weekWindow('fecha_inicio', '$2')}
              AND pago_completo = TRUE`,
-            [motorizado_id, lunes, domingo]
+            [motorizado_id, lunes]
         );
         const montoBrutoNormal = parseFloat(bruto[0].monto_bruto);
         const montoBrutoCompleto = parseFloat(completo[0].monto_completo);
@@ -282,16 +272,16 @@ router.post('/cerrar-todas', requireRol('admin'), async (req, res) => {
             const { rows: bruto } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_bruto
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+                 AND ${weekWindow('fecha_inicio', '$2')}
                  AND (pago_completo IS NULL OR pago_completo = FALSE)`,
-                [moto.id, lunes, domingo]
+                [moto.id, lunes]
             );
             const { rows: completo } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_completo
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3
+                 AND ${weekWindow('fecha_inicio', '$2')}
                  AND pago_completo = TRUE`,
-                [moto.id, lunes, domingo]
+                [moto.id, lunes]
             );
             const montoBrutoNormal = parseFloat(bruto[0].monto_bruto);
             const montoBrutoCompleto = parseFloat(completo[0].monto_completo);

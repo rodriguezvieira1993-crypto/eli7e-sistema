@@ -52,6 +52,18 @@ async function apiFetch(path, opts = {}) {
     return res.json();
 }
 
+// ─── ESCAPE HTML (XSS protection) ─────────────────────
+// Usar SIEMPRE al inyectar datos provenientes de la API en innerHTML.
+function escapeHtml(text) {
+    if (text === null || text === undefined) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+}
+
 // ─── TOAST (GSAP-enhanced) ────────────────────────────
 function showToast(msg, type = 'ok', duration = 3500) {
     const t = document.getElementById('toast');

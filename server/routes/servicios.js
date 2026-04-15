@@ -32,11 +32,14 @@ router.get('/', async (req, res) => {
             params.push(motorizado_id);
             where.push(`s.motorizado_id = $${params.length}`);
         }
+        const isoDate = /^\d{4}-\d{2}-\d{2}$/;
         if (desde) {
+            if (!isoDate.test(desde)) return res.status(400).json({ error: 'desde debe tener formato YYYY-MM-DD' });
             params.push(desde);
             where.push(`DATE(s.fecha_inicio) >= $${params.length}`);
         }
         if (hasta) {
+            if (!isoDate.test(hasta)) return res.status(400).json({ error: 'hasta debe tener formato YYYY-MM-DD' });
             params.push(hasta);
             where.push(`DATE(s.fecha_inicio) <= $${params.length}`);
         }
@@ -99,6 +102,17 @@ router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
 // PATCH /api/servicios/:id/cerrar (motorizado puede cerrar sus propios servicios)
 router.patch('/:id/cerrar', requireRol('admin', 'call_center', 'motorizado'), async (req, res) => {
     try {
+        // Si es motorizado, validar que el servicio le pertenece antes de cerrar
+        if (req.user.rol === 'motorizado') {
+            const { rows: check } = await pool.query(
+                'SELECT motorizado_id FROM servicios WHERE id=$1',
+                [req.params.id]
+            );
+            if (!check[0]) return res.status(404).json({ error: 'Servicio no encontrado' });
+            if (check[0].motorizado_id !== req.user.id) {
+                return res.status(403).json({ error: 'No puedes cerrar servicios que no son tuyos' });
+            }
+        }
         const { rows } = await pool.query(
             `UPDATE servicios SET estado='completado', fecha_fin=NOW() WHERE id=$1 RETURNING *`,
             [req.params.id]

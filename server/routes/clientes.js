@@ -62,14 +62,19 @@ router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
 // PUT /api/clientes/:id — actualizar (admin o call_center)
 router.put('/:id', requireRol('admin', 'call_center'), async (req, res) => {
     const { nombre_marca, email, telefono, rif, direccion } = req.body;
+    if (!nombre_marca || !nombre_marca.trim()) {
+        return res.status(400).json({ error: 'nombre_marca es requerido' });
+    }
     try {
         const { rows } = await pool.query(
             `UPDATE clientes SET nombre_marca=$1, email=$2, telefono=$3, rif=$4, direccion=$5
        WHERE id=$6 RETURNING *`,
-            [nombre_marca, email, telefono, rif, direccion, req.params.id]
+            [nombre_marca.trim(), email, telefono, rif, direccion, req.params.id]
         );
+        if (!rows[0]) return res.status(404).json({ error: 'Cliente no encontrado' });
         res.json(rows[0]);
     } catch (err) {
+        if (err.code === '23505') return res.status(409).json({ error: 'Ya existe otro cliente con ese nombre' });
         res.status(500).json({ error: err.message });
     }
 });

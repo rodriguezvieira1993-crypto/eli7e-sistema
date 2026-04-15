@@ -1,6 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
+const { getSemanaActual, WEEK_START_SQL, weekWindow } = require('../util/weekRange');
 const router = express.Router();
 
 // Auth via query param (para nuevas pestañas)
@@ -55,14 +56,14 @@ const printBar = `<div class="print-bar"><button onclick="window.print()">🖨�
 // ══ REPORTE SEMANAL ══════════════════════════════════════
 router.get('/semanal', async (req, res) => {
     try {
-        // Servicios de la semana (lunes a hoy)
+        // Servicios de la semana (ventana canónica, corte 1 AM del lunes)
         const { rows: servicios } = await pool.query(`
             SELECT s.tipo, c.nombre_marca,
                    COUNT(*)::int AS cantidad,
                    SUM(s.monto) AS total
             FROM servicios s
             LEFT JOIN clientes c ON c.id = s.cliente_id
-            WHERE s.fecha_inicio >= date_trunc('week', CURRENT_DATE)
+            WHERE s.fecha_inicio >= ${WEEK_START_SQL}
               AND s.estado = 'completado'
             GROUP BY s.tipo, c.nombre_marca
             ORDER BY total DESC
@@ -74,7 +75,7 @@ router.get('/semanal', async (req, res) => {
                 COUNT(*)::int AS total_servicios,
                 COALESCE(SUM(monto), 0) AS total_facturado
             FROM servicios
-            WHERE fecha_inicio >= date_trunc('week', CURRENT_DATE)
+            WHERE fecha_inicio >= ${WEEK_START_SQL}
               AND estado = 'completado'
         `);
 
@@ -83,7 +84,7 @@ router.get('/semanal', async (req, res) => {
             SELECT c.nombre_marca, SUM(p.monto) AS total_pagado
             FROM pagos p
             LEFT JOIN clientes c ON c.id = p.cliente_id
-            WHERE p.fecha >= date_trunc('week', CURRENT_DATE)::date
+            WHERE p.fecha >= ${WEEK_START_SQL}::date
             GROUP BY c.nombre_marca
             ORDER BY total_pagado DESC
         `);
@@ -543,30 +544,36 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
         }
 
         if (!nomina) {
-            // Calcular en vivo (semana actual)
-            function getLunes(date) {
-                const d = new Date(date);
-                const day = d.getDay();
-                const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-                d.setDate(diff); d.setHours(0,0,0,0);
-                return d.toISOString().split('T')[0];
-            }
-            const lunes = semana || getLunes(new Date());
-            const domDate = new Date(lunes); domDate.setDate(domDate.getDate() + 6);
-            const domingo = domDate.toISOString().split('T')[0];
+            // Calcular en vivo (semana actual) con corte canónico 1 AM
+            const lunes = semana || getSemanaActual().lunes;
+            const domD = new Date(lunes); domD.setDate(domD.getDate() + 6);
+            const domingo = new Date(domD.getTime() - domD.getTimezoneOffset() * 60000).toISOString().split('T')[0];
 
+            // Bruto normal (se aplica porcentaje empresa)
             const { rows: brutoRows } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_bruto, COUNT(*) AS total_servicios
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND DATE(fecha_inicio) >= $2 AND DATE(fecha_inicio) <= $3`,
-                [motoId, lunes, domingo]
+                 AND ${weekWindow('fecha_inicio', '$2')}
+                 AND (pago_completo IS NULL OR pago_completo = FALSE)`,
+                [motoId, lunes]
+            );
+            // Bruto pago_completo (sin porcentaje empresa)
+            const { rows: completoRows } = await pool.query(
+                `SELECT COALESCE(SUM(monto), 0) AS monto_completo, COUNT(*) AS total_completos
+                 FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
+                 AND ${weekWindow('fecha_inicio', '$2')}
+                 AND pago_completo = TRUE`,
+                [motoId, lunes]
             );
             const { rows: params } = await pool.query('SELECT clave, valor FROM parametros_sistema');
             const paramMap = {}; params.forEach(p => paramMap[p.clave] = parseFloat(p.valor));
             const pctEmpresa = paramMap.porcentaje_empresa || 30;
             const costoMoto = paramMap.costo_moto_semanal || 40;
-            const montoBruto = parseFloat(brutoRows[0].monto_bruto);
-            const deduccionEmpresa = parseFloat((montoBruto * pctEmpresa / 100).toFixed(2));
+            const montoBrutoNormal = parseFloat(brutoRows[0].monto_bruto);
+            const montoBrutoCompleto = parseFloat(completoRows[0].monto_completo);
+            const montoBruto = montoBrutoNormal + montoBrutoCompleto;
+            const totalServicios = parseInt(brutoRows[0].total_servicios) + parseInt(completoRows[0].total_completos);
+            const deduccionEmpresa = parseFloat((montoBrutoNormal * pctEmpresa / 100).toFixed(2));
 
             const { rows: prestActivos } = await pool.query(
                 `SELECT COALESCE(SUM(cuota_semanal), 0) AS ded FROM prestamos
@@ -577,7 +584,7 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
 
             nomina = {
                 semana_inicio: lunes, semana_fin: domingo,
-                total_servicios: parseInt(brutoRows[0].total_servicios),
+                total_servicios: totalServicios,
                 monto_bruto: montoBruto, porcentaje_empresa: pctEmpresa,
                 deduccion_empresa: deduccionEmpresa, deduccion_moto: costoMoto,
                 deduccion_prestamos: deduccionPrestamos, monto_neto: montoNeto,
@@ -585,14 +592,14 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
             };
         }
 
-        // Servicios de esa semana
+        // Servicios de esa semana (misma ventana canónica)
         const { rows: servicios } = await pool.query(
             `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, c.nombre_marca
              FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
              WHERE s.motorizado_id = $1 AND s.estado = 'completado'
-             AND DATE(s.fecha_inicio) >= $2 AND DATE(s.fecha_inicio) <= $3
+             AND ${weekWindow('s.fecha_inicio', '$2')}
              ORDER BY s.fecha_inicio ASC`,
-            [motoId, nomina.semana_inicio, nomina.semana_fin]
+            [motoId, nomina.semana_inicio]
         );
 
         const estadoLabel = nomina.estado === 'cerrado' ? '<span class="badge badge-green">CERRADA</span>'
