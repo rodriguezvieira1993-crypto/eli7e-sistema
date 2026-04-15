@@ -234,9 +234,11 @@
                         <form id="formPago" onsubmit="registrarPago(event)">
                             <div class="field">
                                 <label>Marca que paga *</label>
-                                <select id="p_cliente" required onchange="loadDetalleDeuda()">
-                                    <option value="">— Seleccionar —</option>
-                                </select>
+                                <div class="autocomplete-wrap">
+                                    <input type="hidden" id="p_cliente" required>
+                                    <input type="text" id="p_cliente_search" placeholder="Escribe para buscar marca con deuda..." autocomplete="off">
+                                    <div class="autocomplete-list" id="ac_p_cliente"></div>
+                                </div>
                             </div>
                             <!-- Detalle de lo que debe -->
                             <div id="detalleDeuda" style="margin-bottom:14px;"></div>

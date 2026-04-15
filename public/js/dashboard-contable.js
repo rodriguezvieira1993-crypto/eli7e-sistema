@@ -416,17 +416,65 @@ async function validarCierre() {
     }
 }
 
+let _pagoClientesDeuda = [];
+
 async function loadPagosForm() {
     // Cargar cobranza para tener la deuda de cada marca
     const cobData = cobranzaData.length ? cobranzaData : await apiFetch('/cobranza') || [];
-    const sel = document.getElementById('p_cliente');
-    sel.innerHTML = '<option value="">— Seleccionar —</option>' +
-        cobData
-            .filter(c => parseFloat(c.deuda_calculada) > 0)
-            .sort((a, b) => parseFloat(b.deuda_calculada) - parseFloat(a.deuda_calculada))
-            .map(c => '<option value="' + c.id + '">' + c.nombre_marca + ' — Deuda: ' + fmt(c.deuda_calculada) + '</option>')
-            .join('');
+    _pagoClientesDeuda = cobData
+        .filter(c => parseFloat(c.deuda_calculada) > 0)
+        .sort((a, b) => parseFloat(b.deuda_calculada) - parseFloat(a.deuda_calculada));
+    initPagoClienteAutocomplete();
     await loadUltimosPagos();
+}
+
+function initPagoClienteAutocomplete() {
+    const input = document.getElementById('p_cliente_search');
+    const list = document.getElementById('ac_p_cliente');
+    const hidden = document.getElementById('p_cliente');
+    if (!input || !list || !hidden) return;
+
+    const render = (matches, val) => {
+        if (!matches.length) {
+            list.innerHTML = '<div class="ac-item" style="color:var(--muted);">Sin marcas con deuda pendiente</div>';
+            list.style.display = 'block';
+            return;
+        }
+        const re = val ? new RegExp('(' + val.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi') : null;
+        list.innerHTML = matches.map(c => {
+            const nombre = c.nombre_marca.replace(/'/g, "\\'");
+            const highlighted = re ? c.nombre_marca.replace(re, '<u>$1</u>') : c.nombre_marca;
+            return '<div class="ac-item" onmousedown="selectPagoCliente(\'' + c.id + '\',\'' + nombre + '\')">' +
+                '<strong>' + highlighted + '</strong>' +
+                '<span style="float:right;color:var(--g1);font-weight:700;">' + fmt(c.deuda_calculada) + '</span>' +
+                '</div>';
+        }).join('');
+        list.style.display = 'block';
+    };
+
+    input.oninput = () => {
+        hidden.value = '';
+        document.getElementById('detalleDeuda').innerHTML = '';
+        const val = input.value.toLowerCase().trim();
+        if (val.length < 1) { render(_pagoClientesDeuda.slice(0, 10), ''); return; }
+        const matches = _pagoClientesDeuda.filter(c => c.nombre_marca.toLowerCase().includes(val)).slice(0, 10);
+        render(matches, val);
+    };
+    input.onfocus = () => {
+        const val = input.value.toLowerCase().trim();
+        const matches = val
+            ? _pagoClientesDeuda.filter(c => c.nombre_marca.toLowerCase().includes(val)).slice(0, 10)
+            : _pagoClientesDeuda.slice(0, 10);
+        render(matches, val);
+    };
+    input.onblur = () => { setTimeout(() => { list.style.display = 'none'; }, 150); };
+}
+
+function selectPagoCliente(id, nombre) {
+    document.getElementById('p_cliente').value = id;
+    document.getElementById('p_cliente_search').value = nombre;
+    document.getElementById('ac_p_cliente').style.display = 'none';
+    loadDetalleDeuda();
 }
 
 async function loadUltimosPagos() {
@@ -444,8 +492,8 @@ async function loadUltimosPagos() {
 async function registrarPago(e) {
     e.preventDefault();
     const clienteId = document.getElementById('p_cliente').value;
-    const sel = document.getElementById('p_cliente');
-    const nombreMarca = sel.options[sel.selectedIndex].text.split(' — ')[0];
+    if (!clienteId) { showToast('Selecciona una marca de la lista', 'err'); return; }
+    const nombreMarca = document.getElementById('p_cliente_search').value.trim();
     const body = {
         cliente_id: clienteId,
         monto: parseFloat(document.getElementById('p_monto').value),
@@ -458,6 +506,9 @@ async function registrarPago(e) {
         // Generar nota de pago automáticamente
         generarNotaPago(clienteId, nombreMarca, body.monto);
         document.getElementById('formPago').reset();
+        document.getElementById('p_cliente').value = '';
+        document.getElementById('p_cliente_search').value = '';
+        document.getElementById('ac_p_cliente').style.display = 'none';
         document.getElementById('detalleDeuda').innerHTML = '';
         loadUltimosPagos();
         loadCobranza();
