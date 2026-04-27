@@ -75,7 +75,7 @@ td{border-color:#eee}
 <div class="hero">
     <h1>📗 Manual de Usuario</h1>
     <p>Guía completa del Sistema de Gestión Eli7e — Delivery & Mensajería</p>
-    <div class="version">Versión 2.0 — Abril 2026</div>
+    <div class="version">Versión 2.1 — Abril 2026 (Fase 8)</div>
 </div>
 
 <div class="container">
@@ -295,7 +295,21 @@ td{border-color:#eee}
             <tr><td>Costo Moto Semanal</td><td>Deducción fija semanal por uso de moto</td><td>$40</td></tr>
             <tr><td>Umbral Deuda Crítica</td><td>Monto para marcar deuda como roja</td><td>$50</td></tr>
             <tr><td>Umbral Deuda Alerta</td><td>Monto para marcar deuda como amarilla</td><td>$20</td></tr>
+            <tr><td>Max Cuotas Préstamo</td><td>Máximo de cuotas semanales para préstamos</td><td>52</td></tr>
+            <tr><td>⏰ Corte Diario Hora</td><td>Hora del día en que termina el día operativo. Un servicio cerrado a las 00:30 con corte 1 cuenta al día anterior</td><td>1 (1 AM)</td></tr>
         </table>
+        <div class="tip">Cambia el corte si la operación termina más tarde — por ejemplo, ponlo en 2 si los servicios se cierran hasta las 1:30 AM y quieres que cuenten al día previo.</div>
+    </div>
+
+    <div class="card">
+        <h3>🌎 Zona Horaria <span class="badge">NUEVO</span></h3>
+        <p>Card aparte en el panel de Parámetros. Define la zona horaria del cliente para que TODOS los cálculos (cierres, KPIs del día, corte semanal) se hagan en hora local, no en hora del servidor.</p>
+        <ul>
+            <li>Selector con TZ comunes: <strong>America/Caracas, America/Santo_Domingo, America/Bogota, America/Lima, America/Argentina/Buenos_Aires, America/Mexico_City, America/New_York, America/Los_Angeles, Europe/Madrid</strong></li>
+            <li>Default: <strong>America/Caracas</strong></li>
+            <li>Cambia esto si tu operación está en otra ciudad/país. Una vez cambiado, los KPIs de "hoy" y los cierres caen en la hora correcta inmediatamente</li>
+        </ul>
+        <div class="warn">Si ves que el "cierre del día" aparece a una hora rara (ej: 8 PM en vez de 1 AM), revisa que la TZ esté correctamente seleccionada para tu país.</div>
     </div>
 
     <div class="card">
@@ -306,6 +320,31 @@ td{border-color:#eee}
             <li><strong>🗑️ Reset:</strong> Borra TODOS los datos operativos (servicios, pagos, nóminas, etc.) sin borrar clientes, motorizados ni usuarios</li>
         </ul>
         <div class="danger">El botón de "Limpiar datos de prueba" borra TODO excepto clientes, motorizados, usuarios, configuración y tarifas. Esta acción es IRREVERSIBLE.</div>
+        <div class="card" style="margin-top:14px;background:var(--card2)">
+            <h3>🔒 Doble confirmación <span class="badge">NUEVO</span></h3>
+            <p>Para evitar borrados accidentales, ahora el botón pide DOS confirmaciones:</p>
+            <div class="step">
+                <div class="step-num">1</div>
+                <div class="step-content">
+                    <h4>Aviso inicial</h4>
+                    <p>Aparece un cuadro que explica qué se va a borrar y pide aceptar para continuar.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">2</div>
+                <div class="step-content">
+                    <h4>Escribir "BORRAR"</h4>
+                    <p>Aparece un cuadro de texto pidiendo escribir literalmente la palabra <strong>BORRAR</strong> (en mayúsculas, sin espacios). Si tipeas otra cosa, no se borra nada.</p>
+                </div>
+            </div>
+            <div class="step">
+                <div class="step-num">3</div>
+                <div class="step-content">
+                    <h4>Confirmación con conteo</h4>
+                    <p>Tras la limpieza, el sistema muestra cuántos servicios, pagos, cierres y nóminas se borraron, para que sepas exactamente lo que se eliminó.</p>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -344,9 +383,11 @@ td{border-color:#eee}
             <div class="step-num">4</div>
             <div class="step-content">
                 <h4>Registrar</h4>
-                <p>Clic en "Registrar Servicio" → el servicio aparece en el historial reciente con badge 💰 P.C. si es pago completo.</p>
+                <p>Clic en "Registrar Servicio" → el botón cambia a <strong>⏳ Registrando…</strong> y queda deshabilitado hasta que la respuesta llegue. El servicio aparece en el historial reciente con badge 💰 P.C. si es pago completo.</p>
             </div>
         </div>
+
+        <div class="tip"><strong>Protección anti-duplicados:</strong> Si el internet está lento y haces click varias veces, NO se crea el servicio varias veces. El primer click lo crea; los siguientes muestran un toast amarillo <strong>"⚠ Servicio idéntico registrado hace segundos"</strong> y no duplican nada. Esto cubre el escenario de doble-click cuando la conexión tarda en responder.</div>
 
         <div class="diagram">
             <strong style="color:var(--g1);">Flujo de un Servicio</strong>
@@ -462,7 +503,67 @@ td{border-color:#eee}
             <li><strong>Cobranzas Pendientes:</strong> Listado completo de facturas sin cobrar</li>
             <li><strong>Historial de Cierres:</strong> Todos los cierres diarios del mes</li>
             <li><strong>Reporte Personalizado:</strong> Filtra por cliente y rango de fechas</li>
+            <li><strong>Estado de Cuenta por Marca (Factura):</strong> Detalle completo de servicios y pagos de un cliente</li>
         </ul>
+    </div>
+
+    <div class="card" style="border:1px solid rgba(0,221,0,.4)">
+        <h3>✏️ Edición Inline desde Reportes <span class="badge">NUEVO</span></h3>
+        <p>En el <strong>Reporte Personalizado</strong> y el <strong>Estado de Cuenta por Marca</strong> ahora puedes corregir errores directamente sobre la tabla, sin abrir otro módulo. Útil cuando Paola (o quien sea) anotó un precio o una fecha equivocada y necesitas arreglar el histórico.</p>
+
+        <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+                <h4>Identificar las celdas editables</h4>
+                <p>Las celdas editables tienen una <strong>línea verde a la izquierda</strong> y al pasar el mouse cambian de color. Son <strong>Fecha</strong>, <strong>Ubicación / Destino</strong> y <strong>Monto</strong>.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+                <h4>Editar el valor</h4>
+                <p>Haz clic dentro de la celda → escribe el nuevo valor:</p>
+                <ul>
+                    <li><strong>Monto:</strong> número (ej: <span class="key">3</span> o <span class="key">3.50</span>). El símbolo $ se reformatea solo</li>
+                    <li><strong>Fecha:</strong> formato <span class="key">dd/mm/yyyy</span> (ej: <span class="key">25/4/2026</span>)</li>
+                    <li><strong>Ubicación:</strong> texto libre — no puede quedar vacío</li>
+                </ul>
+                <p>Presiona <span class="key">Enter</span> para confirmar o <span class="key">Esc</span> para cancelar.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+                <h4>El cambio se guarda solo</h4>
+                <p>Al salir de la celda (o presionar Enter), el valor se envía al servidor. Verás un toast verde abajo a la derecha: <strong>✅ Guardado</strong>. La celda parpadea en verde 1 segundo.</p>
+            </div>
+        </div>
+        <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+                <h4>El cambio se propaga automáticamente</h4>
+                <p>Como todos los módulos leen del mismo dato:</p>
+                <ul>
+                    <li>La <strong>cobranza del cliente</strong> recalcula la deuda al instante</li>
+                    <li>El <strong>dashboard del motorizado</strong> ajusta sus KPIs y nómina semanal en vivo</li>
+                    <li>Los próximos reportes muestran ya el valor corregido</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="warn"><strong>Excepción importante — Nóminas cerradas:</strong><br>
+        Si el servicio que estás editando pertenece a una semana donde la nómina del motorizado ya fue <strong>cerrada</strong> (con el botón 🔒 desde Admin → Nóminas), el cambio se aplica en cobranza y reportes pero la nómina cerrada <strong>NO se modifica</strong> (es un snapshot histórico contable, ya cobró ese monto). En este caso verás un toast amarillo: <strong>"⚠ Guardado, pero la nómina del motorizado de esa semana ya está cerrada y NO se modifica"</strong>. Es un aviso, no un error.</div>
+
+        <div class="card" style="margin-top:14px;background:var(--card2)">
+            <h3>🗑️ Eliminar Servicio desde el Reporte <span class="badge">NUEVO</span></h3>
+            <p>Cada fila del Detalle de Servicios tiene un botón rojo <strong>🗑️</strong> en la columna "Acciones".</p>
+            <ul>
+                <li>Clic en 🗑️ → confirmación rápida → la fila se elimina</li>
+                <li>El servicio desaparece del sistema (junto con su nota de entrega) y deja de contar en cobranza/nóminas vivas</li>
+                <li>Útil para eliminar duplicados, registros con motorizado equivocado o servicios mal capturados</li>
+            </ul>
+            <div class="danger">La eliminación es permanente. Si el servicio pertenece a una semana con nómina cerrada, el monto ya pagado al motorizado no se revierte automáticamente — habrá que ajustar manualmente.</div>
+        </div>
     </div>
 </div>
 
@@ -576,6 +677,43 @@ td{border-color:#eee}
     <div class="card">
         <h3>¿Puedo editar el nombre de un motorizado?</h3>
         <p>Sí. Ve a Admin → Flota → clic en la tarjeta del motorizado → en la ficha que se abre puedes editar nombre, cédula y teléfono.</p>
+    </div>
+
+    <div class="card">
+        <h3>¿Cómo corrijo un precio mal capturado por el call center? <span class="badge">NUEVO</span></h3>
+        <p>Tres formas, según el caso:</p>
+        <ol style="padding-left:20px;line-height:1.9">
+            <li><strong>Mismo día / aún no cerrado:</strong> el call center va al historial reciente, clic en ✏️ Editar y corrige.</li>
+            <li><strong>Servicio viejo, semana en curso:</strong> abre el <strong>Reporte Personalizado</strong> filtrando por la fecha → clic sobre la celda del monto → escribe el valor correcto → Enter. Se guarda y se propaga a cobranza y nómina del motorizado.</li>
+            <li><strong>Servicio de semana ya cerrada:</strong> también lo puedes editar igual, pero la nómina cerrada del motorizado NO cambia (es histórico contable). Verás un aviso amarillo. Si quieres revertir el pago al motorizado, tienes que ajustarlo manualmente.</li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <h3>¿Por qué el cierre del día aparece a una hora rara? <span class="badge">NUEVO</span></h3>
+        <p>El sistema usa una <strong>zona horaria configurable</strong>. Por defecto está en <code>America/Caracas</code> con corte a la 1 AM. Si tu operación está en otro país (RD, Colombia, Argentina, etc.) y el "cierre del día" se ve adelantado o atrasado, ve a <strong>Admin → Parámetros</strong>:</p>
+        <ul>
+            <li><strong>🌎 Zona Horaria:</strong> elige tu ciudad/país del selector</li>
+            <li><strong>⏰ Corte Diario Hora:</strong> ajusta a qué hora termina el día operativo (default 1 = 1 AM)</li>
+        </ul>
+        <p>Después de guardar, todos los KPIs y cierres se recalculan en hora local automáticamente.</p>
+    </div>
+
+    <div class="card">
+        <h3>Le di varios clicks a "Registrar Servicio" porque el internet estaba lento. ¿Se duplicó? <span class="badge">NUEVO</span></h3>
+        <p><strong>NO.</strong> El sistema detecta cuando se intenta registrar un servicio idéntico (mismo cliente, motorizado, monto y descripción) en los últimos 30 segundos y devuelve el original sin crear duplicados. Verás un toast amarillo: <strong>"⚠ Servicio idéntico registrado hace segundos — no se duplicó"</strong>.</p>
+        <p>Adicionalmente, el botón se deshabilita automáticamente mientras el servidor procesa el registro, así que ni siquiera puedes hacer click otra vez hasta que termine.</p>
+    </div>
+
+    <div class="card">
+        <h3>Edité el monto en el reporte pero al recargar volvió al original ¿qué pasa? <span class="badge">NUEVO</span></h3>
+        <p>Si después de editar <strong>NO viste un toast verde "✅ Guardado"</strong> abajo a la derecha, el cambio no se envió. Posibles razones:</p>
+        <ul>
+            <li>Tu sesión expiró (cerraste el dashboard antes de abrir el reporte). Vuelve al sistema, ingresa, y abre el reporte de nuevo</li>
+            <li>El internet se cayó justo en ese segundo. Edita de nuevo</li>
+            <li>El valor que escribiste no es válido (ej: letras en el monto). Verás un toast rojo con el motivo</li>
+        </ul>
+        <p>Si viste el toast verde pero al recargar el cambio no aparece, contacta al soporte — sería un bug a reportar.</p>
     </div>
 </div>
 
