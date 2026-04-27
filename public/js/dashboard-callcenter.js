@@ -478,6 +478,13 @@ function renderClientesCC(list) {
 // ── Crear servicio (dinámico según tipo) ─────────────
 async function crearServicio(e) {
     e.preventDefault();
+
+    // Anti doble-click: si el botón ya está disabled, ignoramos.
+    // Esto previene crear el mismo servicio N veces si Paola le da varios clicks
+    // porque el internet está lento y la primera respuesta no llegó.
+    const btn = document.getElementById('btnRegistrarServicio');
+    if (btn?.disabled) return;
+
     const tipo = document.getElementById('s_tipo').value;
     if (!tipo) {
         showToast('⚠ Selecciona un tipo de servicio', 'err');
@@ -534,8 +541,35 @@ async function crearServicio(e) {
         pago_completo: document.getElementById('s_pago_completo')?.checked || false,
     };
 
-    const res = await apiFetch('/servicios', { method: 'POST', body });
+    // Bloquear el botón durante el POST para evitar duplicados por click múltiple
+    const labelOriginal = btn ? btn.innerHTML : null;
+    if (btn) {
+        btn.disabled = true;
+        btn.style.opacity = '0.6';
+        btn.style.cursor = 'wait';
+        btn.innerHTML = '⏳ Registrando…';
+    }
+
+    let res;
+    try {
+        res = await apiFetch('/servicios', { method: 'POST', body });
+    } finally {
+        // Restablecer el botón siempre, ocurra lo que ocurra
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '';
+            btn.style.cursor = '';
+            btn.innerHTML = labelOriginal;
+        }
+    }
+
     if (res?.id) {
+        // El backend puede devolver 200 con `duplicado: true` si detectó un POST equivalente
+        // en los últimos 30 segundos — en ese caso no agregamos al historial otra vez.
+        if (res.duplicado) {
+            showToast('⚠ Servicio idéntico registrado hace segundos — no se duplicó');
+            return;
+        }
         showToast(`✅ Servicio registrado — ${res.tipo}`);
         document.getElementById('formServicio').reset();
         document.getElementById('s_tipo').value = '';

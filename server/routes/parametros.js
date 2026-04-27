@@ -54,6 +54,14 @@ router.put('/:clave', requireRol('admin'), async (req, res) => {
     const { valor, descripcion } = req.body;
     if (valor === undefined) return res.status(400).json({ error: 'valor es requerido' });
 
+    // Validación específica para corte_diario_hora: entero entre 0 y 23
+    if (req.params.clave === 'corte_diario_hora') {
+        const h = parseInt(valor, 10);
+        if (isNaN(h) || h < 0 || h > 23) {
+            return res.status(400).json({ error: 'corte_diario_hora debe ser un entero entre 0 y 23' });
+        }
+    }
+
     try {
         const { rows } = await pool.query(
             `UPDATE parametros_sistema
@@ -63,6 +71,14 @@ router.put('/:clave', requireRol('admin'), async (req, res) => {
             [valor, descripcion, req.user.id, req.params.clave]
         );
         if (!rows[0]) return res.status(404).json({ error: 'Parámetro no encontrado' });
+
+        // Si se modificó la hora del corte semanal, refrescar cache en memoria
+        if (req.params.clave === 'corte_diario_hora') {
+            try {
+                const { loadConfig } = require('../util/weekRange');
+                await loadConfig(pool);
+            } catch (e) { /* el endpoint OK aunque el reload falle */ }
+        }
         res.json(rows[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });

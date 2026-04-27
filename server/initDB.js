@@ -92,7 +92,8 @@ async function initDB() {
             ('costo_moto_semanal', 40, 'Deducción semanal fija por uso de moto ($)'),
             ('umbral_deuda_critica', 50, 'Monto de deuda ($) a partir del cual se marca como crítica (rojo)'),
             ('umbral_deuda_alerta', 20, 'Monto de deuda ($) a partir del cual se marca como alerta (amarillo)'),
-            ('max_cuotas_prestamo', 52, 'Número máximo de cuotas semanales permitidas para préstamos')
+            ('max_cuotas_prestamo', 52, 'Número máximo de cuotas semanales permitidas para préstamos'),
+            ('corte_diario_hora', 1, 'Hora del día (0-23) en que cambia el día operativo y se hace el corte semanal. Default 1 = 1 AM.')
             ON CONFLICT (clave) DO NOTHING
         `);
         await pool.query(`
@@ -179,7 +180,8 @@ async function initDB() {
             ('gmail_user', '', 'Correo Gmail para envío de reportes'),
             ('gmail_pass', '', 'App Password de Gmail'),
             ('empresa_nombre', 'Delivery Eli7e', 'Nombre de la empresa'),
-            ('empresa_telefono', '', 'Teléfono de contacto de la empresa')
+            ('empresa_telefono', '', 'Teléfono de contacto de la empresa'),
+            ('zona_horaria', 'America/Caracas', 'Zona horaria del cliente (formato IANA, ej: America/Caracas, America/Santo_Domingo, America/Bogota). Afecta el corte semanal y los reportes.')
             ON CONFLICT (clave) DO NOTHING
         `);
         console.log('✅ Tabla configuracion_sistema OK');
@@ -237,18 +239,42 @@ async function initDB() {
         console.log('⚠️ Migración gastos:', err.message);
     }
 
-    // Migración única: borrar servicios de prueba del 9 de abril 2026
+    // Tabla de control de migraciones one-shot (para que no se repitan en cada arranque)
     try {
-        const { rows } = await pool.query(
-            `SELECT id, tipo, descripcion, monto FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09'`
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS migraciones_aplicadas (
+                clave VARCHAR(100) PRIMARY KEY,
+                aplicada_en TIMESTAMP DEFAULT NOW(),
+                detalle TEXT
+            )
+        `);
+    } catch (err) {
+        console.log('⚠️ Migración tabla migraciones_aplicadas:', err.message);
+    }
+
+    // Migración one-shot: borrar servicios de prueba del 9 de abril 2026
+    // Ya se ejecutó en producción el 2026-04-15. Si por alguna razón aún no quedó
+    // marcada, se vuelve a correr una vez más y se sella.
+    try {
+        const { rows: ya } = await pool.query(
+            `SELECT 1 FROM migraciones_aplicadas WHERE clave = 'borrar_servicios_2026_04_09'`
         );
-        if (rows.length > 0) {
-            console.log(`🗑️ Encontrados ${rows.length} servicios de prueba del 9/04/2026:`);
-            rows.forEach(r => console.log(`   - ${r.tipo} | ${r.descripcion || '—'} | $${r.monto}`));
-            // Borrar notas de entrega asociadas primero
-            await pool.query(`DELETE FROM notas_entrega WHERE servicio_id IN (SELECT id FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09')`);
-            const { rowCount } = await pool.query(`DELETE FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09'`);
-            console.log(`✅ Eliminados ${rowCount} servicios de prueba del 9/04/2026`);
+        if (!ya.length) {
+            const { rows } = await pool.query(
+                `SELECT id, tipo, descripcion, monto FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09'`
+            );
+            if (rows.length > 0) {
+                console.log(`🗑️ One-shot 9/04/2026 — encontrados ${rows.length} servicios de prueba:`);
+                rows.forEach(r => console.log(`   - ${r.tipo} | ${r.descripcion || '—'} | $${r.monto}`));
+                await pool.query(`DELETE FROM notas_entrega WHERE servicio_id IN (SELECT id FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09')`);
+                const { rowCount } = await pool.query(`DELETE FROM servicios WHERE DATE(fecha_inicio) = '2026-04-09'`);
+                console.log(`✅ Eliminados ${rowCount} servicios de prueba del 9/04/2026`);
+            }
+            await pool.query(
+                `INSERT INTO migraciones_aplicadas (clave, detalle) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                ['borrar_servicios_2026_04_09', `${rows.length} servicios eliminados`]
+            );
+            console.log('🔒 One-shot 9/04/2026 sellada — no volverá a correr');
         }
     } catch (err) {
         console.log('⚠️ Limpieza 9/04:', err.message);
@@ -307,6 +333,14 @@ async function initDB() {
         }
     } catch (err) {
         console.log('⚠️ Vinculación huérfanos:', err.message);
+    }
+
+    // Cargar configuración de timezone/corte para el helper weekRange (queda cacheada en memoria)
+    try {
+        const { loadConfig } = require('./util/weekRange');
+        await loadConfig(pool);
+    } catch (err) {
+        console.log('⚠️ Carga config weekRange:', err.message);
     }
 
     // SIEMPRE recrear la vista de cobranza (independiente del schema)

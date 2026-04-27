@@ -80,6 +80,32 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
     }
 });
 
+// GET /api/nominas/esta-cerrada?motorizado_id=X&fecha=YYYY-MM-DD
+// Devuelve { cerrada: true|false } indicando si la nómina del motorizado para la
+// semana que contiene esa fecha ya fue cerrada. Lo usa la edición desde reportes
+// para advertir al usuario que el cambio NO modifica la nómina ya cobrada.
+router.get('/esta-cerrada', async (req, res) => {
+    const { motorizado_id, fecha } = req.query;
+    if (!motorizado_id || !fecha) return res.status(400).json({ error: 'motorizado_id y fecha son requeridos' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return res.status(400).json({ error: 'fecha debe tener formato YYYY-MM-DD' });
+    try {
+        const { rows } = await pool.query(
+            `SELECT id, semana_inicio, semana_fin, estado FROM nominas
+             WHERE motorizado_id = $1
+               AND semana_inicio <= $2::date
+               AND semana_fin >= $2::date
+             ORDER BY semana_inicio DESC LIMIT 1`,
+            [motorizado_id, fecha]
+        );
+        res.json({
+            cerrada: !!(rows[0] && rows[0].estado === 'cerrado'),
+            nomina: rows[0] || null
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // GET /api/nominas/historial/:motorizadoId — nóminas cerradas
 router.get('/historial/:motorizadoId', async (req, res) => {
     try {

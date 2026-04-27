@@ -622,10 +622,23 @@ async function eliminarUsuario(id, nombre) {
 }
 
 async function resetDatos() {
-    if (!confirm('⚠️ ¿Seguro que quieres borrar TODOS los datos operativos?\n\nSe borrarán: servicios, pagos, cierres, notas, nóminas, préstamos, gastos, chat y push.\n\nNO se borran: clientes, motorizados, usuarios, configuración, parámetros ni tarifas.\n\nEsta acción NO se puede deshacer.')) return;
-    const res = await apiFetch('/admin/reset-db', { method: 'POST', body: {} });
+    // Primer aviso: explicar qué se borra
+    if (!confirm('⚠️ ATENCIÓN — Vas a borrar TODOS los datos operativos.\n\nSe borrarán: servicios, pagos, cierres, notas, nóminas, préstamos, gastos, chat y push.\n\nNO se borran: clientes, motorizados, usuarios, configuración, parámetros ni tarifas.\n\nEsta acción NO se puede deshacer.\n\n¿Continuar al paso de confirmación?')) return;
+
+    // Segundo aviso: escribir literalmente "BORRAR" para evitar clicks accidentales
+    const respuesta = prompt('Para confirmar, escribe exactamente la palabra:\n\nBORRAR\n\n(en mayúsculas, sin espacios)');
+    if (respuesta !== 'BORRAR') {
+        showToast('❌ Cancelado — confirmación incorrecta', 'err');
+        return;
+    }
+
+    const res = await apiFetch('/admin/reset-db', {
+        method: 'POST',
+        body: { confirmacion: 'BORRAR' }
+    });
     if (res?.ok) {
-        showToast('✅ Datos de prueba limpiados');
+        const b = res.borrado || {};
+        showToast(`✅ Borrados: ${b.servicios || 0} servicios, ${b.pagos || 0} pagos, ${b.cierres || 0} cierres, ${b.nominas || 0} nóminas`);
         loadDashboard();
     } else {
         showToast('❌ ' + (res?.error || 'Error al limpiar'), 'err');
@@ -877,7 +890,10 @@ async function rechazarPrestamo(id) {
 // ── PARÁMETROS DEL SISTEMA (Admin) ────────────────────────
 // ══════════════════════════════════════════════════════════
 async function loadParametros() {
-    const data = await apiFetch('/parametros');
+    const [data, configRows] = await Promise.all([
+        apiFetch('/parametros'),
+        apiFetch('/configuracion')
+    ]);
     const grid = document.getElementById('parametrosGrid');
     if (!data || !data.length) {
         grid.innerHTML = '<p class="loading-txt">Sin parámetros configurados</p>';
@@ -889,10 +905,11 @@ async function loadParametros() {
         costo_moto_semanal: '🛵',
         umbral_deuda_critica: '🔴',
         umbral_deuda_alerta: '🟡',
-        max_cuotas_prestamo: '🏦'
+        max_cuotas_prestamo: '🏦',
+        corte_diario_hora: '⏰'
     };
 
-    grid.innerHTML = data.map(p => `
+    let html = data.map(p => `
     <div class="card" style="padding:20px;">
         <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
             <span style="font-size:2rem;">${iconos[p.clave] || '⚙️'}</span>
@@ -904,15 +921,44 @@ async function loadParametros() {
         <div class="field">
             <label>Valor actual</label>
             <div style="display:flex;gap:8px;">
-                <input type="number" step="0.01" id="param_${p.clave}" value="${p.valor}"
+                <input type="number" step="${p.clave === 'corte_diario_hora' ? '1' : '0.01'}" min="${p.clave === 'corte_diario_hora' ? '0' : ''}" max="${p.clave === 'corte_diario_hora' ? '23' : ''}" id="param_${p.clave}" value="${p.valor}"
                     style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--g1);font-weight:700;font-size:1.1rem;">
                 <button class="btn-primary" onclick="guardarParametro('${p.clave}')">Guardar</button>
             </div>
+            ${p.clave === 'corte_diario_hora' ? '<div style="font-size:.72rem;color:var(--muted);margin-top:6px;">⚠ Cambia a qué hora termina el día operativo. Si pones 1, los servicios entre 00:00 y 01:00 cuentan al día anterior.</div>' : ''}
         </div>
         <div style="font-size:.72rem;color:var(--muted);margin-top:8px;">
             Última actualización: ${p.actualizado_en ? fmtDate(p.actualizado_en) : 'Nunca'}
         </div>
     </div>`).join('');
+
+    // Card adicional para zona_horaria (vive en configuracion_sistema, no en parametros_sistema)
+    const tzActual = (configRows || []).find(c => c.clave === 'zona_horaria')?.valor || 'America/Caracas';
+    const tzOpciones = ['America/Caracas', 'America/Santo_Domingo', 'America/Bogota', 'America/Lima', 'America/Argentina/Buenos_Aires', 'America/Mexico_City', 'America/New_York', 'America/Los_Angeles', 'Europe/Madrid'];
+    if (!tzOpciones.includes(tzActual)) tzOpciones.unshift(tzActual);
+
+    html += `
+    <div class="card" style="padding:20px;border:1px solid rgba(0,221,0,.3);">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;">
+            <span style="font-size:2rem;">🌎</span>
+            <div>
+                <div style="font-weight:700;font-size:1rem;">Zona Horaria</div>
+                <div style="font-size:.78rem;color:var(--muted);">Hora del cliente para cierres y reportes (formato IANA)</div>
+            </div>
+        </div>
+        <div class="field">
+            <label>Zona</label>
+            <div style="display:flex;gap:8px;">
+                <select id="config_zona_horaria" style="flex:1;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--g1);font-weight:700;font-size:1rem;">
+                    ${tzOpciones.map(tz => `<option value="${tz}" ${tz === tzActual ? 'selected' : ''}>${tz}</option>`).join('')}
+                </select>
+                <button class="btn-primary" onclick="guardarZonaHoraria()">Guardar</button>
+            </div>
+            <div style="font-size:.72rem;color:var(--muted);margin-top:6px;">⚠ Combinada con "Corte Diario Hora", define exactamente cuándo se hace el corte. Default: Lunes 01:00 hora Caracas.</div>
+        </div>
+    </div>`;
+
+    grid.innerHTML = html;
 
     // Preview de fórmula
     const paramMap = {};
@@ -928,6 +974,21 @@ async function loadParametros() {
         <hr style="border:none;border-top:2px solid var(--g1);margin:12px 0;">
         <div style="color:var(--g1);font-size:1.15rem;"><strong>= SUELDO NETO</strong></div>
     </div>`;
+}
+
+async function guardarZonaHoraria() {
+    const valor = document.getElementById('config_zona_horaria')?.value;
+    if (!valor) { showToast('Selecciona una zona horaria', 'err'); return; }
+    const res = await apiFetch('/configuracion/zona_horaria', {
+        method: 'PUT',
+        body: { valor }
+    });
+    if (res && !res.error) {
+        showToast(`🌎 Zona horaria actualizada a ${valor}`);
+        loadParametros();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al guardar'), 'err');
+    }
 }
 
 async function guardarParametro(clave) {

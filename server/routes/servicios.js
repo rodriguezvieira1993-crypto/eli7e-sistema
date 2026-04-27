@@ -3,6 +3,7 @@ const pool = require('../db');
 const auth = require('../middleware/auth');
 const { requireRol } = auth;
 const pushService = require('../pushService');
+const { operationalTodaySQL, operationalDateOf } = require('../util/weekRange');
 const router = express.Router();
 
 router.use(auth);
@@ -27,7 +28,7 @@ router.get('/', async (req, res) => {
             params.push(dbEstado);
             where.push(`s.estado = $${params.length}`);
         }
-        if (hoy) where.push(`DATE(s.fecha_inicio) = CURRENT_DATE`);
+        if (hoy) where.push(`${operationalDateOf('s.fecha_inicio')} = ${operationalTodaySQL()}`);
         if (motorizado_id) {
             params.push(motorizado_id);
             where.push(`s.motorizado_id = $${params.length}`);
@@ -73,6 +74,26 @@ router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
     const { tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo } = req.body;
     if (!tipo || !monto) return res.status(400).json({ error: 'tipo y monto son requeridos' });
     try {
+        // Anti-duplicados defensa en profundidad: si el mismo operador acaba de
+        // registrar un servicio IDÉNTICO en los últimos 30 segundos, devolvemos
+        // el existente con flag `duplicado: true` en lugar de crear otro.
+        // Esto cubre el caso de doble-click cuando el internet está lento y el
+        // botón llegó a dispararse dos veces antes de que el primer POST respondiera.
+        const { rows: dupes } = await pool.query(
+            `SELECT * FROM servicios
+             WHERE operador_id = $1 AND tipo = $2
+               AND COALESCE(cliente_id::text, '') = COALESCE($3::text, '')
+               AND COALESCE(motorizado_id::text, '') = COALESCE($4::text, '')
+               AND monto = $5
+               AND COALESCE(descripcion, '') = COALESCE($6, '')
+               AND fecha_inicio > NOW() - interval '30 seconds'
+             ORDER BY fecha_inicio DESC LIMIT 1`,
+            [req.user.id, tipo, cliente_id || null, motorizado_id || null, monto, descripcion || null]
+        );
+        if (dupes[0]) {
+            return res.status(200).json({ ...dupes[0], duplicado: true });
+        }
+
         const { rows } = await pool.query(
             `INSERT INTO servicios (tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo, operador_id, estado)
        VALUES ($1,$2,$3,$4,$5,$6,$7,'pendiente') RETURNING *`,
@@ -130,14 +151,31 @@ router.patch('/:id/cerrar', requireRol('admin', 'call_center', 'motorizado'), as
 
 // PUT /api/servicios/:id — editar servicio
 router.put('/:id', requireRol('admin', 'call_center'), async (req, res) => {
-    const { tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo } = req.body;
+    const { tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo, fecha_inicio } = req.body;
+
+    // Validar fecha_inicio si vino: acepta 'YYYY-MM-DD' o ISO completo
+    if (fecha_inicio !== undefined && fecha_inicio !== null) {
+        const d = new Date(fecha_inicio);
+        if (isNaN(d.getTime())) {
+            return res.status(400).json({ error: 'fecha_inicio inválida (usa YYYY-MM-DD o ISO 8601)' });
+        }
+    }
+    if (monto !== undefined && monto !== null) {
+        const m = parseFloat(monto);
+        if (isNaN(m) || m < 0) {
+            return res.status(400).json({ error: 'monto inválido (debe ser número >= 0)' });
+        }
+    }
+
     try {
         const { rows } = await pool.query(
             `UPDATE servicios SET tipo=COALESCE($1,tipo), cliente_id=COALESCE($2,cliente_id),
              motorizado_id=COALESCE($3,motorizado_id), monto=COALESCE($4,monto),
-             descripcion=COALESCE($5,descripcion), pago_completo=COALESCE($6,pago_completo) WHERE id=$7
+             descripcion=COALESCE($5,descripcion), pago_completo=COALESCE($6,pago_completo),
+             fecha_inicio=COALESCE($7::timestamp, fecha_inicio)
+             WHERE id=$8
              RETURNING *`,
-            [tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo, req.params.id]
+            [tipo, cliente_id, motorizado_id, monto, descripcion, pago_completo, fecha_inicio, req.params.id]
         );
         if (!rows[0]) return res.status(404).json({ error: 'Servicio no encontrado' });
         res.json(rows[0]);

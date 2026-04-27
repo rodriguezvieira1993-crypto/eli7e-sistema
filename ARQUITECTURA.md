@@ -131,7 +131,7 @@ Nómina descuenta: % empresa, moto semanal, préstamos activos
 
 ## Reglas invariantes del sistema
 
-1. **Corte semanal canónico:** Lunes 01:00 a Lunes siguiente 01:00. Toda query semanal usa `server/util/weekRange.js` (`WEEK_START_SQL` o `weekWindow(col, param)`). Nunca inline `date_trunc('week', CURRENT_DATE)`.
+1. **Corte semanal canónico:** Lunes a la hora configurada en `parametros_sistema.corte_diario_hora` (default 01:00) en la zona horaria configurada en `configuracion_sistema.zona_horaria` (default `America/Caracas`). Toda query semanal usa `server/util/weekRange.js` (`weekStartSQL()` o `weekWindow(col, param)`). Para "fecha operativa de hoy" usar `operationalTodaySQL()` y `operationalDateOf(col)` en vez de `CURRENT_DATE` o `DATE(col)` — sin esto los cálculos quedan en hora del servidor (UTC), que es ~4h por delante de Venezuela. **Nunca inline `date_trunc('week', CURRENT_DATE)` ni `DATE(fecha_inicio) = CURRENT_DATE`.**
 
 2. **Servicios con `pago_completo = TRUE`** van íntegros al motorizado, NO se descuenta porcentaje empresa. Los KPIs y la nómina respetan esto; ver `nominas.js` y `reportes.js /nomina`.
 
@@ -147,9 +147,15 @@ Nómina descuenta: % empresa, moto semanal, préstamos activos
 
 8. **XSS en frontend:** Al inyectar datos de la API con `innerHTML`, usar `escapeHtml()` de `api.js` sobre cualquier string que venga del servidor.
 
-9. **Migraciones idempotentes:** Todo lo nuevo en `initDB.js` usa `IF NOT EXISTS` / `ON CONFLICT DO NOTHING`. La tabla `tarifas` no está en `schema.sql`, vive en migración.
+9. **Migraciones idempotentes:** Todo lo nuevo en `initDB.js` usa `IF NOT EXISTS` / `ON CONFLICT DO NOTHING`. La tabla `tarifas` no está en `schema.sql`, vive en migración. **Para migraciones de DATOS one-shot** (borrados, vinculaciones, transformaciones masivas) usar la tabla `migraciones_aplicadas` como flag — chequear `SELECT 1 FROM migraciones_aplicadas WHERE clave = ...` antes de ejecutar y sellar con `INSERT ... ON CONFLICT DO NOTHING` después. Sin este flag, la migración se repite en cada arranque del contenedor (riesgo: borra datos legítimos que coincidan con el filtro).
 
-10. **Deploy:** `git push origin main` → Easypanel construye y despliega. No hay entornos staging; validar localmente antes.
+10. **Edición desde reportes:** El script inline en `reportes.js` permite editar `monto`, `fecha_inicio` y `descripcion` de un servicio directamente en el reporte HTML (`/personalizado` y `/factura`). Solo celdas con `class="editable"` y atributos `data-id` + `data-campo` son editables. El cambio se propaga a cobranza y nóminas en vivo (porque `vista_cobranza` y `/api/nominas/semana-actual` calculan en SQL on-the-fly), pero **NO modifica nóminas ya cerradas** (snapshot histórico). El reporte avisa con toast amarillo si la edición cae en una semana cerrada.
+
+11. **Anti-duplicados al registrar servicio:** El frontend deshabilita el botón submit durante el POST. Como defensa en profundidad, el backend en `POST /api/servicios` rechaza duplicados (mismo `operador_id`, `tipo`, `cliente_id`, `motorizado_id`, `monto`, `descripcion` en los últimos 30s) y devuelve el existente con `duplicado: true`. Cubre el caso de doble-click en internet lento.
+
+12. **Reset DB con doble confirmación:** `POST /api/admin/reset-db` exige `req.body.confirmacion === 'BORRAR'` (no solo el rol admin). El frontend pide `prompt()` que escriba literalmente la palabra. Sin esto, un click accidental sobre el botón rojo destruye toda la operación (servicios, pagos, nóminas, cierres, chat, gastos, push).
+
+13. **Deploy:** `git push origin main` → Easypanel construye y despliega. No hay entornos staging; validar localmente antes.
 
 ---
 

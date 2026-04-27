@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
-const { getSemanaActual, WEEK_START_SQL, weekWindow } = require('../util/weekRange');
+const { getSemanaActual, weekStartSQL, weekWindow } = require('../util/weekRange');
 const router = express.Router();
 
 // Auth via query param (para nuevas pestañas)
@@ -26,9 +26,15 @@ const estilos = `
         .kpi-lbl { font-size:.75rem; color:#7a9a7a; }
         table { width:100%; border-collapse:collapse; margin-bottom:20px; }
         th { background:#0f180f; color:#00dd00; font-size:.75rem; text-transform:uppercase; padding:10px 12px; text-align:left; border-bottom:2px solid rgba(0,221,0,.18); }
-        td { padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.04); font-size:.85rem; cursor:text; }
-        td:focus { outline:none; background:rgba(0,221,0,.08); }
+        td { padding:8px 12px; border-bottom:1px solid rgba(255,255,255,.04); font-size:.85rem; }
+        td.editable { cursor:text; border-left:2px solid rgba(0,221,0,.25); padding-left:10px; }
+        td.editable:hover { background:rgba(0,221,0,.04); }
+        td.editable:focus { outline:none; background:rgba(0,221,0,.10); border-left:2px solid #00dd00; }
+        td.editing-saving { background:rgba(255,184,0,.15) !important; }
+        td.editing-saved { background:rgba(0,221,0,.18) !important; transition:background .8s; }
+        td.editing-error { background:rgba(255,68,68,.18) !important; }
         tr:hover { background:rgba(0,221,0,.03); }
+        tr.row-deleting { opacity:0.4; text-decoration:line-through; }
         .total-row { font-weight:700; border-top:2px solid rgba(0,221,0,.18); }
         .total-row td { padding-top:12px; }
         .warn { color:#FFB800; }
@@ -44,9 +50,174 @@ const estilos = `
         .print-bar { display:flex; justify-content:flex-end; gap:8px; margin-bottom:16px; }
         .print-bar button { padding:8px 18px; border-radius:8px; border:1px solid rgba(0,221,0,.3); background:#0f180f; color:#00dd00; font-family:inherit; font-size:.85rem; cursor:pointer; transition:all .2s; }
         .print-bar button:hover { background:#00dd00; color:#000; }
-        @media print { body { background:#fff; color:#000; } th { background:#f0f0f0; color:#000; border-bottom:2px solid #000; } td { border-bottom:1px solid #ddd; cursor:default; } td:focus { background:none; } .kpi { border:1px solid #ddd; } .kpi-val, h1, .section-title, .green { color:#000; } .print-bar { display:none !important; } }
+        .btn-del { background:transparent; border:1px solid rgba(255,68,68,.3); color:#FF4444; border-radius:6px; padding:4px 10px; cursor:pointer; font-size:.85rem; transition:all .2s; }
+        .btn-del:hover { background:#FF4444; color:#fff; }
+        .info-bar { background:rgba(0,221,0,.08); border:1px solid rgba(0,221,0,.18); border-radius:8px; padding:10px 14px; margin-bottom:16px; font-size:.82rem; color:#7a9a7a; }
+        .info-bar strong { color:#00dd00; }
+        #editor-toast { position:fixed; bottom:20px; right:20px; padding:12px 18px; border-radius:10px; font-size:.85rem; font-weight:600; z-index:9999; box-shadow:0 4px 14px rgba(0,0,0,.4); transform:translateY(100px); opacity:0; transition:all .3s; }
+        #editor-toast.show { transform:translateY(0); opacity:1; }
+        #editor-toast.ok { background:#00dd00; color:#000; }
+        #editor-toast.warn { background:#FFB800; color:#000; }
+        #editor-toast.err { background:#FF4444; color:#fff; }
+        @media print { body { background:#fff; color:#000; } th { background:#f0f0f0; color:#000; border-bottom:2px solid #000; } td { border-bottom:1px solid #ddd; cursor:default; } td.editable { border-left:none; padding-left:12px; } td:focus { background:none; } .kpi { border:1px solid #ddd; } .kpi-val, h1, .section-title, .green { color:#000; } .print-bar, .btn-del, .col-acciones, #editor-toast, .info-bar { display:none !important; } }
     </style>
-    <script>document.addEventListener('DOMContentLoaded',function(){document.querySelectorAll('td,.kpi-val,.sub,h1,p').forEach(function(el){el.setAttribute('contenteditable','true')})});</script>
+    <script>
+    // Editor inline de servicios desde reportes — Fix bugs 1, 2 y 5 (2026-04-25).
+    // Antes: contenteditable global + ningún handler = la edición era decorativa.
+    // Ahora: solo celdas con .editable y data-id/data-campo persisten al backend
+    // vía PUT /api/servicios/:id, y un botón 🗑️ por fila llama DELETE.
+    (function(){
+        // Token del query string para rehidratar el header Authorization.
+        // Es la misma forma que usa el resto del reporte (router.use lo lee de ?token=).
+        const params = new URLSearchParams(location.search);
+        const token = params.get('token') || localStorage.getItem('eli7e_token') || '';
+
+        function toast(msg, tipo) {
+            tipo = tipo || 'ok';
+            let el = document.getElementById('editor-toast');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'editor-toast';
+                document.body.appendChild(el);
+            }
+            el.textContent = msg;
+            el.className = tipo + ' show';
+            clearTimeout(el._t);
+            el._t = setTimeout(function(){ el.className = tipo; }, 3500);
+        }
+
+        function fmtMonto(n) { return '$' + parseFloat(n || 0).toFixed(2); }
+
+        async function api(url, opts) {
+            opts = opts || {};
+            opts.headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+            if (token) opts.headers['Authorization'] = 'Bearer ' + token;
+            const r = await fetch(url, opts);
+            const data = await r.json().catch(function(){ return null; });
+            return { ok: r.ok, status: r.status, data: data };
+        }
+
+        // Convierte dd/mm/yyyy o d/m/yyyy a YYYY-MM-DD. Si ya viene en ISO, lo deja.
+        function parseFecha(input) {
+            const s = String(input).trim();
+            const iso = s.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
+            if (iso) return s;
+            const dmy = s.match(/^(\\d{1,2})[\\/\\-](\\d{1,2})[\\/\\-](\\d{4})$/);
+            if (dmy) {
+                return dmy[3] + '-' + String(dmy[2]).padStart(2,'0') + '-' + String(dmy[1]).padStart(2,'0');
+            }
+            return null;
+        }
+
+        // Validar y construir el payload PUT según el campo editado
+        function buildPayload(campo, valor) {
+            valor = String(valor).trim();
+            if (campo === 'monto') {
+                const n = parseFloat(valor.replace(/[$\\s,]/g, ''));
+                if (isNaN(n) || n < 0) return { error: 'Monto inválido (escribe un número, ej: 3.50)' };
+                return { body: { monto: n }, displayed: fmtMonto(n) };
+            }
+            if (campo === 'fecha_inicio') {
+                const iso = parseFecha(valor);
+                if (!iso) return { error: 'Fecha inválida (usa formato dd/mm/yyyy)' };
+                // Mantener la hora actual si existe el atributo data-hora
+                return { body: { fecha_inicio: iso + 'T12:00:00' }, displayed: new Date(iso + 'T12:00:00').toLocaleDateString('es-VE') };
+            }
+            if (campo === 'descripcion') {
+                if (!valor) return { error: 'La descripción no puede quedar vacía' };
+                return { body: { descripcion: valor }, displayed: valor };
+            }
+            return { error: 'Campo no editable: ' + campo };
+        }
+
+        async function chequearNominaCerrada(motoId, fechaIso) {
+            if (!motoId || !fechaIso) return false;
+            const fecha = fechaIso.split('T')[0];
+            try {
+                const r = await api('/api/nominas/esta-cerrada?motorizado_id=' + encodeURIComponent(motoId) + '&fecha=' + encodeURIComponent(fecha));
+                return !!(r.data && r.data.cerrada);
+            } catch { return false; }
+        }
+
+        async function guardarCelda(td) {
+            const id = td.getAttribute('data-id');
+            const campo = td.getAttribute('data-campo');
+            const motoId = td.getAttribute('data-motorizado-id') || td.closest('tr')?.getAttribute('data-motorizado-id');
+            const fechaIso = td.getAttribute('data-fecha-iso') || td.closest('tr')?.getAttribute('data-fecha-iso');
+            const valorOriginal = td.getAttribute('data-valor-original');
+            const valorNuevo = td.textContent;
+
+            if (valorNuevo === valorOriginal) return; // sin cambio
+
+            const parsed = buildPayload(campo, valorNuevo);
+            if (parsed.error) {
+                td.classList.add('editing-error');
+                toast('❌ ' + parsed.error, 'err');
+                td.textContent = valorOriginal;
+                setTimeout(function(){ td.classList.remove('editing-error'); }, 1500);
+                return;
+            }
+
+            td.classList.add('editing-saving');
+            const r = await api('/api/servicios/' + id, { method: 'PUT', body: JSON.stringify(parsed.body) });
+            td.classList.remove('editing-saving');
+
+            if (!r.ok) {
+                td.classList.add('editing-error');
+                td.textContent = valorOriginal;
+                toast('❌ ' + ((r.data && r.data.error) || 'Error al guardar'), 'err');
+                setTimeout(function(){ td.classList.remove('editing-error'); }, 1500);
+                return;
+            }
+
+            td.textContent = parsed.displayed;
+            td.setAttribute('data-valor-original', parsed.displayed);
+            td.classList.add('editing-saved');
+            setTimeout(function(){ td.classList.remove('editing-saved'); }, 1200);
+
+            // Aviso si el cambio cae sobre una semana con nómina cerrada
+            const cerrada = await chequearNominaCerrada(motoId, fechaIso);
+            if (cerrada) {
+                toast('⚠ Guardado, pero la nómina del motorizado de esa semana ya está cerrada y NO se modifica', 'warn');
+            } else {
+                toast('✅ Guardado', 'ok');
+            }
+        }
+
+        async function eliminarFila(btn) {
+            const tr = btn.closest('tr');
+            const id = tr.getAttribute('data-id');
+            const desc = tr.getAttribute('data-desc') || 'este servicio';
+            if (!confirm('¿Eliminar ' + desc + '?\\n\\nEsta acción NO se puede deshacer.')) return;
+            tr.classList.add('row-deleting');
+            const r = await api('/api/servicios/' + id, { method: 'DELETE' });
+            if (r.ok) {
+                tr.remove();
+                toast('🗑️ Servicio eliminado', 'ok');
+            } else {
+                tr.classList.remove('row-deleting');
+                toast('❌ ' + ((r.data && r.data.error) || 'Error al eliminar'), 'err');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function(){
+            // Editables: blur guarda, Enter confirma (sin saltar línea), Escape cancela.
+            document.querySelectorAll('td.editable').forEach(function(td){
+                td.setAttribute('contenteditable', 'true');
+                td.setAttribute('data-valor-original', td.textContent.trim());
+                td.addEventListener('blur', function(){ guardarCelda(td); });
+                td.addEventListener('keydown', function(e){
+                    if (e.key === 'Enter') { e.preventDefault(); td.blur(); }
+                    if (e.key === 'Escape') { td.textContent = td.getAttribute('data-valor-original'); td.blur(); }
+                });
+            });
+            // Botones eliminar
+            document.querySelectorAll('.btn-del').forEach(function(btn){
+                btn.addEventListener('click', function(){ eliminarFila(btn); });
+            });
+        });
+    })();
+    </script>
 `;
 
 const fmt = v => '$' + parseFloat(v || 0).toFixed(2);
@@ -63,7 +234,7 @@ router.get('/semanal', async (req, res) => {
                    SUM(s.monto) AS total
             FROM servicios s
             LEFT JOIN clientes c ON c.id = s.cliente_id
-            WHERE s.fecha_inicio >= ${WEEK_START_SQL}
+            WHERE s.fecha_inicio >= ${weekStartSQL()}
               AND s.estado = 'completado'
             GROUP BY s.tipo, c.nombre_marca
             ORDER BY total DESC
@@ -75,7 +246,7 @@ router.get('/semanal', async (req, res) => {
                 COUNT(*)::int AS total_servicios,
                 COALESCE(SUM(monto), 0) AS total_facturado
             FROM servicios
-            WHERE fecha_inicio >= ${WEEK_START_SQL}
+            WHERE fecha_inicio >= ${weekStartSQL()}
               AND estado = 'completado'
         `);
 
@@ -84,7 +255,7 @@ router.get('/semanal', async (req, res) => {
             SELECT c.nombre_marca, SUM(p.monto) AS total_pagado
             FROM pagos p
             LEFT JOIN clientes c ON c.id = p.cliente_id
-            WHERE p.fecha >= ${WEEK_START_SQL}::date
+            WHERE p.fecha >= ${weekStartSQL()}::date
             GROUP BY c.nombre_marca
             ORDER BY total_pagado DESC
         `);
@@ -315,20 +486,29 @@ router.get('/factura/:clienteId', async (req, res) => {
 
             <div class="section">
                 <div class="section-title">📦 Detalle de Servicios</div>
+                <div class="info-bar">
+                    <strong>💡 Edición rápida:</strong> haz click en la <strong>fecha</strong>, <strong>monto</strong> o <strong>ubicación</strong> para editarlos. Los cambios se guardan al salir de la celda y se reflejan en cobranza, KPIs y nóminas en vivo. <strong>Las nóminas ya cerradas mantienen su monto histórico</strong>.
+                </div>
                 <table>
-                    <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Ubicación / Destino</th><th>Motorizado</th><th>Monto</th></tr></thead>
+                    <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Ubicación / Destino</th><th>Motorizado</th><th>Monto</th><th class="col-acciones">Acciones</th></tr></thead>
                     <tbody>
-                        ${servicios.map((s, i) => `<tr>
+                        ${servicios.map((s, i) => {
+                            const fechaIso = new Date(s.fecha_inicio).toISOString();
+                            const fechaLocal = new Date(s.fecha_inicio).toLocaleDateString('es-VE');
+                            return `<tr data-id="${s.id}" data-motorizado-id="${s.motorizado_id || ''}" data-fecha-iso="${fechaIso}" data-desc="${(s.descripcion || s.tipo).replace(/"/g, '&quot;')}">
                             <td>${i + 1}</td>
-                            <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
+                            <td class="editable" data-id="${s.id}" data-campo="fecha_inicio">${fechaLocal}</td>
                             <td style="text-transform:capitalize;">${s.tipo}</td>
-                            <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
+                            <td class="editable" data-id="${s.id}" data-campo="descripcion" style="font-size:.82rem;">${s.descripcion || '—'}</td>
                             <td>${s.motorizado_nombre || '—'}</td>
-                            <td class="green">${fmt(s.monto)}</td>
-                        </tr>`).join('')}
+                            <td class="green editable" data-id="${s.id}" data-campo="monto">${fmt(s.monto)}</td>
+                            <td class="col-acciones"><button class="btn-del" title="Eliminar este servicio">🗑️</button></td>
+                        </tr>`;
+                        }).join('')}
                         <tr class="total-row">
                             <td colspan="5"><strong>TOTAL FACTURADO</strong></td>
                             <td class="green"><strong>${fmt(totalFacturado)}</strong></td>
+                            <td class="col-acciones"></td>
                         </tr>
                     </tbody>
                 </table>
@@ -460,8 +640,11 @@ router.get('/personalizado', async (req, res) => {
 
             <div class="section">
                 <div class="section-title">📦 Detalle de Servicios (${totalServicios})</div>
+                <div class="info-bar">
+                    <strong>💡 Edición rápida:</strong> haz click en la <strong>fecha</strong>, <strong>monto</strong> o <strong>ubicación</strong> para editarlos. Los cambios se guardan al salir de la celda y se reflejan en cobranza, KPIs y nóminas en vivo. <strong>Las nóminas ya cerradas mantienen su monto histórico</strong> — si editas un servicio de una semana cerrada, te lo avisaremos.
+                </div>
                 <table>
-                    <thead><tr><th>#</th><th>Fecha</th>${isAll ? '<th>Marca</th>' : ''}<th>Tipo</th><th>Ubicación / Destino</th><th>Motorizado</th><th>Monto</th><th>Estado</th></tr></thead>
+                    <thead><tr><th>#</th><th>Fecha</th>${isAll ? '<th>Marca</th>' : ''}<th>Tipo</th><th>Ubicación / Destino</th><th>Motorizado</th><th>Monto</th><th>Estado</th><th class="col-acciones">Acciones</th></tr></thead>
                     <tbody>
                         ${servicios.map((s, i) => {
                             // Fallback: extraer nombre del cliente de la descripción si no hay cliente_id
@@ -470,21 +653,25 @@ router.get('/personalizado', async (req, res) => {
                                 const m = s.descripcion.match(/Cliente:\\s*([^|]+)/i);
                                 if (m) clienteLabel = m[1].trim();
                             }
-                            return `<tr>
+                            const fechaIso = new Date(s.fecha_inicio).toISOString();
+                            const fechaLocal = new Date(s.fecha_inicio).toLocaleDateString('es-VE');
+                            return `<tr data-id="${s.id}" data-motorizado-id="${s.motorizado_id || ''}" data-fecha-iso="${fechaIso}" data-desc="${(s.descripcion || s.tipo).replace(/"/g, '&quot;')}">
                             <td>${i + 1}</td>
-                            <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
+                            <td class="editable" data-id="${s.id}" data-campo="fecha_inicio">${fechaLocal}</td>
                             ${isAll ? '<td>' + clienteLabel + '</td>' : ''}
                             <td style="text-transform:capitalize;">${s.tipo}</td>
-                            <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
+                            <td class="editable" data-id="${s.id}" data-campo="descripcion" style="font-size:.82rem;">${s.descripcion || '—'}</td>
                             <td>${s.motorizado_nombre || '—'}</td>
-                            <td class="green">${fmt(s.monto)}</td>
+                            <td class="green editable" data-id="${s.id}" data-campo="monto">${fmt(s.monto)}</td>
                             <td>${s.estado === 'completado' ? '<span class="badge badge-green">✓</span>' : '<span class="badge badge-yellow">Pend</span>'}</td>
+                            <td class="col-acciones"><button class="btn-del" title="Eliminar este servicio">🗑️</button></td>
                         </tr>`;
-                        }).join('') || '<tr><td colspan="8">Sin servicios en este rango</td></tr>'}
+                        }).join('') || `<tr><td colspan="${isAll ? 9 : 8}">Sin servicios en este rango</td></tr>`}
                         <tr class="total-row">
                             <td colspan="${isAll ? 6 : 5}"><strong>TOTAL</strong></td>
                             <td class="green"><strong>${fmt(totalFacturado)}</strong></td>
                             <td></td>
+                            <td class="col-acciones"></td>
                         </tr>
                     </tbody>
                 </table>

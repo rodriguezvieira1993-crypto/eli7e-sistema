@@ -97,17 +97,31 @@ app.use('/api/push', require('./routes/push'));
 app.use('/api/chat', require('./routes/chat'));
 app.use('/api/gastos', require('./routes/gastos'));
 
-// ── Reset DB: limpiar datos de prueba (solo admin) ──────────
+// ── Reset DB: limpiar datos de prueba (solo admin + doble confirmación) ──────────
 app.post('/api/admin/reset-db', require('./middleware/auth'), (req, res, next) => {
     if (req.user.rol !== 'admin') return res.status(403).json({ error: 'Solo admin' });
     next();
 }, async (req, res) => {
+    // Doble confirmación: el frontend debe enviar { confirmacion: "BORRAR" }
+    // Esto evita que un click accidental sobre el botón rojo destruya datos productivos.
+    if (req.body?.confirmacion !== 'BORRAR') {
+        return res.status(400).json({
+            error: 'Confirmación requerida. Envía { "confirmacion": "BORRAR" } en el body.'
+        });
+    }
     const pool = require('./db');
     const fs = require('fs');
     try {
+        // Snapshot de conteos previos para devolver al admin qué se borró
+        const { rows: cnt } = await pool.query(`SELECT
+            (SELECT COUNT(*)::int FROM servicios) AS servicios,
+            (SELECT COUNT(*)::int FROM pagos) AS pagos,
+            (SELECT COUNT(*)::int FROM cierres_diarios) AS cierres,
+            (SELECT COUNT(*)::int FROM nominas) AS nominas`);
         const resetSQL = fs.readFileSync(path.join(__dirname, '../db/reset.sql'), 'utf8');
         await pool.query(resetSQL);
-        res.json({ ok: true, msg: 'Datos de prueba limpiados correctamente' });
+        console.log(`🗑️ RESET-DB ejecutado por admin ${req.user.nombre} (${req.user.id}) — borrados: ${JSON.stringify(cnt[0])}`);
+        res.json({ ok: true, msg: 'Datos de prueba limpiados correctamente', borrado: cnt[0] });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

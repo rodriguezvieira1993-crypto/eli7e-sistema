@@ -38,7 +38,10 @@
 
 ## 🐛 Bugs reportados (abiertos)
 
-*(vacío — los últimos 8 bugs reportados por el cliente entre el 2026-03-31 y 2026-04-15 están todos cerrados)*
+*(vacío — los 5 bugs reportados por la cliente el 2026-04-25 fueron resueltos en la Fase 8 del 26-abr. Ver detalle en `AVANCES_Y_PENDIENTES.md`.)*
+
+### Pendiente de validación con cliente
+- **Cliente debe verificar en producción** que: (a) los reportes ahora guardan ediciones reales; (b) el botón 🗑️ funciona en cada fila; (c) el corte semanal cae a la hora correcta — para esto entra al panel de **Parámetros del admin** y ajusta **Zona Horaria** y **Corte Diario Hora** según su huso (default `America/Caracas` y 1 AM); (d) registrar el mismo servicio dando varios clicks ya no lo duplica.
 
 ---
 
