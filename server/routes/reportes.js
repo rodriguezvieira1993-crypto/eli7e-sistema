@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
-const { getSemanaActual, weekStartSQL, weekWindow } = require('../util/weekRange');
+const { getSemanaActual, weekStartSQL, weekWindow, getConfig } = require('../util/weekRange');
 const router = express.Router();
 
 // Auth via query param (para nuevas pestañas)
@@ -221,7 +221,18 @@ const estilos = `
 `;
 
 const fmt = v => '$' + parseFloat(v || 0).toFixed(2);
-const hoy = () => new Date().toLocaleDateString('es-VE', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+// ── Fechas en zona horaria operativa ───────────────────────────────────────
+// El servidor (Easypanel) corre en UTC. `toLocaleDateString('es-VE')` SOLO
+// cambia el formato, NO la zona horaria: sin pasar `timeZone`, un servicio
+// creado a las 10 PM hora Venezuela (= 02:00 UTC del día siguiente) se mostraba
+// con la fecha de MAÑANA. Estos helpers proyectan el instante a la zona
+// configurada (America/Caracas por defecto) para que el día "cierre" recién a
+// las 12 de la noche hora local. Ver util/weekRange.js.
+const TZ = () => getConfig().tz || 'America/Caracas';
+const fmtFechaTZ = v => new Date(v).toLocaleDateString('es-VE', { timeZone: TZ() });
+const fmtFechaLocalISO = v => new Date(v).toLocaleDateString('en-CA', { timeZone: TZ() }); // YYYY-MM-DD
+const hoy = () => new Date().toLocaleDateString('es-VE', { timeZone: TZ(), weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 const printBar = `<div class="print-bar"><button onclick="window.print()">🖨️ Imprimir</button><button onclick="window.close()">✕ Cerrar</button></div>`;
 
 // ══ REPORTE SEMANAL ══════════════════════════════════════
@@ -493,8 +504,8 @@ router.get('/factura/:clienteId', async (req, res) => {
                     <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Ubicación / Destino</th><th>Motorizado</th><th>Monto</th><th class="col-acciones">Acciones</th></tr></thead>
                     <tbody>
                         ${servicios.map((s, i) => {
-                            const fechaIso = new Date(s.fecha_inicio).toISOString();
-                            const fechaLocal = new Date(s.fecha_inicio).toLocaleDateString('es-VE');
+                            const fechaIso = fmtFechaLocalISO(s.fecha_inicio);
+                            const fechaLocal = fmtFechaTZ(s.fecha_inicio);
                             return `<tr data-id="${s.id}" data-motorizado-id="${s.motorizado_id || ''}" data-fecha-iso="${fechaIso}" data-desc="${(s.descripcion || s.tipo).replace(/"/g, '&quot;')}">
                             <td>${i + 1}</td>
                             <td class="editable" data-id="${s.id}" data-campo="fecha_inicio">${fechaLocal}</td>
@@ -653,8 +664,8 @@ router.get('/personalizado', async (req, res) => {
                                 const m = s.descripcion.match(/Cliente:\\s*([^|]+)/i);
                                 if (m) clienteLabel = m[1].trim();
                             }
-                            const fechaIso = new Date(s.fecha_inicio).toISOString();
-                            const fechaLocal = new Date(s.fecha_inicio).toLocaleDateString('es-VE');
+                            const fechaIso = fmtFechaLocalISO(s.fecha_inicio);
+                            const fechaLocal = fmtFechaTZ(s.fecha_inicio);
                             return `<tr data-id="${s.id}" data-motorizado-id="${s.motorizado_id || ''}" data-fecha-iso="${fechaIso}" data-desc="${(s.descripcion || s.tipo).replace(/"/g, '&quot;')}">
                             <td>${i + 1}</td>
                             <td class="editable" data-id="${s.id}" data-campo="fecha_inicio">${fechaLocal}</td>
@@ -820,7 +831,7 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
                     <tbody>
                         ${servicios.map((s, i) => `<tr>
                             <td>${i + 1}</td>
-                            <td>${new Date(s.fecha_inicio).toLocaleDateString('es-VE')}</td>
+                            <td>${fmtFechaTZ(s.fecha_inicio)}</td>
                             <td style="text-transform:capitalize;">${s.tipo}</td>
                             <td>${s.nombre_marca || (s.descripcion && s.descripcion.match(/Cliente:\s*([^|]+)/i) ? s.descripcion.match(/Cliente:\s*([^|]+)/i)[1].trim() : '—')}</td>
                             <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
