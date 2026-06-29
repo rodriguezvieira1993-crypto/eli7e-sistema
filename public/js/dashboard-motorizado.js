@@ -141,7 +141,7 @@ async function loadMisServicios() {
         if (elDesde) elDesde.value = desde;
     }
 
-    let url = `/servicios?motorizado_id=${getMotoId()}`;
+    let url = `/servicios?motorizado_id=${getMotoId()}&limit=1000`;
     if (desde) url += `&desde=${desde}`;
     if (hasta) url += `&hasta=${hasta}`;
 
@@ -149,6 +149,9 @@ async function loadMisServicios() {
     if (!data || !data.length) {
         tbody.innerHTML = '<tr><td colspan="7" class="loading-txt">Sin servicios en este período</td></tr>';
         return;
+    }
+    if (data.length >= 1000) {
+        showToast('Mostrando los 1000 más recientes del rango. Acorta las fechas para ver más viejos.', 'err');
     }
 
     const iconos = { delivery: '📦', mototaxi: '🛵', encomienda: '📬', compras: '🛒', transporte: '🚐' };
@@ -320,7 +323,7 @@ async function loadHistorial() {
     const tbody = document.getElementById('historialBody');
     tbody.innerHTML = '<tr><td colspan="6"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
 
-    let url = `/servicios?motorizado_id=${getMotoId()}`;
+    let url = `/servicios?motorizado_id=${getMotoId()}&limit=1000`;
     if (desde) url += `&desde=${desde}`;
     if (hasta) url += `&hasta=${hasta}`;
 
