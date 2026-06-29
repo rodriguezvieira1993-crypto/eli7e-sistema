@@ -608,20 +608,13 @@ function generarReportePersonalizado() {
 // ══════════════════════════════════════════════════════════
 async function loadNominasContable() {
     const input = document.getElementById('nominaSemanaInput');
-    let semana = input?.value || '';
+    const semana = input?.value || '';  // vacio = semana actual; el backend calcula el lunes
 
-    if (!semana) {
-        const hoy = new Date();
-        const day = hoy.getDay();
-        const diff = hoy.getDate() - day + (day === 0 ? -6 : 1);
-        const lunes = new Date(hoy);
-        lunes.setDate(diff);
-        semana = lunes.toISOString().split('T')[0];
-        if (input) input.value = semana;
-    }
-
-    const data = await apiFetch(`/nominas/resumen-semanal?semana=${semana}`);
+    const data = await apiFetch(`/nominas/resumen-semanal${semana ? `?semana=${semana}` : ''}`);
     if (!data) return;
+
+    // El backend ajusta cualquier fecha al lunes real de su semana. Reflejarlo en el picker.
+    if (input) input.value = data.semana_inicio;
 
     document.getElementById('nominaSemanaLabel').textContent =
         `Semana: ${data.semana_inicio} → ${data.semana_fin}`;
@@ -647,10 +640,10 @@ async function loadNominasContable() {
                 ? '<span class="badge badge-green">Cerrada</span>'
                 : '<span class="badge badge-yellow">Abierta</span>'}</td>
             <td>
-                <button class="btn-icon" onclick="window.open('/api/reportes/nomina/${m.motorizado_id}?semana=${semana}&token='+getToken(),'_blank')" title="Imprimir recibo">🖨️</button>
+                <button class="btn-icon" onclick="window.open('/api/reportes/nomina/${m.motorizado_id}?semana=${data.semana_inicio}&token='+getToken(),'_blank')" title="Imprimir recibo">🖨️</button>
                 ${cerrada
                 ? ''
-                : `<button class="btn-icon" onclick="cerrarNominaUno('${m.motorizado_id}','${semana}','${m.nombre}')" title="Cerrar nómina">🔒</button>`}
+                : `<button class="btn-icon" onclick="cerrarNominaUno('${m.motorizado_id}','${data.semana_inicio}','${m.nombre}')" title="Cerrar nómina">🔒</button>`}
             </td>
         </tr>`;
     }).join('');

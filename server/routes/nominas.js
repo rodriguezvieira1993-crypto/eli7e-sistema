@@ -122,7 +122,12 @@ router.get('/historial/:motorizadoId', async (req, res) => {
 // GET /api/nominas/resumen-semanal — resumen de todos los motorizados para la semana actual (admin + contable)
 router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res) => {
     try {
-        const lunes = req.query.semana || getSemanaActual().lunes;
+        // Snap: cualquier fecha recibida se ajusta al LUNES de su semana (segun corte/TZ).
+        // Asi el contable/admin puede elegir cualquier dia y siempre ve la semana correcta.
+        const raw = req.query.semana;
+        const lunes = (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw))
+            ? getSemanaActual(new Date(raw + 'T12:00:00Z')).lunes
+            : getSemanaActual().lunes;
         const domingo = getDomingo(lunes);
 
         // Parámetros
@@ -202,9 +207,12 @@ router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res)
 router.post('/cerrar', requireRol('admin', 'contable'), async (req, res) => {
     const { motorizado_id, semana_inicio } = req.body;
     if (!motorizado_id || !semana_inicio) return res.status(400).json({ error: 'motorizado_id y semana_inicio requeridos' });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(semana_inicio)) return res.status(400).json({ error: 'semana_inicio debe tener formato YYYY-MM-DD' });
 
     try {
-        const lunes = semana_inicio;
+        // Snap al lunes real de la semana (igual que el resumen) para guardar la nomina
+        // con la clave de semana correcta y que weekWindow agarre los dias justos.
+        const lunes = getSemanaActual(new Date(semana_inicio + 'T12:00:00Z')).lunes;
         const domingo = getDomingo(lunes);
 
         // Parámetros
