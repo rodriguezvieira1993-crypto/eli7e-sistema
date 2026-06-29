@@ -354,6 +354,42 @@ async function initDB() {
         console.log('⚠️ Carga config weekRange:', err.message);
     }
 
+    // One-shot CRÍTICA: sellar el histórico de pagos retroactivos.
+    // Al introducir servicios.pagado_en_nomina_id (NULL por defecto), TODOS los
+    // servicios completados quedarían como "no pagados" y aparecerían como atrasos
+    // falsos aunque ya se hubieran pagado en semanas cerradas. Esta migración marca
+    // como pagados los servicios que caen dentro de una nómina YA CERRADA, usando la
+    // misma ventana semanal (corte+TZ). Tras esto, sólo quedan "sin pagar" los
+    // servicios de semanas que nunca se cerraron = atrasos reales.
+    try {
+        const { rows: ya } = await pool.query(
+            `SELECT 1 FROM migraciones_aplicadas WHERE clave = 'backfill_pagado_en_nomina'`
+        );
+        if (!ya.length) {
+            const { getConfig } = require('./util/weekRange');
+            const cfg = getConfig();
+            const tz = String(cfg.tz).replace(/[^A-Za-z0-9_\/+\-]/g, '');
+            const h = parseInt(cfg.corteHora, 10) || 0;
+            const { rowCount } = await pool.query(`
+                UPDATE servicios s SET pagado_en_nomina_id = n.id
+                FROM nominas n
+                WHERE n.estado = 'cerrado'
+                  AND s.motorizado_id = n.motorizado_id
+                  AND s.estado = 'completado'
+                  AND s.pagado_en_nomina_id IS NULL
+                  AND s.fecha_inicio >= ((n.semana_inicio::timestamp + interval '${h} hour') AT TIME ZONE '${tz}')
+                  AND s.fecha_inicio <  ((n.semana_inicio::timestamp + interval '7 days ${h} hour') AT TIME ZONE '${tz}')
+            `);
+            await pool.query(
+                `INSERT INTO migraciones_aplicadas (clave, detalle) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+                ['backfill_pagado_en_nomina', `${rowCount} servicios marcados como pagados en nóminas cerradas`]
+            );
+            console.log(`✅ Backfill pago retroactivo: ${rowCount} servicios sellados | 🔒 one-shot sellada`);
+        }
+    } catch (err) {
+        console.log('⚠️ Backfill pagado_en_nomina:', err.message);
+    }
+
     // SIEMPRE recrear la vista de cobranza (independiente del schema)
     try {
         console.log('🔄 Recreando vista de cobranza...');
