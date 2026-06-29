@@ -126,11 +126,23 @@
                 <div class="view-header">
                     <div>
                         <h1 class="view-title">Mis Servicios</h1>
-                        <span class="view-sub">Servicios asignados esta semana</span>
+                        <span class="view-sub">Filtra por fecha para ver y completar servicios pasados</span>
                     </div>
                 </div>
 
-                <div class="card">
+                <div class="search-bar" style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+                    <div style="flex:1;min-width:140px;">
+                        <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:4px;">Desde</label>
+                        <input type="date" id="misDesde" style="color-scheme:dark;width:100%;padding:10px 12px;background:#0F180F;border:1px solid rgba(0,221,0,.3);border-radius:8px;color:#E4F5E4;font-family:inherit;font-size:.88rem;cursor:pointer;">
+                    </div>
+                    <div style="flex:1;min-width:140px;">
+                        <label style="display:block;font-size:.72rem;color:var(--muted);margin-bottom:4px;">Hasta</label>
+                        <input type="date" id="misHasta" style="color-scheme:dark;width:100%;padding:10px 12px;background:#0F180F;border:1px solid rgba(0,221,0,.3);border-radius:8px;color:#E4F5E4;font-family:inherit;font-size:.88rem;cursor:pointer;">
+                    </div>
+                    <button class="btn-primary" onclick="loadMisServicios()">Ver</button>
+                </div>
+
+                <div class="card" style="margin-top:16px;">
                     <table class="data-table" id="serviciosTable">
                         <thead>
                             <tr>
@@ -140,10 +152,11 @@
                                 <th>Descripción</th>
                                 <th>Monto</th>
                                 <th>Estado</th>
+                                <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody id="serviciosBody">
-                            <tr><td colspan="6" class="loading-txt">Cargando servicios...</td></tr>
+                            <tr><td colspan="7" class="loading-txt">Cargando servicios...</td></tr>
                         </tbody>
                     </table>
                 </div>

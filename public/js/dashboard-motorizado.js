@@ -124,31 +124,37 @@ function renderNominaResumen(n) {
     </div>`;
 }
 
-// ─── MIS SERVICIOS (semana actual) ──────────────────────────
+// ─── MIS SERVICIOS (filtrable por fecha) ──────────────────────────
 async function loadMisServicios() {
     const tbody = document.getElementById('serviciosBody');
-    tbody.innerHTML = '<tr><td colspan="6"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
-    const data = await apiFetch(`/servicios?motorizado_id=${getMotoId()}`);
-    if (!data || !data.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin servicios esta semana</td></tr>';
-        return;
-    }
-    // Filtrar solo esta semana
-    const hoy = new Date();
-    const lunes = new Date(hoy);
-    lunes.setDate(hoy.getDate() - (hoy.getDay() === 0 ? 6 : hoy.getDay() - 1));
-    lunes.setHours(0, 0, 0, 0);
+    tbody.innerHTML = '<tr><td colspan="7"><div class="spinner-wrap"><div class="spinner"></div><span>Cargando...</span></div></td></tr>';
 
-    const serviciosSemana = data.filter(s => new Date(s.fecha_inicio) >= lunes);
-    if (!serviciosSemana.length) {
-        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin servicios esta semana</td></tr>';
+    // Rango de fechas desde los inputs. Si están vacíos, default = semana actual.
+    let desde = document.getElementById('misDesde')?.value;
+    let hasta = document.getElementById('misHasta')?.value;
+    if (!desde) {
+        const hoy = new Date();
+        const lunes = new Date(hoy);
+        lunes.setDate(hoy.getDate() - (hoy.getDay() === 0 ? 6 : hoy.getDay() - 1));
+        desde = lunes.toISOString().split('T')[0];
+        const elDesde = document.getElementById('misDesde');
+        if (elDesde) elDesde.value = desde;
+    }
+
+    let url = `/servicios?motorizado_id=${getMotoId()}`;
+    if (desde) url += `&desde=${desde}`;
+    if (hasta) url += `&hasta=${hasta}`;
+
+    const data = await apiFetch(url);
+    if (!data || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="loading-txt">Sin servicios en este período</td></tr>';
         return;
     }
 
     const iconos = { delivery: '📦', mototaxi: '🛵', encomienda: '📬', compras: '🛒', transporte: '🚐' };
     const estadoCls = { pendiente: 'badge-yellow', en_curso: 'badge-blue', completado: 'badge-green', cancelado: 'badge-red' };
 
-    tbody.innerHTML = serviciosSemana.map(s => {
+    tbody.innerHTML = data.map(s => {
         const btnCompletar = (s.estado === 'pendiente' || s.estado === 'en_curso')
             ? `<td><button onclick="completarServicio('${s.id}')" style="padding:5px 10px;font-size:.72rem;font-weight:700;font-family:inherit;background:rgba(0,221,0,.15);border:1px solid rgba(0,221,0,.3);border-radius:6px;color:#00DD00;cursor:pointer;">✅ Completar</button></td>`
             : '<td></td>';
@@ -405,4 +411,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     const histHasta = document.getElementById('histHasta');
     if (histDesde) histDesde.value = hace30.toISOString().split('T')[0];
     if (histHasta) histHasta.value = hoy.toISOString().split('T')[0];
+
+    // Mis Servicios: por defecto la semana actual (lunes → hoy)
+    const lunes = new Date(hoy);
+    lunes.setDate(hoy.getDate() - (hoy.getDay() === 0 ? 6 : hoy.getDay() - 1));
+    const misDesde = document.getElementById('misDesde');
+    const misHasta = document.getElementById('misHasta');
+    if (misDesde) misDesde.value = lunes.toISOString().split('T')[0];
+    if (misHasta) misHasta.value = hoy.toISOString().split('T')[0];
 });
