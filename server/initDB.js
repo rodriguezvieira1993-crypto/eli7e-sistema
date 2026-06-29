@@ -218,6 +218,17 @@ async function initDB() {
         console.log('⚠️ Migración pago_completo:', err.message);
     }
 
+    // Migración: marcar en qué nómina se pagó cada servicio (pago retroactivo / atrasos).
+    // NULL = todavía no pagado en ninguna nómina cerrada. Permite que servicios viejos
+    // completados tarde se arrastren a la nómina actual sin pagarse dos veces.
+    try {
+        await pool.query(`ALTER TABLE servicios ADD COLUMN IF NOT EXISTS pagado_en_nomina_id UUID`);
+        await pool.query(`CREATE INDEX IF NOT EXISTS idx_servicios_pagado_nomina ON servicios (pagado_en_nomina_id)`);
+        console.log('✅ Campo pagado_en_nomina_id en servicios OK');
+    } catch (err) {
+        console.log('⚠️ Migración pagado_en_nomina_id:', err.message);
+    }
+
     // Migración: crear tabla gastos (gastos de la empresa)
     try {
         await pool.query(`
