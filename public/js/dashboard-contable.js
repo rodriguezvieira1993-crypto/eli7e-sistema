@@ -631,7 +631,7 @@ async function loadNominasContable() {
         <tr>
             <td><strong>${m.nombre}</strong></td>
             <td>${m.total_servicios}</td>
-            <td style="font-weight:600;">${fmt(m.monto_bruto)}</td>
+            <td style="font-weight:600;">${fmt(m.monto_bruto)}${m.atrasos_monto > 0 ? ` <span title="Incluye ${fmt(m.atrasos_monto)} de ${m.atrasos_count} servicios atrasados de semanas anteriores" style="font-size:.62rem;background:rgba(255,193,7,.15);color:#FFC107;padding:1px 5px;border-radius:3px;cursor:help;">⏳ +${fmt(m.atrasos_monto)}</span>` : ''}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_empresa)}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_moto)}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_prestamos)}</td>

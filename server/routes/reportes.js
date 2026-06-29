@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
-const { getSemanaActual, weekStartSQL, weekWindow, getConfig } = require('../util/weekRange');
+const { getSemanaActual, weekStartSQL, weekWindow, weekLowerBoundSQL, weekUpperBoundSQL, getConfig } = require('../util/weekRange');
 const router = express.Router();
 
 // Auth via query param (para nuevas pestañas)
@@ -742,16 +742,21 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
         }
 
         if (!nomina) {
-            // Calcular en vivo (semana actual) con corte canónico 1 AM
-            const lunes = semana || getSemanaActual().lunes;
+            // Calcular en vivo (semana actual). Snap al lunes real e INCLUYE atrasos
+            // (servicios completados no pagados de semanas anteriores), igual que la nómina.
+            const lunes = semana
+                ? getSemanaActual(new Date(semana + 'T12:00:00Z')).lunes
+                : getSemanaActual().lunes;
             const domD = new Date(lunes); domD.setDate(domD.getDate() + 6);
             const domingo = new Date(domD.getTime() - domD.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+            const upper = weekUpperBoundSQL('$2');
+            const lower = weekLowerBoundSQL('$2');
 
-            // Bruto normal (se aplica porcentaje empresa)
+            // Bruto normal (se aplica porcentaje empresa): semana + atrasos no pagados
             const { rows: brutoRows } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_bruto, COUNT(*) AS total_servicios
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND ${weekWindow('fecha_inicio', '$2')}
+                 AND fecha_inicio < ${upper} AND pagado_en_nomina_id IS NULL
                  AND (pago_completo IS NULL OR pago_completo = FALSE)`,
                 [motoId, lunes]
             );
@@ -759,8 +764,15 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
             const { rows: completoRows } = await pool.query(
                 `SELECT COALESCE(SUM(monto), 0) AS monto_completo, COUNT(*) AS total_completos
                  FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND ${weekWindow('fecha_inicio', '$2')}
+                 AND fecha_inicio < ${upper} AND pagado_en_nomina_id IS NULL
                  AND pago_completo = TRUE`,
+                [motoId, lunes]
+            );
+            // Porción de atrasos (sólo informativo)
+            const { rows: atrRows } = await pool.query(
+                `SELECT COALESCE(SUM(monto), 0) AS m, COUNT(*) AS c
+                 FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
+                 AND fecha_inicio < ${lower} AND pagado_en_nomina_id IS NULL`,
                 [motoId, lunes]
             );
             const { rows: params } = await pool.query('SELECT clave, valor FROM parametros_sistema');
@@ -786,19 +798,52 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
                 monto_bruto: montoBruto, porcentaje_empresa: pctEmpresa,
                 deduccion_empresa: deduccionEmpresa, deduccion_moto: costoMoto,
                 deduccion_prestamos: deduccionPrestamos, monto_neto: montoNeto,
+                atrasos_monto: parseFloat(atrRows[0].m), atrasos_count: parseInt(atrRows[0].c),
                 estado: 'estimado'
             };
         }
 
-        // Servicios de esa semana (misma ventana canónica)
-        const { rows: servicios } = await pool.query(
-            `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, c.nombre_marca
-             FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
-             WHERE s.motorizado_id = $1 AND s.estado = 'completado'
-             AND ${weekWindow('s.fecha_inicio', '$2')}
-             ORDER BY s.fecha_inicio ASC`,
-            [motoId, nomina.semana_inicio]
-        );
+        // Lista de servicios que componen ESTA nómina (marcando los atrasos).
+        // - Nómina cerrada (nueva): los servicios marcados con su id.
+        // - Nómina cerrada vieja (sin marcas): fallback a la ventana semanal clásica.
+        // - Estimado en vivo: servicios completados no pagados hasta el fin de la semana (semana + atrasos).
+        const lowerMark = weekLowerBoundSQL('$2');
+        let servicios;
+        if (nomina.id) {
+            const r = await pool.query(
+                `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, c.nombre_marca,
+                        (s.fecha_inicio < ${lowerMark}) AS is_atraso
+                 FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
+                 WHERE s.pagado_en_nomina_id = $3
+                 ORDER BY s.fecha_inicio ASC`,
+                [motoId, nomina.semana_inicio, nomina.id]
+            );
+            servicios = r.rows;
+            if (!servicios.length) {
+                // Nómina vieja anterior al feature: usar la ventana semanal clásica.
+                const r2 = await pool.query(
+                    `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, c.nombre_marca,
+                            FALSE AS is_atraso
+                     FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
+                     WHERE s.motorizado_id = $1 AND s.estado = 'completado'
+                     AND ${weekWindow('s.fecha_inicio', '$2')}
+                     ORDER BY s.fecha_inicio ASC`,
+                    [motoId, nomina.semana_inicio]
+                );
+                servicios = r2.rows;
+            }
+        } else {
+            const r = await pool.query(
+                `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, c.nombre_marca,
+                        (s.fecha_inicio < ${lowerMark}) AS is_atraso
+                 FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
+                 WHERE s.motorizado_id = $1 AND s.estado = 'completado'
+                 AND s.fecha_inicio < ${weekUpperBoundSQL('$2')} AND s.pagado_en_nomina_id IS NULL
+                 ORDER BY s.fecha_inicio ASC`,
+                [motoId, nomina.semana_inicio]
+            );
+            servicios = r.rows;
+        }
 
         const estadoLabel = nomina.estado === 'cerrado' ? '<span class="badge badge-green">CERRADA</span>'
             : '<span class="badge badge-yellow">ESTIMADO</span>';
@@ -831,7 +876,7 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
                     <tbody>
                         ${servicios.map((s, i) => `<tr>
                             <td>${i + 1}</td>
-                            <td>${fmtFechaTZ(s.fecha_inicio)}</td>
+                            <td>${fmtFechaTZ(s.fecha_inicio)}${s.is_atraso ? ' <span style="font-size:.62rem;background:#fff3cd;color:#8a6d00;padding:1px 4px;border-radius:3px;">atraso</span>' : ''}</td>
                             <td style="text-transform:capitalize;">${s.tipo}</td>
                             <td>${s.nombre_marca || (s.descripcion && s.descripcion.match(/Cliente:\s*([^|]+)/i) ? s.descripcion.match(/Cliente:\s*([^|]+)/i)[1].trim() : '—')}</td>
                             <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
