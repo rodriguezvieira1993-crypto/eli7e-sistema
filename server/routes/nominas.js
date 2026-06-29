@@ -119,8 +119,8 @@ router.get('/historial/:motorizadoId', async (req, res) => {
     }
 });
 
-// GET /api/nominas/resumen-semanal — resumen de todos los motorizados para la semana actual (admin)
-router.get('/resumen-semanal', requireRol('admin'), async (req, res) => {
+// GET /api/nominas/resumen-semanal — resumen de todos los motorizados para la semana actual (admin + contable)
+router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res) => {
     try {
         const lunes = req.query.semana || getSemanaActual().lunes;
         const domingo = getDomingo(lunes);
@@ -198,8 +198,8 @@ router.get('/resumen-semanal', requireRol('admin'), async (req, res) => {
     }
 });
 
-// POST /api/nominas/cerrar — cerrar nómina de un motorizado para una semana (admin)
-router.post('/cerrar', requireRol('admin'), async (req, res) => {
+// POST /api/nominas/cerrar — cerrar nómina de un motorizado para una semana (admin + contable)
+router.post('/cerrar', requireRol('admin', 'contable'), async (req, res) => {
     const { motorizado_id, semana_inicio } = req.body;
     if (!motorizado_id || !semana_inicio) return res.status(400).json({ error: 'motorizado_id y semana_inicio requeridos' });
 
@@ -270,85 +270,6 @@ router.post('/cerrar', requireRol('admin'), async (req, res) => {
         );
 
         res.json(rows[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// POST /api/nominas/cerrar-todas — cerrar nómina de todos los motorizados (admin)
-router.post('/cerrar-todas', requireRol('admin'), async (req, res) => {
-    const { semana_inicio } = req.body;
-    if (!semana_inicio) return res.status(400).json({ error: 'semana_inicio requerido' });
-
-    try {
-        const { rows: motos } = await pool.query(
-            'SELECT id FROM motorizados WHERE activo = TRUE'
-        );
-
-        const resultados = [];
-        const lunes = semana_inicio;
-        const domingo = getDomingo(lunes);
-        const { rows: params } = await pool.query('SELECT clave, valor FROM parametros_sistema');
-        const paramMap = {};
-        params.forEach(p => paramMap[p.clave] = parseFloat(p.valor));
-        const pctEmpresa = paramMap.porcentaje_empresa || 30;
-        const costoMoto = paramMap.costo_moto_semanal || 40;
-
-        for (const moto of motos) {
-            const { rows: bruto } = await pool.query(
-                `SELECT COALESCE(SUM(monto), 0) AS monto_bruto
-                 FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND ${weekWindow('fecha_inicio', '$2')}
-                 AND (pago_completo IS NULL OR pago_completo = FALSE)`,
-                [moto.id, lunes]
-            );
-            const { rows: completo } = await pool.query(
-                `SELECT COALESCE(SUM(monto), 0) AS monto_completo
-                 FROM servicios WHERE motorizado_id = $1 AND estado = 'completado'
-                 AND ${weekWindow('fecha_inicio', '$2')}
-                 AND pago_completo = TRUE`,
-                [moto.id, lunes]
-            );
-            const montoBrutoNormal = parseFloat(bruto[0].monto_bruto);
-            const montoBrutoCompleto = parseFloat(completo[0].monto_completo);
-            const montoBruto = montoBrutoNormal + montoBrutoCompleto;
-            const deduccionEmpresa = parseFloat((montoBrutoNormal * pctEmpresa / 100).toFixed(2));
-
-            const { rows: prestActivos } = await pool.query(
-                `SELECT id, cuota_semanal, saldo_pendiente FROM prestamos
-                 WHERE motorizado_id = $1 AND estado = 'aprobado' AND saldo_pendiente > 0`,
-                [moto.id]
-            );
-            let deduccionPrestamos = 0;
-            for (const p of prestActivos) {
-                const descuento = Math.min(parseFloat(p.cuota_semanal), parseFloat(p.saldo_pendiente));
-                deduccionPrestamos += descuento;
-                const nuevoSaldo = parseFloat((p.saldo_pendiente - descuento).toFixed(2));
-                await pool.query(
-                    `UPDATE prestamos SET saldo_pendiente = $1${nuevoSaldo <= 0 ? ", estado = 'pagado'" : ''} WHERE id = $2`,
-                    [nuevoSaldo, p.id]
-                );
-            }
-
-            const montoNeto = parseFloat((montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos).toFixed(2));
-
-            const { rows } = await pool.query(
-                `INSERT INTO nominas (motorizado_id, semana_inicio, semana_fin, monto_bruto,
-                 porcentaje_empresa, deduccion_empresa, deduccion_moto, deduccion_prestamos,
-                 monto_neto, estado, cerrado_por, cerrado_en)
-                 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'cerrado',$10,NOW())
-                 ON CONFLICT (motorizado_id, semana_inicio)
-                 DO UPDATE SET monto_bruto=$4, porcentaje_empresa=$5, deduccion_empresa=$6,
-                    deduccion_moto=$7, deduccion_prestamos=$8, monto_neto=$9,
-                    estado='cerrado', cerrado_por=$10, cerrado_en=NOW()
-                 RETURNING *`,
-                [moto.id, lunes, domingo, montoBruto, pctEmpresa, deduccionEmpresa,
-                 costoMoto, deduccionPrestamos, montoNeto, req.user.id]
-            );
-            resultados.push(rows[0]);
-        }
-
-        res.json({ cerradas: resultados.length, nominas: resultados });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

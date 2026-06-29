@@ -781,23 +781,6 @@ async function cerrarNominaUno(motorizadoId, semana, nombre) {
     }
 }
 
-async function cerrarTodasNominas() {
-    const input = document.getElementById('nominaSemanaInput');
-    const semana = input?.value;
-    if (!semana) { showToast('Selecciona una semana primero', 'err'); return; }
-    if (!confirm(`¿Cerrar nóminas de TODOS los motorizados para la semana del ${semana}?`)) return;
-
-    const res = await apiFetch('/nominas/cerrar-todas', {
-        method: 'POST',
-        body: { semana_inicio: semana }
-    });
-    if (res && !res.error) {
-        showToast(`${res.cerradas} nóminas cerradas`);
-        loadNominasAdmin();
-    } else {
-        showToast(res?.error || 'Error al cerrar nóminas', 'err');
-    }
-}
 
 // ══════════════════════════════════════════════════════════
 // ── PRÉSTAMOS (Admin) ─────────────────────────────────────

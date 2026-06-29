@@ -648,9 +648,26 @@ async function loadNominasContable() {
                 : '<span class="badge badge-yellow">Abierta</span>'}</td>
             <td>
                 <button class="btn-icon" onclick="window.open('/api/reportes/nomina/${m.motorizado_id}?semana=${semana}&token='+getToken(),'_blank')" title="Imprimir recibo">🖨️</button>
+                ${cerrada
+                ? ''
+                : `<button class="btn-icon" onclick="cerrarNominaUno('${m.motorizado_id}','${semana}','${m.nombre}')" title="Cerrar nómina">🔒</button>`}
             </td>
         </tr>`;
     }).join('');
+}
+
+async function cerrarNominaUno(motorizadoId, semana, nombre) {
+    if (!confirm(`¿Cerrar nómina de ${nombre} para la semana del ${semana}?\n\nEsto congela el sueldo de la semana y cobra la cuota de préstamo. No se puede deshacer.`)) return;
+    const res = await apiFetch('/nominas/cerrar', {
+        method: 'POST',
+        body: { motorizado_id: motorizadoId, semana_inicio: semana }
+    });
+    if (res && !res.error) {
+        showToast(`Nómina de ${nombre} cerrada`);
+        loadNominasContable();
+    } else {
+        showToast(res?.error || 'Error al cerrar nómina', 'err');
+    }
 }
 
 // ══════════════════════════════════════════════════════════
