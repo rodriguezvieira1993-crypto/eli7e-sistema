@@ -2,7 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
 const { requireRol } = auth;
-const { getSemanaActual, weekWindow, weekLowerBoundSQL, weekUpperBoundSQL } = require('../util/weekRange');
+const { getSemanaActual, weekWindow } = require('../util/weekRange');
 const router = express.Router();
 
 router.use(auth);
@@ -33,46 +33,26 @@ async function prestamosCuota(motoId, q = pool) {
     return parseFloat(rows[0].ded);
 }
 
-// Calcula los brutos de la nómina de la semana W (lunes) para un motorizado, INCLUYENDO
-// los "atrasos": servicios completados de semanas anteriores que aún no se pagaron.
-//
-// Regla: se toman todos los servicios completados con fecha_inicio < FIN de la semana W
-//   (eso cubre la semana W + todo lo anterior) que estén SIN pagar
-//   (pagado_en_nomina_id IS NULL), o ya marcados por ESTA misma nómina (recierre idempotente).
-// El % de empresa aplica igual a los atrasos (decisión: se tratan como servicios normales).
-// `existingNominaId` (opcional) viene de la BD (UUID), no de input de usuario.
-async function calcBrutos(motoId, lunes, existingNominaId, q = pool) {
+// Calcula los brutos de la nómina de la semana W (lunes) para un motorizado.
+// Estrictamente la ventana semanal [lunes {corte}, lunes+7d {corte}) — nada de semanas anteriores.
+async function calcBrutos(motoId, lunes, q = pool) {
     const params = [motoId, lunes];
-    let paid = `pagado_en_nomina_id IS NULL`;
-    if (existingNominaId) {
-        params.push(existingNominaId);
-        paid = `(pagado_en_nomina_id IS NULL OR pagado_en_nomina_id = $3)`;
-    }
-    const upper = weekUpperBoundSQL('$2');
-    const lower = weekLowerBoundSQL('$2');
 
     // Bruto normal (se le aplica % empresa)
     const { rows: norm } = await q.query(
         `SELECT COALESCE(SUM(monto),0) AS m, COUNT(*) AS c FROM servicios
-         WHERE motorizado_id=$1 AND estado='completado' AND fecha_inicio < ${upper}
-           AND ${paid} AND (pago_completo IS NULL OR pago_completo=FALSE)`, params);
+         WHERE motorizado_id=$1 AND estado='completado' AND ${weekWindow('fecha_inicio', '$2')}
+           AND (pago_completo IS NULL OR pago_completo=FALSE)`, params);
     // Bruto pago_completo (va íntegro, sin %)
     const { rows: comp } = await q.query(
         `SELECT COALESCE(SUM(monto),0) AS m, COUNT(*) AS c FROM servicios
-         WHERE motorizado_id=$1 AND estado='completado' AND fecha_inicio < ${upper}
-           AND ${paid} AND pago_completo=TRUE`, params);
-    // Porción de atrasos (sólo para mostrar): lo que cae ANTES del inicio de la semana W
-    const { rows: atr } = await q.query(
-        `SELECT COALESCE(SUM(monto),0) AS m, COUNT(*) AS c FROM servicios
-         WHERE motorizado_id=$1 AND estado='completado' AND fecha_inicio < ${lower}
-           AND ${paid}`, params);
+         WHERE motorizado_id=$1 AND estado='completado' AND ${weekWindow('fecha_inicio', '$2')}
+           AND pago_completo=TRUE`, params);
 
     return {
         brutoNormal: parseFloat(norm[0].m),
         brutoCompleto: parseFloat(comp[0].m),
         totalServicios: parseInt(norm[0].c) + parseInt(comp[0].c),
-        atrasosMonto: parseFloat(atr[0].m),
-        atrasosCount: parseInt(atr[0].c),
     };
 }
 
@@ -97,7 +77,6 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
                 motorizado_id: motoId, semana_inicio: lunes, semana_fin: domingo,
                 total_servicios: parseInt(cnt[0].c),
                 monto_bruto: parseFloat(n.monto_bruto), monto_pago_completo: 0,
-                atrasos_monto: 0, atrasos_count: 0,
                 porcentaje_empresa: parseFloat(n.porcentaje_empresa),
                 deduccion_empresa: parseFloat(n.deduccion_empresa),
                 deduccion_moto: parseFloat(n.deduccion_moto),
@@ -106,8 +85,8 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
             });
         }
 
-        // Semana abierta: bruto = servicios de la semana + atrasos no pagados.
-        const b = await calcBrutos(motoId, lunes, null);
+        // Semana abierta: bruto = solo servicios de esta semana.
+        const b = await calcBrutos(motoId, lunes);
         const montoBruto = b.brutoNormal + b.brutoCompleto;
         const deduccionEmpresa = round2(b.brutoNormal * pctEmpresa / 100);
         const deduccionPrestamos = await prestamosCuota(motoId);
@@ -120,8 +99,6 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
             total_servicios: b.totalServicios,
             monto_bruto: montoBruto,
             monto_pago_completo: b.brutoCompleto,
-            atrasos_monto: b.atrasosMonto,
-            atrasos_count: b.atrasosCount,
             porcentaje_empresa: pctEmpresa,
             deduccion_empresa: deduccionEmpresa,
             deduccion_moto: costoMoto,
@@ -173,11 +150,11 @@ router.get('/historial/:motorizadoId', async (req, res) => {
     }
 });
 
-// GET /api/nominas/resumen-semanal — resumen de todos los motorizados para la semana actual (admin + contable)
+// GET /api/nominas/resumen-semanal — resumen de todos los motorizados para una semana (admin + contable)
+// Cualquier fecha recibida se ajusta (snap) al LUNES de su semana según corte/TZ.
+// Ej: pedir "2026-06-22" o "2026-06-24" siempre trae la ventana 2026-06-22 -> 2026-06-28.
 router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res) => {
     try {
-        // Snap: cualquier fecha recibida se ajusta al LUNES de su semana (segun corte/TZ).
-        // Asi el contable/admin puede elegir cualquier dia y siempre ve la semana correcta.
         const raw = req.query.semana;
         const lunes = (raw && /^\d{4}-\d{2}-\d{2}$/.test(raw))
             ? getSemanaActual(new Date(raw + 'T12:00:00Z')).lunes
@@ -214,7 +191,6 @@ router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res)
                     motorizado_id: moto.id, nombre: moto.nombre, cedula: moto.cedula,
                     total_servicios: parseInt(cnt[0].c),
                     monto_bruto: parseFloat(f.monto_bruto), monto_pago_completo: 0,
-                    atrasos_monto: 0, atrasos_count: 0,
                     deduccion_empresa: parseFloat(f.deduccion_empresa),
                     deduccion_moto: parseFloat(f.deduccion_moto),
                     deduccion_prestamos: parseFloat(f.deduccion_prestamos),
@@ -224,8 +200,8 @@ router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res)
                 continue;
             }
 
-            // Semana abierta: bruto = servicios de la semana + atrasos no pagados.
-            const b = await calcBrutos(moto.id, lunes, null);
+            // Semana abierta: bruto = solo servicios de esta semana.
+            const b = await calcBrutos(moto.id, lunes);
             const montoBruto = b.brutoNormal + b.brutoCompleto;
             const deduccionEmpresa = round2(b.brutoNormal * pctEmpresa / 100);
             const deduccionPrestamos = await prestamosCuota(moto.id);
@@ -238,8 +214,6 @@ router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res)
                 total_servicios: b.totalServicios,
                 monto_bruto: montoBruto,
                 monto_pago_completo: b.brutoCompleto,
-                atrasos_monto: b.atrasosMonto,
-                atrasos_count: b.atrasosCount,
                 deduccion_empresa: deduccionEmpresa,
                 deduccion_moto: costoMoto,
                 deduccion_prestamos: deduccionPrestamos,
@@ -277,11 +251,10 @@ router.post('/cerrar', requireRol('admin', 'contable'), async (req, res) => {
         const { rows: ex } = await client.query(
             `SELECT id, estado, deduccion_prestamos FROM nominas
              WHERE motorizado_id=$1 AND semana_inicio=$2`, [motorizado_id, lunes]);
-        const existingId = ex[0]?.id || null;
         const yaCerrada = ex[0] && ex[0].estado === 'cerrado';
 
-        // Brutos: servicios de la semana + atrasos no pagados (o ya marcados por esta misma nómina).
-        const b = await calcBrutos(motorizado_id, lunes, existingId, client);
+        // Brutos: SOLO servicios de esta semana (ventana semanal estricta).
+        const b = await calcBrutos(motorizado_id, lunes, client);
         const montoBruto = b.brutoNormal + b.brutoCompleto;
         const deduccionEmpresa = round2(b.brutoNormal * pctEmpresa / 100);
 
@@ -323,12 +296,11 @@ router.post('/cerrar', requireRol('admin', 'contable'), async (req, res) => {
              costoMoto, deduccionPrestamos, montoNeto, req.user.id]);
         const nominaId = rows[0].id;
 
-        // Marcar como pagados TODOS los servicios que entraron en esta nómina
-        // (la semana + atrasos): así no vuelven a aparecer en una nómina futura.
-        const upper = weekUpperBoundSQL('$2');
+        // Marcar como pagados (rastro contable, no afecta cálculo) los servicios de ESTA
+        // semana que componen la nómina — evita ambigüedad sobre qué nómina pagó qué.
         await client.query(
             `UPDATE servicios SET pagado_en_nomina_id=$3
-             WHERE motorizado_id=$1 AND estado='completado' AND fecha_inicio < ${upper}
+             WHERE motorizado_id=$1 AND estado='completado' AND ${weekWindow('fecha_inicio', '$2')}
                AND (pagado_en_nomina_id IS NULL OR pagado_en_nomina_id=$3)`,
             [motorizado_id, lunes, nominaId]);
 

@@ -104,11 +104,6 @@ function renderNominaResumen(n) {
             <span>Monto bruto</span>
             <span style="font-weight:700;">${fmt(n.monto_bruto)}</span>
         </div>
-        ${n.atrasos_monto > 0 ? `
-        <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:#FFC107;font-size:.82rem;">
-            <span>↳ incluye atrasos (${n.atrasos_count} serv. de semanas anteriores)</span>
-            <span style="font-weight:700;">+${fmt(n.atrasos_monto)}</span>
-        </div>` : ''}
         <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:#FF6B6B;">
             <span>− Empresa (${n.porcentaje_empresa}%)</span>
             <span>-${fmt(n.deduccion_empresa)}</span>
@@ -202,11 +197,6 @@ async function loadNominaDetalle() {
                 <span>Servicios completados</span>
                 <span style="font-weight:600;">${nomina.total_servicios}</span>
             </div>
-            ${nomina.atrasos_monto > 0 ? `
-            <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);color:#FFC107;">
-                <span>↳ atrasos de semanas anteriores (${nomina.atrasos_count})</span>
-                <span style="font-weight:600;">+${fmt(nomina.atrasos_monto)}</span>
-            </div>` : ''}
             <div style="display:flex;justify-content:space-between;padding:8px 0;">
                 <span style="font-weight:700;">Monto Bruto</span>
                 <span style="font-weight:800;font-size:1.1rem;">${fmt(nomina.monto_bruto)}</span>

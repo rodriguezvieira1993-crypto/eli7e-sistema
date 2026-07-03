@@ -113,23 +113,6 @@ function weekWindow(col, lunesParam) {
            `AND ${col} < ((${lunesParam}::timestamp + interval '7 days ${h} hour') AT TIME ZONE '${tz}')`;
 }
 
-// SQL: límite INFERIOR (inicio) de la semana W como timestamptz, comparable
-// contra columnas TIMESTAMP almacenadas en UTC. = Lunes {corteHora}:00 local.
-// Uso: `WHERE fecha_inicio < ${weekLowerBoundSQL('$2')}` para "atrasos" (antes de W).
-function weekLowerBoundSQL(lunesParam) {
-    const tz = sqlEscape(config.tz);
-    const h = config.corteHora;
-    return `((${lunesParam}::timestamp + interval '${h} hour') AT TIME ZONE '${tz}')`;
-}
-
-// SQL: límite SUPERIOR (fin) de la semana W = inicio de la semana siguiente.
-// Uso: `WHERE fecha_inicio < ${weekUpperBoundSQL('$2')}` cubre la semana W + todo lo anterior.
-function weekUpperBoundSQL(lunesParam) {
-    const tz = sqlEscape(config.tz);
-    const h = config.corteHora;
-    return `((${lunesParam}::timestamp + interval '7 days ${h} hour') AT TIME ZONE '${tz}')`;
-}
-
 // Backwards-compat: getter para código viejo que importaba la constante.
 // Devuelve la expresión SQL recalculada en cada acceso.
 Object.defineProperty(module.exports, 'WEEK_START_SQL', {
@@ -144,8 +127,6 @@ function sqlEscape(s) {
 
 module.exports.getSemanaActual = getSemanaActual;
 module.exports.weekWindow = weekWindow;
-module.exports.weekLowerBoundSQL = weekLowerBoundSQL;
-module.exports.weekUpperBoundSQL = weekUpperBoundSQL;
 module.exports.weekStartSQL = weekStartSQL;
 module.exports.operationalTodaySQL = operationalTodaySQL;
 module.exports.operationalDateOf = operationalDateOf;
