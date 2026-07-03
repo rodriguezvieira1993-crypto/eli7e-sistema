@@ -363,6 +363,12 @@
 
                 <div id="nominaSemanaLabel" style="margin-bottom:12px;color:var(--g1);font-weight:600;"></div>
 
+                <div style="display:flex;gap:8px;margin-bottom:14px;">
+                    <button id="tabNomResumen" class="btn-primary" onclick="switchNominasTab('resumen')">📋 Resumen Semanal</button>
+                    <button id="tabNomDescuentos" class="btn-secondary" onclick="switchNominasTab('descuentos')">💥 Descuentos por Daños</button>
+                </div>
+
+                <div id="panelNominasResumen">
                 <div class="card">
                     <table class="data-table">
                         <thead>
@@ -373,15 +379,58 @@
                                 <th>Empresa</th>
                                 <th>Moto</th>
                                 <th>Préstamos</th>
+                                <th>Daños</th>
                                 <th>Neto</th>
                                 <th>Estado</th>
                                 <th>Acción</th>
                             </tr>
                         </thead>
                         <tbody id="nominasContBody">
-                            <tr><td colspan="9" class="loading-txt">Seleccione semana o cargue la actual</td></tr>
+                            <tr><td colspan="10" class="loading-txt">Seleccione semana o cargue la actual</td></tr>
                         </tbody>
                     </table>
+                </div>
+                </div>
+
+                <div id="panelNominasDescuentos" style="display:none;">
+                    <div class="card" style="margin-bottom:16px;">
+                        <div class="card-hdr">💥 Registrar descuento por daño/rotura</div>
+                        <form onsubmit="registrarDescuento(event)" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:16px;align-items:end;">
+                            <div class="field" style="margin:0;">
+                                <label>Motorizado</label>
+                                <select id="descMotorizado" required></select>
+                            </div>
+                            <div class="field" style="margin:0;">
+                                <label>Categoría</label>
+                                <select id="descCategoria"></select>
+                            </div>
+                            <div class="field" style="margin:0;">
+                                <label>Monto ($)</label>
+                                <input type="number" id="descMonto" step="0.01" min="0.01" required placeholder="0.00">
+                            </div>
+                            <div class="field" style="margin:0;">
+                                <label>Descripción (qué dañó/rompió)</label>
+                                <input type="text" id="descDescripcion" maxlength="200" placeholder="Ej: caja térmica rota">
+                            </div>
+                            <button type="submit" class="btn-primary">Registrar</button>
+                        </form>
+                        <div style="display:flex;gap:8px;padding:0 16px 16px;align-items:center;">
+                            <input type="text" id="descNuevaCategoria" maxlength="80" placeholder="Nueva categoría..." style="flex:1;max-width:260px;padding:8px 10px;background:var(--bg);border:1px solid rgba(0,221,0,.3);border-radius:8px;color:#E4F5E4;font-family:inherit;font-size:.85rem;">
+                            <button type="button" class="btn-secondary" onclick="crearCategoriaDescuento()">➕ Crear categoría</button>
+                        </div>
+                        <div style="padding:0 16px 14px;font-size:.78rem;color:var(--muted);">El descuento se resta de la nómina de la semana seleccionada arriba. No se puede registrar sobre una semana ya cerrada.</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-hdr">Descuentos de la semana</div>
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Motorizado</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Registrado por</th><th></th></tr>
+                            </thead>
+                            <tbody id="descuentosBody">
+                                <tr><td colspan="6" class="loading-txt">Sin descuentos esta semana</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
 

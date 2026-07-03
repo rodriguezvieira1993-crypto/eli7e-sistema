@@ -33,6 +33,40 @@ async function prestamosCuota(motoId, q = pool) {
     return parseFloat(rows[0].ded);
 }
 
+// Total de descuentos por daños del motorizado en la semana W (lunes canónico).
+async function descuentosSemana(motoId, lunes, q = pool) {
+    const { rows } = await q.query(
+        `SELECT COALESCE(SUM(monto),0) AS m, COUNT(*) AS c
+         FROM descuentos WHERE motorizado_id = $1 AND semana_inicio = $2`,
+        [motoId, lunes]
+    );
+    return { monto: parseFloat(rows[0].m), count: parseInt(rows[0].c) };
+}
+
+// Detalle de descuentos de la semana (para mostrar al motorizado y en el recibo).
+async function descuentosDetalle(motoId, lunes, q = pool) {
+    const { rows } = await q.query(
+        `SELECT d.monto, d.descripcion, c.nombre AS categoria
+         FROM descuentos d LEFT JOIN descuento_categorias c ON c.id = d.categoria_id
+         WHERE d.motorizado_id = $1 AND d.semana_inicio = $2
+         ORDER BY d.creado_en ASC`,
+        [motoId, lunes]
+    );
+    return rows;
+}
+
+// Servicios de la semana AÚN NO aceptados/completados (pendiente o en_curso).
+// No entran al bruto — son informativos para no cerrar la nómina antes de tiempo.
+async function pendientesSemana(motoId, lunes, q = pool) {
+    const { rows } = await q.query(
+        `SELECT COALESCE(SUM(monto),0) AS m, COUNT(*) AS c FROM servicios
+         WHERE motorizado_id=$1 AND estado IN ('pendiente','en_curso')
+           AND ${weekWindow('fecha_inicio', '$2')}`,
+        [motoId, lunes]
+    );
+    return { monto: parseFloat(rows[0].m), count: parseInt(rows[0].c) };
+}
+
 // Calcula los brutos de la nómina de la semana W (lunes) para un motorizado.
 // Estrictamente la ventana semanal [lunes {corte}, lunes+7d {corte}) — nada de semanas anteriores.
 async function calcBrutos(motoId, lunes, q = pool) {
@@ -73,6 +107,7 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
             const n = nx[0];
             const { rows: cnt } = await pool.query(
                 `SELECT COUNT(*) AS c FROM servicios WHERE pagado_en_nomina_id=$1`, [n.id]);
+            const pend = await pendientesSemana(motoId, lunes);
             return res.json({
                 motorizado_id: motoId, semana_inicio: lunes, semana_fin: domingo,
                 total_servicios: parseInt(cnt[0].c),
@@ -81,6 +116,9 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
                 deduccion_empresa: parseFloat(n.deduccion_empresa),
                 deduccion_moto: parseFloat(n.deduccion_moto),
                 deduccion_prestamos: parseFloat(n.deduccion_prestamos),
+                deduccion_danos: parseFloat(n.deduccion_danos || 0),
+                descuentos: await descuentosDetalle(motoId, lunes),
+                pendientes_count: pend.count, pendientes_monto: pend.monto,
                 monto_neto: parseFloat(n.monto_neto), cerrada: true
             });
         }
@@ -90,7 +128,9 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
         const montoBruto = b.brutoNormal + b.brutoCompleto;
         const deduccionEmpresa = round2(b.brutoNormal * pctEmpresa / 100);
         const deduccionPrestamos = await prestamosCuota(motoId);
-        const montoNeto = round2(montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos);
+        const danos = await descuentosSemana(motoId, lunes);
+        const pend = await pendientesSemana(motoId, lunes);
+        const montoNeto = round2(montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos - danos.monto);
 
         res.json({
             motorizado_id: motoId,
@@ -103,6 +143,9 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
             deduccion_empresa: deduccionEmpresa,
             deduccion_moto: costoMoto,
             deduccion_prestamos: deduccionPrestamos,
+            deduccion_danos: danos.monto,
+            descuentos: await descuentosDetalle(motoId, lunes),
+            pendientes_count: pend.count, pendientes_monto: pend.monto,
             monto_neto: montoNeto,
             cerrada: false
         });
@@ -186,14 +229,17 @@ router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res)
                 const { rows: full } = await pool.query(`SELECT * FROM nominas WHERE id=$1`, [n.id]);
                 const { rows: cnt } = await pool.query(
                     `SELECT COUNT(*) AS c FROM servicios WHERE pagado_en_nomina_id=$1`, [n.id]);
+                const pend = await pendientesSemana(moto.id, lunes);
                 const f = full[0];
                 resumen.push({
                     motorizado_id: moto.id, nombre: moto.nombre, cedula: moto.cedula,
                     total_servicios: parseInt(cnt[0].c),
+                    pendientes_count: pend.count, pendientes_monto: pend.monto,
                     monto_bruto: parseFloat(f.monto_bruto), monto_pago_completo: 0,
                     deduccion_empresa: parseFloat(f.deduccion_empresa),
                     deduccion_moto: parseFloat(f.deduccion_moto),
                     deduccion_prestamos: parseFloat(f.deduccion_prestamos),
+                    deduccion_danos: parseFloat(f.deduccion_danos || 0),
                     monto_neto: parseFloat(f.monto_neto),
                     nomina_id: n.id, nomina_estado: 'cerrado'
                 });
@@ -205,18 +251,22 @@ router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res)
             const montoBruto = b.brutoNormal + b.brutoCompleto;
             const deduccionEmpresa = round2(b.brutoNormal * pctEmpresa / 100);
             const deduccionPrestamos = await prestamosCuota(moto.id);
-            const montoNeto = round2(montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos);
+            const danos = await descuentosSemana(moto.id, lunes);
+            const pend = await pendientesSemana(moto.id, lunes);
+            const montoNeto = round2(montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos - danos.monto);
 
             resumen.push({
                 motorizado_id: moto.id,
                 nombre: moto.nombre,
                 cedula: moto.cedula,
                 total_servicios: b.totalServicios,
+                pendientes_count: pend.count, pendientes_monto: pend.monto,
                 monto_bruto: montoBruto,
                 monto_pago_completo: b.brutoCompleto,
                 deduccion_empresa: deduccionEmpresa,
                 deduccion_moto: costoMoto,
                 deduccion_prestamos: deduccionPrestamos,
+                deduccion_danos: danos.monto,
                 monto_neto: montoNeto,
                 nomina_id: nominaExist[0]?.id || null,
                 nomina_estado: nominaExist[0]?.estado || null
@@ -279,21 +329,25 @@ router.post('/cerrar', requireRol('admin', 'contable'), async (req, res) => {
             }
         }
 
-        const montoNeto = round2(montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos);
+        // Descuentos por daños de la semana (categorizados, registrados por contable/admin)
+        const danos = await descuentosSemana(motorizado_id, lunes, client);
+        const deduccionDanos = danos.monto;
+
+        const montoNeto = round2(montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos - deduccionDanos);
 
         // Insertar o actualizar nómina
         const { rows } = await client.query(
             `INSERT INTO nominas (motorizado_id, semana_inicio, semana_fin, monto_bruto,
              porcentaje_empresa, deduccion_empresa, deduccion_moto, deduccion_prestamos,
-             monto_neto, estado, cerrado_por, cerrado_en)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'cerrado',$10,NOW())
+             deduccion_danos, monto_neto, estado, cerrado_por, cerrado_en)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'cerrado',$11,NOW())
              ON CONFLICT (motorizado_id, semana_inicio)
              DO UPDATE SET monto_bruto=$4, porcentaje_empresa=$5, deduccion_empresa=$6,
-                deduccion_moto=$7, deduccion_prestamos=$8, monto_neto=$9,
-                estado='cerrado', cerrado_por=$10, cerrado_en=NOW()
+                deduccion_moto=$7, deduccion_prestamos=$8, deduccion_danos=$9, monto_neto=$10,
+                estado='cerrado', cerrado_por=$11, cerrado_en=NOW()
              RETURNING *`,
             [motorizado_id, lunes, domingo, montoBruto, pctEmpresa, deduccionEmpresa,
-             costoMoto, deduccionPrestamos, montoNeto, req.user.id]);
+             costoMoto, deduccionPrestamos, deduccionDanos, montoNeto, req.user.id]);
         const nominaId = rows[0].id;
 
         // Marcar como pagados (rastro contable, no afecta cálculo) los servicios de ESTA

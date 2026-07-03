@@ -218,15 +218,52 @@ async function initDB() {
         console.log('⚠️ Migración pago_completo:', err.message);
     }
 
-    // Migración: marcar en qué nómina se pagó cada servicio (pago retroactivo / atrasos).
-    // NULL = todavía no pagado en ninguna nómina cerrada. Permite que servicios viejos
-    // completados tarde se arrastren a la nómina actual sin pagarse dos veces.
+    // Migración: rastro contable de en qué nómina se pagó cada servicio.
+    // NULL = todavía no incluido en ninguna nómina cerrada. No afecta el cálculo
+    // (la nómina es estrictamente semanal); solo da trazabilidad.
     try {
         await pool.query(`ALTER TABLE servicios ADD COLUMN IF NOT EXISTS pagado_en_nomina_id UUID`);
         await pool.query(`CREATE INDEX IF NOT EXISTS idx_servicios_pagado_nomina ON servicios (pagado_en_nomina_id)`);
         console.log('✅ Campo pagado_en_nomina_id en servicios OK');
     } catch (err) {
         console.log('⚠️ Migración pagado_en_nomina_id:', err.message);
+    }
+
+    // Migración: descuentos al motorizado por daños/roturas, con categorías configurables.
+    // Cada descuento pertenece a la SEMANA de nómina (semana_inicio = lunes canónico) y se
+    // resta del neto de esa semana. No se pueden crear/borrar si la nómina ya está cerrada.
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS descuento_categorias (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                nombre VARCHAR(80) UNIQUE NOT NULL,
+                activo BOOLEAN DEFAULT TRUE,
+                creado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS descuentos (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                motorizado_id UUID NOT NULL REFERENCES motorizados(id) ON DELETE CASCADE,
+                categoria_id UUID REFERENCES descuento_categorias(id),
+                monto NUMERIC(10,2) NOT NULL CHECK (monto > 0),
+                descripcion TEXT,
+                semana_inicio DATE NOT NULL,
+                registrado_por UUID REFERENCES usuarios(id),
+                creado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_descuentos_moto_semana ON descuentos(motorizado_id, semana_inicio)');
+        await pool.query(`ALTER TABLE nominas ADD COLUMN IF NOT EXISTS deduccion_danos NUMERIC(10,2) NOT NULL DEFAULT 0`);
+        // Categorías iniciales (el admin/contable puede crear más desde la UI)
+        await pool.query(`
+            INSERT INTO descuento_categorias (nombre) VALUES
+            ('Daño a producto'), ('Pérdida de producto'), ('Daño a equipo/moto'), ('Uniforme'), ('Otro')
+            ON CONFLICT (nombre) DO NOTHING
+        `);
+        console.log('✅ Tablas descuentos/categorías + columna deduccion_danos OK');
+    } catch (err) {
+        console.log('⚠️ Migración descuentos:', err.message);
     }
 
     // Migración: crear tabla gastos (gastos de la empresa)

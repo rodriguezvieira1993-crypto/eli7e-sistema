@@ -92,6 +92,7 @@ app.use('/api/usuarios', require('./routes/usuarios'));
 app.use('/api/parametros', require('./routes/parametros'));
 app.use('/api/prestamos', require('./routes/prestamos'));
 app.use('/api/nominas', require('./routes/nominas'));
+app.use('/api/descuentos', require('./routes/descuentos'));
 app.use('/api/configuracion', require('./routes/configuracion'));
 app.use('/api/push', require('./routes/push'));
 app.use('/api/chat', require('./routes/chat'));

@@ -729,22 +729,30 @@ async function loadNominasAdmin() {
     document.getElementById('nominaSemanaLabel').textContent =
         `Semana: ${data.semana_inicio} → ${data.semana_fin}`;
 
+    // Si la pestaña de descuentos está visible, refrescarla con la nueva semana
+    const dPanel = document.getElementById('panelNominasDescuentos');
+    if (dPanel && dPanel.style.display !== 'none') loadDescuentos();
+
     const tbody = document.getElementById('nominasAdminBody');
     if (!data.motorizados?.length) {
-        tbody.innerHTML = '<tr><td colspan="9" class="loading-txt">Sin motorizados activos</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="loading-txt">Sin motorizados activos</td></tr>';
         return;
     }
 
     tbody.innerHTML = data.motorizados.map(m => {
         const cerrada = m.nomina_estado === 'cerrado';
+        const badgePend = m.pendientes_count > 0
+            ? ` <span title="${m.pendientes_count} servicios de la semana SIN aceptar por ${fmt(m.pendientes_monto)} — no se pagan hasta completarse" style="font-size:.65rem;background:rgba(255,193,7,.15);color:#FFC107;padding:1px 5px;border-radius:3px;cursor:help;">⚠ ${m.pendientes_count}</span>`
+            : '';
         return `
         <tr>
             <td><strong>${m.nombre}</strong></td>
-            <td>${m.total_servicios}</td>
+            <td>${m.total_servicios}${badgePend}</td>
             <td style="font-weight:600;">${fmt(m.monto_bruto)}${m.monto_pago_completo > 0 ? ' <span title="$' + parseFloat(m.monto_pago_completo).toFixed(2) + ' en pago completo (sin % empresa)" style="font-size:.65rem;background:rgba(0,221,0,.15);color:#00DD00;padding:1px 5px;border-radius:3px;cursor:help;">💰</span>' : ''}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_empresa)}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_moto)}</td>
             <td style="color:#FF6B6B;">-${fmt(m.deduccion_prestamos)}</td>
+            <td style="color:#FF6B6B;">-${fmt(m.deduccion_danos || 0)}</td>
             <td style="font-weight:800;color:var(--g1);font-size:1.05rem;">${fmt(m.monto_neto)}</td>
             <td>${cerrada
                 ? '<span class="badge badge-green">Cerrada</span>'
@@ -760,7 +768,7 @@ async function loadNominasAdmin() {
 }
 
 async function cerrarNominaUno(motorizadoId, semana, nombre) {
-    if (!confirm(`¿Cerrar nómina de ${nombre} para la semana del ${semana}?`)) return;
+    if (!confirm(`¿Cerrar nómina de ${nombre} para la semana del ${semana}?\n\nEsto congela el sueldo de la semana (incluye descuentos por daños) y cobra la cuota de préstamo. No se puede deshacer.`)) return;
     const res = await apiFetch('/nominas/cerrar', {
         method: 'POST',
         body: { motorizado_id: motorizadoId, semana_inicio: semana }
@@ -770,6 +778,115 @@ async function cerrarNominaUno(motorizadoId, semana, nombre) {
         loadNominasAdmin();
     } else {
         showToast(res?.error || 'Error al cerrar nómina', 'err');
+    }
+}
+
+// ── Pestañas de la vista Nóminas ──────────────────────────
+function switchNominasTab(tab) {
+    const resumen = document.getElementById('panelNominasResumen');
+    const descuentos = document.getElementById('panelNominasDescuentos');
+    const btnR = document.getElementById('tabNomResumen');
+    const btnD = document.getElementById('tabNomDescuentos');
+    const activo = tab === 'descuentos';
+    resumen.style.display = activo ? 'none' : '';
+    descuentos.style.display = activo ? '' : 'none';
+    btnR.className = activo ? 'btn-secondary' : 'btn-primary';
+    btnD.className = activo ? 'btn-primary' : 'btn-secondary';
+    if (activo) loadDescuentos();
+}
+
+// ── Descuentos por daños ───────────────────────────────────
+function semanaSeleccionada() {
+    return document.getElementById('nominaSemanaInput')?.value
+        || new Date().toISOString().split('T')[0];
+}
+
+async function loadDescuentos() {
+    const [motos, cats, data] = await Promise.all([
+        apiFetch('/motorizados'),
+        apiFetch('/descuentos/categorias'),
+        apiFetch(`/descuentos?semana=${semanaSeleccionada()}`)
+    ]);
+
+    const selMoto = document.getElementById('descMotorizado');
+    if (motos && selMoto) {
+        const actual = selMoto.value;
+        selMoto.innerHTML = '<option value="">— Seleccionar —</option>' +
+            motos.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+        if (actual) selMoto.value = actual;
+    }
+    const selCat = document.getElementById('descCategoria');
+    if (cats && selCat) {
+        const actual = selCat.value;
+        selCat.innerHTML = '<option value="">— Sin categoría —</option>' +
+            cats.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        if (actual) selCat.value = actual;
+    }
+
+    const tbody = document.getElementById('descuentosBody');
+    if (!data || !data.descuentos?.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin descuentos esta semana</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.descuentos.map(d => `
+        <tr>
+            <td><strong>${d.motorizado_nombre}</strong></td>
+            <td>${d.categoria_nombre || '—'}</td>
+            <td style="font-size:.85rem;">${d.descripcion || '—'}</td>
+            <td style="color:#FF6B6B;font-weight:700;">-${fmt(d.monto)}</td>
+            <td style="font-size:.82rem;color:var(--muted);">${d.registrado_por_nombre || '—'}</td>
+            <td><button class="btn-icon" onclick="eliminarDescuento('${d.id}')" title="Eliminar descuento">🗑️</button></td>
+        </tr>`).join('');
+}
+
+async function registrarDescuento(e) {
+    e.preventDefault();
+    const motorizado_id = document.getElementById('descMotorizado').value;
+    const categoria_id = document.getElementById('descCategoria').value || null;
+    const monto = document.getElementById('descMonto').value;
+    const descripcion = document.getElementById('descDescripcion').value;
+    if (!motorizado_id) { showToast('Selecciona un motorizado', 'err'); return; }
+
+    const res = await apiFetch('/descuentos', {
+        method: 'POST',
+        body: { motorizado_id, categoria_id, monto, descripcion, fecha: semanaSeleccionada() }
+    });
+    if (res && !res.error) {
+        showToast('💥 Descuento registrado');
+        document.getElementById('descMonto').value = '';
+        document.getElementById('descDescripcion').value = '';
+        loadDescuentos();
+        loadNominasAdmin(); // refrescar columna Daños del resumen
+    } else {
+        showToast(res?.error || 'Error al registrar descuento', 'err');
+    }
+}
+
+async function crearCategoriaDescuento() {
+    const input = document.getElementById('descNuevaCategoria');
+    const nombre = (input.value || '').trim();
+    if (!nombre) { showToast('Escribe el nombre de la categoría', 'err'); return; }
+    const res = await apiFetch('/descuentos/categorias', { method: 'POST', body: { nombre } });
+    if (res && !res.error) {
+        showToast(`Categoría "${res.nombre}" creada`);
+        input.value = '';
+        await loadDescuentos();
+        const selCat = document.getElementById('descCategoria');
+        if (selCat && res.id) selCat.value = res.id;
+    } else {
+        showToast(res?.error || 'Error al crear categoría', 'err');
+    }
+}
+
+async function eliminarDescuento(id) {
+    if (!confirm('¿Eliminar este descuento?')) return;
+    const res = await apiFetch(`/descuentos/${id}`, { method: 'DELETE' });
+    if (res && !res.error) {
+        showToast('Descuento eliminado');
+        loadDescuentos();
+        loadNominasAdmin();
+    } else {
+        showToast(res?.error || 'Error al eliminar', 'err');
     }
 }
 

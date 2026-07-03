@@ -781,25 +781,58 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
                  WHERE motorizado_id = $1 AND estado = 'aprobado' AND saldo_pendiente > 0`, [motoId]
             );
             const deduccionPrestamos = parseFloat(prestActivos[0].ded);
-            const montoNeto = parseFloat((montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos).toFixed(2));
+
+            // Descuentos por daños de la semana
+            const { rows: danosRows } = await pool.query(
+                `SELECT COALESCE(SUM(monto),0) AS m FROM descuentos
+                 WHERE motorizado_id = $1 AND semana_inicio = $2`, [motoId, lunes]
+            );
+            const deduccionDanos = parseFloat(danosRows[0].m);
+            const montoNeto = parseFloat((montoBruto - deduccionEmpresa - costoMoto - deduccionPrestamos - deduccionDanos).toFixed(2));
 
             nomina = {
                 semana_inicio: lunes, semana_fin: domingo,
                 total_servicios: totalServicios,
                 monto_bruto: montoBruto, porcentaje_empresa: pctEmpresa,
                 deduccion_empresa: deduccionEmpresa, deduccion_moto: costoMoto,
-                deduccion_prestamos: deduccionPrestamos, monto_neto: montoNeto,
+                deduccion_prestamos: deduccionPrestamos, deduccion_danos: deduccionDanos,
+                monto_neto: montoNeto,
                 estado: 'estimado'
             };
         }
 
-        // Servicios de esa semana (misma ventana canónica)
+        const deduccionDanosVal = parseFloat(nomina.deduccion_danos || 0);
+        const totalDeducciones = parseFloat(nomina.deduccion_empresa) + parseFloat(nomina.deduccion_moto)
+            + parseFloat(nomina.deduccion_prestamos) + deduccionDanosVal;
+
+        // Servicios COMPLETADOS de esa semana (los que se pagan)
         const { rows: servicios } = await pool.query(
             `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, c.nombre_marca
              FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
              WHERE s.motorizado_id = $1 AND s.estado = 'completado'
              AND ${weekWindow('s.fecha_inicio', '$2')}
              ORDER BY s.fecha_inicio ASC`,
+            [motoId, nomina.semana_inicio]
+        );
+
+        // Servicios de la semana SIN aceptar/completar (pendiente o en_curso) — informativos,
+        // NO se pagan. Sirven para detectar antes de cerrar que falta trabajo por aceptar.
+        const { rows: pendientes } = await pool.query(
+            `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, s.estado, c.nombre_marca
+             FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
+             WHERE s.motorizado_id = $1 AND s.estado IN ('pendiente','en_curso')
+             AND ${weekWindow('s.fecha_inicio', '$2')}
+             ORDER BY s.fecha_inicio ASC`,
+            [motoId, nomina.semana_inicio]
+        );
+        const pendientesMonto = pendientes.reduce((acc, s) => acc + parseFloat(s.monto || 0), 0);
+
+        // Detalle de descuentos por daños (para el desglose del recibo)
+        const { rows: descuentosDet } = await pool.query(
+            `SELECT d.monto, d.descripcion, cat.nombre AS categoria
+             FROM descuentos d LEFT JOIN descuento_categorias cat ON cat.id = d.categoria_id
+             WHERE d.motorizado_id = $1 AND d.semana_inicio = $2
+             ORDER BY d.creado_en ASC`,
             [motoId, nomina.semana_inicio]
         );
 
@@ -821,9 +854,10 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
             </div>
 
             <div class="kpi-row">
-                <div class="kpi"><div class="kpi-val">${nomina.total_servicios || servicios.length}</div><div class="kpi-lbl">Servicios</div></div>
+                <div class="kpi"><div class="kpi-val">${nomina.total_servicios || servicios.length}</div><div class="kpi-lbl">Aceptados</div></div>
+                <div class="kpi"><div class="kpi-val" style="color:#e6a817;">${pendientes.length}</div><div class="kpi-lbl">Sin Aceptar</div></div>
                 <div class="kpi"><div class="kpi-val">${fmt(nomina.monto_bruto)}</div><div class="kpi-lbl">Bruto</div></div>
-                <div class="kpi"><div class="kpi-val red">-${fmt(parseFloat(nomina.deduccion_empresa) + parseFloat(nomina.deduccion_moto) + parseFloat(nomina.deduccion_prestamos))}</div><div class="kpi-lbl">Deducciones</div></div>
+                <div class="kpi"><div class="kpi-val red">-${fmt(totalDeducciones)}</div><div class="kpi-lbl">Deducciones</div></div>
                 <div class="kpi"><div class="kpi-val green">${fmt(nomina.monto_neto)}</div><div class="kpi-lbl">Neto a Cobrar</div></div>
             </div>
 
@@ -845,6 +879,26 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
                 </table>
             </div>
 
+            ${pendientes.length ? `
+            <div class="section">
+                <div class="section-title">⚠️ Servicios de la semana SIN aceptar (no se pagan hasta completarse)</div>
+                <table>
+                    <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Detalle</th><th>Estado</th><th>Monto</th></tr></thead>
+                    <tbody>
+                        ${pendientes.map((s, i) => `<tr>
+                            <td>${i + 1}</td>
+                            <td>${fmtFechaTZ(s.fecha_inicio)}</td>
+                            <td style="text-transform:capitalize;">${s.tipo}</td>
+                            <td>${s.nombre_marca || (s.descripcion && s.descripcion.match(/Cliente:\s*([^|]+)/i) ? s.descripcion.match(/Cliente:\s*([^|]+)/i)[1].trim() : '—')}</td>
+                            <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
+                            <td><span style="font-size:.72rem;background:#fff3cd;color:#8a6d00;padding:2px 6px;border-radius:4px;">${s.estado === 'en_curso' ? 'en curso' : 'pendiente'}</span></td>
+                            <td style="color:#e6a817;">${fmt(s.monto)}</td>
+                        </tr>`).join('')}
+                        <tr class="total-row"><td colspan="6"><strong>TOTAL SIN ACEPTAR (informativo)</strong></td><td style="color:#e6a817;"><strong>${fmt(pendientesMonto)}</strong></td></tr>
+                    </tbody>
+                </table>
+            </div>` : ''}
+
             <div class="section">
                 <div class="section-title">📉 Deducciones</div>
                 <table>
@@ -853,7 +907,9 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
                         <tr><td>Porcentaje empresa</td><td>${nomina.porcentaje_empresa}% del bruto</td><td class="red">-${fmt(nomina.deduccion_empresa)}</td></tr>
                         <tr><td>Uso de moto</td><td>Tarifa semanal fija</td><td class="red">-${fmt(nomina.deduccion_moto)}</td></tr>
                         <tr><td>Préstamos</td><td>Cuotas activas</td><td class="red">-${fmt(nomina.deduccion_prestamos)}</td></tr>
-                        <tr class="total-row"><td colspan="2"><strong>TOTAL DEDUCCIONES</strong></td><td class="red"><strong>-${fmt(parseFloat(nomina.deduccion_empresa) + parseFloat(nomina.deduccion_moto) + parseFloat(nomina.deduccion_prestamos))}</strong></td></tr>
+                        ${descuentosDet.map(d => `<tr><td>Daños — ${d.categoria || 'Sin categoría'}</td><td style="font-size:.82rem;">${d.descripcion || '—'}</td><td class="red">-${fmt(d.monto)}</td></tr>`).join('')}
+                        ${(!descuentosDet.length && deduccionDanosVal > 0) ? `<tr><td>Daños/roturas</td><td>—</td><td class="red">-${fmt(deduccionDanosVal)}</td></tr>` : ''}
+                        <tr class="total-row"><td colspan="2"><strong>TOTAL DEDUCCIONES</strong></td><td class="red"><strong>-${fmt(totalDeducciones)}</strong></td></tr>
                     </tbody>
                 </table>
             </div>

@@ -116,6 +116,11 @@ function renderNominaResumen(n) {
             <span>− Préstamos</span>
             <span>-${fmt(n.deduccion_prestamos)}</span>
         </div>
+        ${n.deduccion_danos > 0 ? `
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;color:#FF6B6B;">
+            <span>− Daños/roturas</span>
+            <span>-${fmt(n.deduccion_danos)}</span>
+        </div>` : ''}
         <hr style="border:none;border-top:2px solid var(--g1);margin:12px 0;">
         <div style="display:flex;justify-content:space-between;font-size:1.1rem;">
             <span style="font-weight:800;color:var(--g1);">NETO ESTIMADO</span>
@@ -213,10 +218,20 @@ async function loadNominaDetalle() {
                 <span>Uso de moto (semanal)</span>
                 <span style="font-weight:600;">-${fmt(nomina.deduccion_moto)}</span>
             </div>
-            <div style="display:flex;justify-content:space-between;padding:8px 0;color:#FF6B6B;">
+            <div style="display:flex;justify-content:space-between;padding:8px 0;${nomina.deduccion_danos > 0 ? 'border-bottom:1px solid var(--border);' : ''}color:#FF6B6B;">
                 <span>Cuotas préstamos</span>
                 <span style="font-weight:600;">-${fmt(nomina.deduccion_prestamos)}</span>
             </div>
+            ${nomina.deduccion_danos > 0 ? `
+            <div style="display:flex;justify-content:space-between;padding:8px 0;color:#FF6B6B;">
+                <span>Daños/roturas</span>
+                <span style="font-weight:600;">-${fmt(nomina.deduccion_danos)}</span>
+            </div>
+            ${(nomina.descuentos || []).map(d => `
+            <div style="display:flex;justify-content:space-between;padding:2px 0 2px 16px;font-size:.78rem;color:var(--muted);">
+                <span>↳ ${d.categoria || 'Sin categoría'}${d.descripcion ? ' — ' + d.descripcion : ''}</span>
+                <span>-${fmt(d.monto)}</span>
+            </div>`).join('')}` : ''}
         </div>
 
         <div style="background:linear-gradient(135deg, rgba(0,221,0,0.1), rgba(0,187,0,0.05));border:2px solid var(--g1);border-radius:12px;padding:20px;text-align:center;">
@@ -225,7 +240,7 @@ async function loadNominaDetalle() {
         </div>
 
         <div style="margin-top:16px;padding:12px;background:var(--bg);border-radius:8px;font-size:.78rem;color:var(--muted);text-align:center;">
-            Fórmula: Bruto − ${nomina.porcentaje_empresa}% empresa − $${nomina.deduccion_moto} moto − préstamos = Neto
+            Fórmula: Bruto − ${nomina.porcentaje_empresa}% empresa − $${nomina.deduccion_moto} moto − préstamos${nomina.deduccion_danos > 0 ? ' − daños' : ''} = Neto
         </div>
     </div>`;
 
@@ -237,7 +252,7 @@ async function loadNominaDetalle() {
         return;
     }
     tbody.innerHTML = historial.map(n => {
-        const deducciones = parseFloat(n.deduccion_empresa) + parseFloat(n.deduccion_moto) + parseFloat(n.deduccion_prestamos);
+        const deducciones = parseFloat(n.deduccion_empresa) + parseFloat(n.deduccion_moto) + parseFloat(n.deduccion_prestamos) + parseFloat(n.deduccion_danos || 0);
         return `
         <tr>
             <td>${n.semana_inicio} → ${n.semana_fin}</td>
