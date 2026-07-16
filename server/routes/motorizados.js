@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
 const { requireRol } = auth;
+const { getSemanaActual, weekWindow } = require('../util/weekRange');
 const router = express.Router();
 
 router.use(auth);
@@ -60,25 +61,29 @@ router.get('/:id', async (req, res) => {
         );
         if (!rows[0]) return res.status(404).json({ error: 'Motorizado no encontrado' });
 
-        // Calcular inicio de semana (lunes a la 1:00 AM como corte de día)
-        // NOW() - interval '1 hour' hace que entre 12am y 1am aún cuente como el día anterior
+        // Semana canónica (corte + zona horaria configurados), igual que nóminas/reportes.
+        // Antes usaba date_trunc('week', NOW() - 1h) inline: operaba sobre el reloj UTC del
+        // servidor sin convertir a hora Venezuela, así que un servicio de las 8-11pm VE
+        // (que ya cruzó medianoche UTC) quedaba fuera de "esta semana"/"hoy".
+        const { lunes } = getSemanaActual();
         const { rows: serviciosHoy } = await pool.query(
-            `SELECT s.*, c.nombre_marca
+            `SELECT s.*, c.nombre_marca,
+                    (s.estado IN ('pendiente','en_curso') AND s.fecha_inicio < NOW() - interval '48 hours') AS vencido
        FROM servicios s
        LEFT JOIN clientes c ON c.id = s.cliente_id
        WHERE s.motorizado_id = $1
-         AND s.fecha_inicio >= date_trunc('week', (NOW() - interval '1 hour'))  + interval '1 hour'
+         AND ${weekWindow('s.fecha_inicio', '$2')}
        ORDER BY s.fecha_inicio DESC`,
-            [req.params.id]
+            [req.params.id, lunes]
         );
 
         const { rows: totalSemana } = await pool.query(
             `SELECT COALESCE(SUM(monto),0) AS total_semana, COUNT(*) AS count_semana
        FROM servicios
        WHERE motorizado_id=$1
-         AND fecha_inicio >= date_trunc('week', (NOW() - interval '1 hour')) + interval '1 hour'
+         AND ${weekWindow('fecha_inicio', '$2')}
          AND estado='completado'`,
-            [req.params.id]
+            [req.params.id, lunes]
         );
 
         // Obtener porcentaje empresa para calcular ganancia neta

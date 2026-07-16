@@ -716,6 +716,22 @@ async function eliminarTarifa(id, monto) {
 // ══════════════════════════════════════════════════════════
 // ── NÓMINAS (Admin) ───────────────────────────────────────
 // ══════════════════════════════════════════════════════════
+
+// Badge de servicios sin aceptar de la semana, separando los que aún están a tiempo
+// (dentro de las 48h para aceptar) de los que ya vencieron y no se van a pagar.
+function badgePendientes(m) {
+    const rec = m.pendientes_recuperables_count || 0;
+    const venc = m.pendientes_vencidos_count || 0;
+    let html = '';
+    if (rec > 0) {
+        html += ` <span title="${rec} servicios aún a tiempo de aceptar (dentro de 48h) por ${fmt(m.pendientes_recuperables_monto)}" style="font-size:.65rem;background:rgba(255,193,7,.15);color:#FFC107;padding:1px 5px;border-radius:3px;cursor:help;">⏳ ${rec}</span>`;
+    }
+    if (venc > 0) {
+        html += ` <span title="${venc} servicios vencidos (pasaron 48h sin aceptar) por ${fmt(m.pendientes_vencidos_monto)} — no se pagarán" style="font-size:.65rem;background:rgba(220,53,69,.15);color:#FF6B6B;padding:1px 5px;border-radius:3px;cursor:help;">⛔ ${venc}</span>`;
+    }
+    return html;
+}
+
 async function loadNominasAdmin() {
     const input = document.getElementById('nominaSemanaInput');
     const semana = input?.value || '';  // vacio = semana actual; el backend calcula el lunes
@@ -741,9 +757,7 @@ async function loadNominasAdmin() {
 
     tbody.innerHTML = data.motorizados.map(m => {
         const cerrada = m.nomina_estado === 'cerrado';
-        const badgePend = m.pendientes_count > 0
-            ? ` <span title="${m.pendientes_count} servicios de la semana SIN aceptar por ${fmt(m.pendientes_monto)} — no se pagan hasta completarse" style="font-size:.65rem;background:rgba(255,193,7,.15);color:#FFC107;padding:1px 5px;border-radius:3px;cursor:help;">⚠ ${m.pendientes_count}</span>`
-            : '';
+        const badgePend = badgePendientes(m);
         return `
         <tr>
             <td><strong>${m.nombre}</strong></td>

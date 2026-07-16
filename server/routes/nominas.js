@@ -57,14 +57,29 @@ async function descuentosDetalle(motoId, lunes, q = pool) {
 
 // Servicios de la semana AÚN NO aceptados/completados (pendiente o en_curso).
 // No entran al bruto — son informativos para no cerrar la nómina antes de tiempo.
+// Se desglosan en dos grupos según el plazo de 48h que tiene el motorizado para aceptar:
+//   - recuperables: todavía a tiempo de aceptarse (y de pagarse si se completa)
+//   - vencidos: ya pasaron las 48h, el motorizado no puede aceptarlos y no se pagan
 async function pendientesSemana(motoId, lunes, q = pool) {
     const { rows } = await q.query(
-        `SELECT COALESCE(SUM(monto),0) AS m, COUNT(*) AS c FROM servicios
+        `SELECT
+            COALESCE(SUM(monto) FILTER (WHERE fecha_inicio >= NOW() - interval '48 hours'), 0) AS m_rec,
+            COUNT(*) FILTER (WHERE fecha_inicio >= NOW() - interval '48 hours') AS c_rec,
+            COALESCE(SUM(monto) FILTER (WHERE fecha_inicio < NOW() - interval '48 hours'), 0) AS m_venc,
+            COUNT(*) FILTER (WHERE fecha_inicio < NOW() - interval '48 hours') AS c_venc
+         FROM servicios
          WHERE motorizado_id=$1 AND estado IN ('pendiente','en_curso')
            AND ${weekWindow('fecha_inicio', '$2')}`,
         [motoId, lunes]
     );
-    return { monto: parseFloat(rows[0].m), count: parseInt(rows[0].c) };
+    const r = rows[0];
+    const recCount = parseInt(r.c_rec), recMonto = parseFloat(r.m_rec);
+    const vencCount = parseInt(r.c_venc), vencMonto = parseFloat(r.m_venc);
+    return {
+        count: recCount + vencCount, monto: recMonto + vencMonto,
+        recuperablesCount: recCount, recuperablesMonto: recMonto,
+        vencidosCount: vencCount, vencidosMonto: vencMonto,
+    };
 }
 
 // Calcula los brutos de la nómina de la semana W (lunes) para un motorizado.
@@ -119,6 +134,8 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
                 deduccion_danos: parseFloat(n.deduccion_danos || 0),
                 descuentos: await descuentosDetalle(motoId, lunes),
                 pendientes_count: pend.count, pendientes_monto: pend.monto,
+                pendientes_recuperables_count: pend.recuperablesCount, pendientes_recuperables_monto: pend.recuperablesMonto,
+                pendientes_vencidos_count: pend.vencidosCount, pendientes_vencidos_monto: pend.vencidosMonto,
                 monto_neto: parseFloat(n.monto_neto), cerrada: true
             });
         }
@@ -146,6 +163,8 @@ router.get('/semana-actual/:motorizadoId', async (req, res) => {
             deduccion_danos: danos.monto,
             descuentos: await descuentosDetalle(motoId, lunes),
             pendientes_count: pend.count, pendientes_monto: pend.monto,
+            pendientes_recuperables_count: pend.recuperablesCount, pendientes_recuperables_monto: pend.recuperablesMonto,
+            pendientes_vencidos_count: pend.vencidosCount, pendientes_vencidos_monto: pend.vencidosMonto,
             monto_neto: montoNeto,
             cerrada: false
         });
@@ -235,6 +254,8 @@ router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res)
                     motorizado_id: moto.id, nombre: moto.nombre, cedula: moto.cedula,
                     total_servicios: parseInt(cnt[0].c),
                     pendientes_count: pend.count, pendientes_monto: pend.monto,
+                    pendientes_recuperables_count: pend.recuperablesCount, pendientes_recuperables_monto: pend.recuperablesMonto,
+                    pendientes_vencidos_count: pend.vencidosCount, pendientes_vencidos_monto: pend.vencidosMonto,
                     monto_bruto: parseFloat(f.monto_bruto), monto_pago_completo: 0,
                     deduccion_empresa: parseFloat(f.deduccion_empresa),
                     deduccion_moto: parseFloat(f.deduccion_moto),
@@ -261,6 +282,8 @@ router.get('/resumen-semanal', requireRol('admin', 'contable'), async (req, res)
                 cedula: moto.cedula,
                 total_servicios: b.totalServicios,
                 pendientes_count: pend.count, pendientes_monto: pend.monto,
+                pendientes_recuperables_count: pend.recuperablesCount, pendientes_recuperables_monto: pend.recuperablesMonto,
+                pendientes_vencidos_count: pend.vencidosCount, pendientes_vencidos_monto: pend.vencidosMonto,
                 monto_bruto: montoBruto,
                 monto_pago_completo: b.brutoCompleto,
                 deduccion_empresa: deduccionEmpresa,

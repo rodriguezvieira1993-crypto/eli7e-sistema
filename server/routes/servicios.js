@@ -15,7 +15,8 @@ router.get('/', async (req, res) => {
         let query = `
       SELECT s.*, c.nombre_marca AS cliente_nombre, m.nombre AS motorizado_nombre,
              EXISTS(SELECT 1 FROM notas_entrega n WHERE n.servicio_id = s.id) AS tiene_nota,
-             COALESCE(s.pago_completo, FALSE) AS pago_completo
+             COALESCE(s.pago_completo, FALSE) AS pago_completo,
+             (s.estado IN ('pendiente','en_curso') AND s.fecha_inicio < NOW() - interval '48 hours') AS vencido
       FROM servicios s
       LEFT JOIN clientes c ON c.id = s.cliente_id
       LEFT JOIN motorizados m ON m.id = s.motorizado_id
@@ -37,12 +38,14 @@ router.get('/', async (req, res) => {
         if (desde) {
             if (!isoDate.test(desde)) return res.status(400).json({ error: 'desde debe tener formato YYYY-MM-DD' });
             params.push(desde);
-            where.push(`DATE(s.fecha_inicio) >= $${params.length}`);
+            // operationalDateOf (no DATE() crudo): un servicio de las 9pm hora VE queda
+            // guardado en UTC como el día siguiente. DATE() sin convertir lo clasifica mal.
+            where.push(`${operationalDateOf('s.fecha_inicio')} >= $${params.length}`);
         }
         if (hasta) {
             if (!isoDate.test(hasta)) return res.status(400).json({ error: 'hasta debe tener formato YYYY-MM-DD' });
             params.push(hasta);
-            where.push(`DATE(s.fecha_inicio) <= $${params.length}`);
+            where.push(`${operationalDateOf('s.fecha_inicio')} <= $${params.length}`);
         }
         if (where.length) query += ' WHERE ' + where.join(' AND ');
         query += ' ORDER BY s.fecha_inicio DESC';
@@ -123,15 +126,23 @@ router.post('/', requireRol('admin', 'call_center'), async (req, res) => {
 // PATCH /api/servicios/:id/cerrar (motorizado puede cerrar sus propios servicios)
 router.patch('/:id/cerrar', requireRol('admin', 'call_center', 'motorizado'), async (req, res) => {
     try {
-        // Si es motorizado, validar que el servicio le pertenece antes de cerrar
+        // Si es motorizado, validar que el servicio le pertenece y que sigue dentro del
+        // plazo de 48h desde que se asignó. Pasado ese plazo, el motorizado ya no puede
+        // aceptarlo por su cuenta y el servicio queda sin pagar (decisión del cliente,
+        // reemplaza la aceptación retroactiva sin límite que existía antes).
+        // Admin y call_center conservan la capacidad de cerrar/corregir sin este límite.
         if (req.user.rol === 'motorizado') {
             const { rows: check } = await pool.query(
-                'SELECT motorizado_id FROM servicios WHERE id=$1',
+                `SELECT motorizado_id, (fecha_inicio < NOW() - interval '48 hours') AS vencido
+                 FROM servicios WHERE id=$1`,
                 [req.params.id]
             );
             if (!check[0]) return res.status(404).json({ error: 'Servicio no encontrado' });
             if (check[0].motorizado_id !== req.user.id) {
                 return res.status(403).json({ error: 'No puedes cerrar servicios que no son tuyos' });
+            }
+            if (check[0].vencido) {
+                return res.status(410).json({ error: 'Este servicio venció: pasaron más de 48 horas desde que se asignó. Ya no se puede aceptar y no será pagado.' });
             }
         }
         const { rows } = await pool.query(

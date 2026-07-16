@@ -1,7 +1,7 @@
 const express = require('express');
 const pool = require('../db');
 const auth = require('../middleware/auth');
-const { getSemanaActual, weekStartSQL, weekWindow, getConfig } = require('../util/weekRange');
+const { getSemanaActual, weekStartSQL, weekWindow, operationalDateOf, getConfig } = require('../util/weekRange');
 const router = express.Router();
 
 // Auth via query param (para nuevas pestañas)
@@ -571,7 +571,7 @@ router.get('/personalizado', async (req, res) => {
             FROM servicios s
             LEFT JOIN clientes c ON c.id = s.cliente_id
             LEFT JOIN motorizados m ON m.id = s.motorizado_id
-            WHERE DATE(s.fecha_inicio) >= $1 AND DATE(s.fecha_inicio) <= $2
+            WHERE ${operationalDateOf('s.fecha_inicio')} >= $1 AND ${operationalDateOf('s.fecha_inicio')} <= $2
         `;
         const srvParams = [desde, hasta];
         if (!isAll) {
@@ -816,9 +816,11 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
         );
 
         // Servicios de la semana SIN aceptar/completar (pendiente o en_curso) — informativos,
-        // NO se pagan. Sirven para detectar antes de cerrar que falta trabajo por aceptar.
+        // NO se pagan. El motorizado tiene 48h desde fecha_inicio para aceptarlos; pasado
+        // ese plazo quedan "vencidos" y ya no se pueden pagar (regla del cliente).
         const { rows: pendientes } = await pool.query(
-            `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, s.estado, c.nombre_marca
+            `SELECT s.tipo, s.monto, s.descripcion, s.fecha_inicio, s.estado, c.nombre_marca,
+                    (s.fecha_inicio < NOW() - interval '48 hours') AS vencido
              FROM servicios s LEFT JOIN clientes c ON c.id = s.cliente_id
              WHERE s.motorizado_id = $1 AND s.estado IN ('pendiente','en_curso')
              AND ${weekWindow('s.fecha_inicio', '$2')}
@@ -881,7 +883,8 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
 
             ${pendientes.length ? `
             <div class="section">
-                <div class="section-title">⚠️ Servicios de la semana SIN aceptar (no se pagan hasta completarse)</div>
+                <div class="section-title">⚠️ Servicios de la semana SIN aceptar</div>
+                <div style="font-size:.78rem;color:#7a9a7a;margin-bottom:8px;">El motorizado tiene 48 horas desde la asignación para aceptarlos. Los marcados "vencido" ya no se pueden pagar.</div>
                 <table>
                     <thead><tr><th>#</th><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Detalle</th><th>Estado</th><th>Monto</th></tr></thead>
                     <tbody>
@@ -891,8 +894,10 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
                             <td style="text-transform:capitalize;">${s.tipo}</td>
                             <td>${s.nombre_marca || (s.descripcion && s.descripcion.match(/Cliente:\s*([^|]+)/i) ? s.descripcion.match(/Cliente:\s*([^|]+)/i)[1].trim() : '—')}</td>
                             <td style="font-size:.82rem;">${s.descripcion || '—'}</td>
-                            <td><span style="font-size:.72rem;background:#fff3cd;color:#8a6d00;padding:2px 6px;border-radius:4px;">${s.estado === 'en_curso' ? 'en curso' : 'pendiente'}</span></td>
-                            <td style="color:#e6a817;">${fmt(s.monto)}</td>
+                            <td>${s.vencido
+                                ? '<span style="font-size:.72rem;background:#f5d5d5;color:#8a2a2a;padding:2px 6px;border-radius:4px;">⏰ vencido, no se paga</span>'
+                                : `<span style="font-size:.72rem;background:#fff3cd;color:#8a6d00;padding:2px 6px;border-radius:4px;">${s.estado === 'en_curso' ? 'en curso' : 'pendiente'} — a tiempo</span>`}</td>
+                            <td style="color:${s.vencido ? '#8a2a2a' : '#e6a817'};">${fmt(s.monto)}</td>
                         </tr>`).join('')}
                         <tr class="total-row"><td colspan="6"><strong>TOTAL SIN ACEPTAR (informativo)</strong></td><td style="color:#e6a817;"><strong>${fmt(pendientesMonto)}</strong></td></tr>
                     </tbody>
