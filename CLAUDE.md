@@ -180,11 +180,19 @@ Todos los endpoints requieren `Authorization: Bearer <token>` excepto `/api/auth
 | GET | `/api/reportes/cierres` | todos | HTML historial cierres |
 | GET | `/api/reportes/factura/:clienteId` | todos | HTML factura por cliente |
 | GET | `/api/reportes/personalizado?clienteId&desde&hasta` | todos | HTML reporte customizado |
+| GET | `/api/reportes/tendencia-semanal?semanas=8` | todos | JSON facturado/cobrado por semana (dashboard admin) |
+| GET | `/api/servicios/buscar?q=` | admin, call_center, contable | Búsqueda global por ID/cliente/motorizado/descripción |
+| GET | `/api/descuentos?semana=` | admin, contable | Descuentos por daños de una semana |
+| POST | `/api/descuentos` | admin, contable | Registrar descuento (rechaza 409 si la semana ya cerró) |
+| DELETE | `/api/descuentos/:id` | admin, contable | Eliminar descuento (rechaza 409 si la semana ya cerró) |
+| GET/POST | `/api/descuentos/categorias` | admin, contable | Listar/crear categorías de descuento |
 | GET | `/api/usuarios` | admin | Listar usuarios |
 | POST | `/api/usuarios` | admin | Crear usuario |
 | PUT | `/api/usuarios/:id` | admin | Editar usuario |
 | DELETE | `/api/usuarios/:id` | admin | Eliminar usuario permanentemente |
 | POST | `/api/admin/reset-db` | admin | Limpiar datos de prueba |
+
+> ⚠️ Esta tabla no incluye `nominas.js`, `prestamos.js`, `parametros.js`, `configuracion.js`, `gastos.js`, `chat.js` ni `push.js` — deuda documental previa a esta actualización. Ver `ARQUITECTURA.md` (más al día) o leer las rutas directamente en `server/routes/`.
 
 ---
 
@@ -384,4 +392,4 @@ $env:Path = "C:\Program Files\Git\cmd;" + $env:Path
 
 ---
 
-*Última actualización: 31 de Marzo, 2026*
+*Última actualización: 16 de Julio, 2026 — endpoints de descuentos/búsqueda/tendencia agregados. Para el mapa técnico completo y actualizado, ver `ARQUITECTURA.md`.*

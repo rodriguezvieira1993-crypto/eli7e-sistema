@@ -47,7 +47,8 @@ app/
 │       ├── cobranza.js        ← Vista cobranza + registrar pago
 │       ├── cierres.js         ← Cierre diario
 │       ├── reportes.js        ← Reportes HTML imprimibles
-│       ├── nominas.js         ← Nómina semanal + préstamos
+│       ├── nominas.js         ← Nómina semanal + préstamos + descuentos por daños
+│       ├── descuentos.js      ← Descuentos por daños/roturas + categorías configurables
 │       ├── prestamos.js       ← CRUD préstamos motorizado
 │       ├── parametros.js      ← Parámetros sistema (porcentaje, costo moto...)
 │       ├── configuracion.js   ← Config clave/valor (gmail, empresa)
@@ -157,6 +158,14 @@ Nómina descuenta: % empresa, moto semanal, préstamos activos
 
 13. **Deploy:** `git push origin main` → Easypanel construye y despliega. No hay entornos staging; validar localmente antes.
 
+14. **Nómina estrictamente semanal, sin arrastre entre semanas.** `calcBrutos()` en `nominas.js` usa `weekWindow` puro — un servicio completado en una semana ya cerrada NO se suma a la nómina actual. (Se probó lo contrario — "pago retroactivo de atrasos" — el 2026-06-29 y se revirtió el 2026-07-03: los montos acumulados de semanas nunca cerradas resultaron inmanejables. Ver `IDEAS.md` § Congelado/descartado antes de volver a proponer esto.)
+
+15. **Plazo de 48 horas para aceptar un servicio** (regla desde 2026-07-16). `PATCH /api/servicios/:id/cerrar` rechaza con 410 si el rol es `motorizado` y `fecha_inicio < NOW() - interval '48 hours'` — el servicio queda "vencido" y no se paga. Admin y call_center conservan la capacidad de cerrar sin este límite (para corregir datos). El campo `vencido` viene computado en `GET /api/servicios` y `GET /api/motorizados/:id`, no es una columna almacenada.
+
+16. **Descuentos por daños bloqueados en semana cerrada.** `POST /api/descuentos` y `DELETE /api/descuentos/:id` rechazan con 409 si la nómina de esa semana (`motorizado_id` + `semana_inicio`) ya está `cerrado` — el descuento es parte del snapshot congelado y no se puede tocar después. Igual que las reglas 9-10 para servicios/nóminas.
+
+17. **Bug de timezone recurrente a vigilar:** Venezuela es UTC-4 exacto, así que las **8pm hora VE = medianoche UTC**. Cualquier comparación de fecha que NO pase por `weekWindow()`, `operationalDateOf()` o `operationalTodaySQL()` (ej. `DATE(fecha_inicio)` crudo, `date_trunc('week', NOW() - interval '1 hour')` inline) clasifica mal los servicios creados entre 8pm y medianoche VE. Ya pasó dos veces (mayo y julio 2026) que un fix cubrió solo una parte de las queries. **Al tocar cualquier comparación de fecha, grepear `DATE(`, `date_trunc`, `CURRENT_DATE` en todo `server/routes/` antes de dar el fix por completo.**
+
 ---
 
 ## Tablas principales
@@ -172,8 +181,11 @@ Ver `CLAUDE.md` § "Base de Datos" para el esquema completo. Resumen:
 - **cierres_diarios** (resumen del día validado por contable)
 - **tarifas** (montos rápidos configurables)
 - **parametros_sistema** (porcentaje empresa, costo moto, umbrales)
-- **nominas**, **prestamos** (módulo motorizado)
+- **nominas** (+ columna `deduccion_danos`), **prestamos** (módulo motorizado)
+- **descuento_categorias** (nombre, activo — soft delete; seed: Daño a producto, Pérdida de producto, Daño a equipo/moto, Uniforme, Otro)
+- **descuentos** (motorizado_id, categoria_id, monto, descripcion, semana_inicio, registrado_por) — descuentos por daños/roturas, uno por semana de nómina
 - **push_subscriptions**, **chat_mensajes**, **configuracion_sistema**, **gastos**
+- **servicios.pagado_en_nomina_id** (rastro de en qué nómina se pagó cada servicio; no afecta el cálculo, solo trazabilidad — quedó de la reversión del pago retroactivo)
 
 **Vista:** `vista_cobranza` (clientes + servicios facturados − pagos = deuda calculada)
 
@@ -195,4 +207,4 @@ VAPID_SUBJECT=mailto:...
 
 ---
 
-*Última actualización: 2026-04-15 — unificación del corte semanal + hardening de validaciones.*
+*Última actualización: 2026-07-16 — plazo de 48h para aceptar servicios, descuentos por daños, búsqueda global, dashboard con gráficas, reglas invariantes 14-17.*

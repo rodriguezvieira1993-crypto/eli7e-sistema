@@ -6,16 +6,13 @@
 
 ## 🔥 Prioridad alta
 
-*(nada pendiente ahora mismo — el último batch del 2026-04-15 dejó el sistema en estado "sólido con mejoras aplicadas")*
+- **Sprint de Seguridad (Fase 9)** — 7 vulnerabilidades críticas detectadas en la auditoría de abril y **nunca atendidas**: JWT con secreto de fallback público (repo en GitHub público), `/api/admin/migrate` sin autenticación, credenciales demo hardcodeadas en HTML, password `123456` por defecto a motorizados, sin rate-limit en login, `SELECT *` expone hash bcrypt en motorizados, ~99 usos de `innerHTML` sin sanitizar. Es el pendiente más viejo y de mayor riesgo del proyecto — pospuesto repetidamente por trabajo operativo más urgente.
 
 ---
 
 ## 🟡 Prioridad media
 
-- **Reportes PDF reales** (no solo HTML imprimible). Algunos clientes quieren archivar por email.
-- **Historial de pagos en la factura del cliente** — mostrar cada abono hecho, no solo la deuda actual.
-- **Búsqueda global** en el admin: por ID de servicio, nombre de cliente o motorizado desde un único input.
-- **Dashboard con gráficas** (Chart.js) para tendencias semana a semana de facturación vs cobranza.
+- **Reportes PDF reales** (no solo HTML imprimible). Algunos clientes quieren archivar por email. Pendiente decidir librería (Puppeteer vs PDFKit) — implica cambios al Dockerfile/deploy, se pospuso a propósito de la ronda de features del 2026-07-16.
 
 ---
 
@@ -33,15 +30,31 @@
 - **Gamificación del motorizado** (badges, niveles, rachas) — descartado por MARCA.md: "no gamificamos el trabajo".
 - **Multi-idioma** — descartado: Venezuela → español → punto.
 - **Multi-tenancy** (varias empresas en la misma instancia) — no es el caso de uso; Eli7e es la herramienta interna de UNA empresa. Si hace falta para otro cliente, se clona el repo.
+- **Pago retroactivo de servicios atrasados** (construido 2026-06-29, revertido 2026-07-03) — la nómina arrastraba servicios completados tarde de semanas cerradas hacia la nómina actual. Se descartó porque en producción los montos acumulados de "atrasos" resultaron gigantes e inmanejables (un motorizado llegó a mostrar +$3524), ya que casi ninguna semana vieja se había cerrado nunca. **Si alguien vuelve a proponer esto:** primero medir cuántos servicios/semanas atrasadas existen realmente antes de construir un mecanismo de arrastre. Ver [sesión 2026-06-29](sesiones/2026-06-29.md) y [sesión 2026-07-03](sesiones/2026-07-03.md).
+- **"Cerrar Todas" las nóminas de un click** (existía en Admin, eliminado 2026-06-28) — descartado: congela y cobra la cuota de préstamo a motorizados con servicios sin completar, listos o no. El cierre de nómina siempre es de a uno.
+- **Aceptación retroactiva de servicios sin límite de tiempo** (construida 2026-06-28, reemplazada 2026-07-16) — el motorizado podía aceptar cualquier servicio viejo desde cualquier fecha. El cliente pidió acotarlo a un plazo duro de 48 horas; pasado ese plazo el servicio queda vencido y no se paga.
+
+---
+
+## ✅ Implementado recientemente (no repetir)
+
+- **Historial de pagos en la factura del cliente** — YA estaba implementado (sección "💰 Pagos Registrados" en `/api/reportes/factura/:clienteId`), descubierto el 2026-07-16 al revisar el backlog. Lista todos los abonos históricos, no solo la deuda actual.
+- **Búsqueda global en el admin** (2026-07-16) — vista "🔍 Búsqueda", por ID de servicio, cliente, motorizado o descripción desde un único input.
+- **Dashboard con gráficas** (2026-07-16) — gráfica de línea (Chart.js) de Facturación vs Cobranza, últimas 8 semanas, en el Dashboard del admin.
+- **Descuentos por daños/roturas con categorías** (2026-07-03) — pestaña dedicada en Nóminas (contable/admin), categorías creables desde la UI.
+- **Servicios sin aceptar visibles en nómina** (2026-07-03) — badge en la tabla de Nóminas + sección en el recibo.
+- **Contable puede cerrar nóminas** (2026-06-28) — antes solo admin; la vista estaba rota (403 silencioso).
+- **Filtro Desde/Hasta en "Mis Servicios" del motorizado** (2026-06-28).
 
 ---
 
 ## 🐛 Bugs reportados (abiertos)
 
-*(vacío — los 5 bugs reportados por la cliente el 2026-04-25 fueron resueltos en la Fase 8 del 26-abr. Ver detalle en `AVANCES_Y_PENDIENTES.md`.)*
+*(vacío)*
 
-### Pendiente de validación con cliente
-- **Cliente debe verificar en producción** que: (a) los reportes ahora guardan ediciones reales; (b) el botón 🗑️ funciona en cada fila; (c) el corte semanal cae a la hora correcta — para esto entra al panel de **Parámetros del admin** y ajusta **Zona Horaria** y **Corte Diario Hora** según su huso (default `America/Caracas` y 1 AM); (d) registrar el mismo servicio dando varios clicks ya no lo duplica.
+### Resueltos recientemente
+- **Servicios después de las 8pm se guardaban en la fecha siguiente** (2026-07-16) — Venezuela es UTC-4, 8pm hora VE = medianoche UTC exacta. Arreglado en 3 sitios (`servicios.js`, `reportes.js /personalizado`, `motorizados.js /:id`) que quedaron sin cubrir por el fix de mayo (`de0a238`), el cual solo tocó los reportes imprimibles.
+- **La semana de nómina no se ajustaba al lunes correcto** (2026-06-28) — resuelto con snap de fecha.
 
 ---
 
@@ -51,7 +64,9 @@
 - **El call center usa teclado, no mouse.** Todo flujo crítico debería funcionar con tab + enter. Autocompletes, formularios, tarifas rápidas.
 - **Los motorizados usan celulares Android baratos** con pantalla sucia y guantes. El tap target mínimo es 44px. El contraste tiene que aguantar pleno sol.
 - **El contable entra 2 veces al día**: al mediodía para cobros rápidos y en la noche para cerrar el día. Las vistas críticas son "Cobranza" y "Cierre del día".
+- **Los servicios tienen 48 horas para aceptarse** (regla desde 2026-07-16). Pasado ese plazo no se pagan — es una regla de negocio dura, no solo una restricción de UI.
+- **La nómina es estrictamente semanal** (regla reafirmada 2026-07-03, tras revertir el pago retroactivo). Nada se arrastra entre semanas.
 
 ---
 
-*Última revisión: 2026-04-15*
+*Última revisión: 2026-07-16*
