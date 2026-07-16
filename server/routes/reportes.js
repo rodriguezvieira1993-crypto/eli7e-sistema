@@ -931,4 +931,49 @@ router.get('/nomina/:motorizadoId', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ══ TENDENCIA SEMANAL (JSON, para el dashboard con gráficas) ═════════════
+// GET /api/reportes/tendencia-semanal?semanas=8 — facturación vs cobranza
+// por semana canónica (corte + TZ configurados), últimas N semanas incluyendo
+// la actual. A diferencia de las demás rutas de este archivo, NO devuelve
+// HTML sino JSON — la consume Chart.js directamente en el dashboard admin.
+router.get('/tendencia-semanal', async (req, res) => {
+    try {
+        const n = Math.min(Math.max(parseInt(req.query.semanas) || 8, 1), 26);
+        const { lunes: lunesActual } = getSemanaActual();
+
+        const semanas = [];
+        for (let i = n - 1; i >= 0; i--) {
+            const d = new Date(lunesActual + 'T12:00:00Z');
+            d.setUTCDate(d.getUTCDate() - i * 7);
+            semanas.push(d.toISOString().split('T')[0]);
+        }
+
+        const resultado = [];
+        for (const lunes of semanas) {
+            const domD = new Date(lunes + 'T12:00:00Z'); domD.setUTCDate(domD.getUTCDate() + 6);
+            const domingo = domD.toISOString().split('T')[0];
+
+            // Facturado: servicios completados de la semana (misma ventana canónica que nóminas)
+            const { rows: fact } = await pool.query(
+                `SELECT COALESCE(SUM(monto),0) AS m FROM servicios
+                 WHERE estado='completado' AND ${weekWindow('fecha_inicio', '$1')}`,
+                [lunes]
+            );
+            // Cobrado: pagos registrados en la semana. pagos.fecha es DATE (sin hora),
+            // así que comparar directo contra el rango de días no tiene ambigüedad de TZ.
+            const { rows: cob } = await pool.query(
+                `SELECT COALESCE(SUM(monto),0) AS m FROM pagos WHERE fecha >= $1::date AND fecha <= $2::date`,
+                [lunes, domingo]
+            );
+
+            resultado.push({
+                semana_inicio: lunes, semana_fin: domingo,
+                facturado: parseFloat(fact[0].m), cobrado: parseFloat(cob[0].m)
+            });
+        }
+
+        res.json(resultado);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;

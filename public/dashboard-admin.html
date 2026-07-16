@@ -33,6 +33,7 @@
             <a href="#" class="sb-link" data-view="clientes"><span>🏪</span> Clientes</a>
             <a href="#" class="sb-link" data-view="flota"><span>🛵</span> Flota</a>
             <a href="#" class="sb-link" data-view="servicios"><span>📝</span> Servicios</a>
+            <a href="#" class="sb-link" data-view="busqueda"><span>🔍</span> Búsqueda</a>
 
             <div class="sb-section">Finanzas</div>
             <a href="#" class="sb-link" data-view="cobranza"><span>💰</span> Cobranza</a>
@@ -145,6 +146,14 @@
                     </div>
                 </div>
 
+                <!-- GRÁFICA TENDENCIA FACTURACIÓN VS COBRANZA -->
+                <div class="card" style="margin-top:16px;">
+                    <div class="card-hdr">📈 Facturación vs Cobranza (últimas 8 semanas)</div>
+                    <div style="position:relative;height:280px;">
+                        <canvas id="chartTendencia"></canvas>
+                    </div>
+                </div>
+
                 <!-- GRÁFICA RANKING MOTORIZADOS -->
                 <div class="card" style="margin-top:16px;">
                     <div class="card-hdr">🏆 Mejor Motorizado (últimos 30 días)</div>
@@ -231,6 +240,40 @@
                             <p class="loading-txt">Cargando tarifas...</p>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <!-- ══ BÚSQUEDA GLOBAL VIEW ═════════════════════════════ -->
+            <div class="view" id="view-busqueda">
+                <div class="view-header">
+                    <div>
+                        <h1 class="view-title">Búsqueda Global</h1>
+                        <span class="view-sub">Por ID de servicio, cliente o motorizado</span>
+                    </div>
+                </div>
+
+                <div class="search-bar" style="display:flex;gap:12px;">
+                    <input type="text" id="busquedaInput" placeholder="Buscar por ID, cliente, motorizado o descripción..." style="flex:1;padding:12px 14px;background:#0F180F;border:1px solid rgba(0,221,0,.3);border-radius:8px;color:#E4F5E4;font-family:inherit;font-size:.92rem;" onkeydown="if(event.key==='Enter') buscarGlobal()">
+                    <button class="btn-primary" onclick="buscarGlobal()">🔍 Buscar</button>
+                </div>
+
+                <div class="card" style="margin-top:16px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Tipo</th>
+                                <th>Cliente</th>
+                                <th>Motorizado</th>
+                                <th>Detalle</th>
+                                <th>Monto</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="busquedaBody">
+                            <tr><td colspan="7" class="loading-txt">Escribe algo y presiona Buscar</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
 

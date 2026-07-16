@@ -58,6 +58,34 @@ router.get('/', async (req, res) => {
     } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// GET /api/servicios/buscar?q=... — búsqueda global desde un único input:
+// por ID de servicio (parcial), nombre de cliente, nombre de motorizado o
+// descripción. Usada por la vista "Búsqueda" del admin.
+router.get('/buscar', requireRol('admin', 'call_center', 'contable'), async (req, res) => {
+    const q = (req.query.q || '').trim();
+    if (!q) return res.status(400).json({ error: 'q es requerido' });
+    if (q.length < 2) return res.status(400).json({ error: 'escribe al menos 2 caracteres' });
+    try {
+        const like = `%${q}%`;
+        const { rows } = await pool.query(
+            `SELECT s.*, c.nombre_marca AS cliente_nombre, m.nombre AS motorizado_nombre,
+                    EXISTS(SELECT 1 FROM notas_entrega n WHERE n.servicio_id = s.id) AS tiene_nota,
+                    COALESCE(s.pago_completo, FALSE) AS pago_completo
+             FROM servicios s
+             LEFT JOIN clientes c ON c.id = s.cliente_id
+             LEFT JOIN motorizados m ON m.id = s.motorizado_id
+             WHERE s.id::text ILIKE $1
+                OR c.nombre_marca ILIKE $1
+                OR m.nombre ILIKE $1
+                OR s.descripcion ILIKE $1
+             ORDER BY s.fecha_inicio DESC
+             LIMIT 100`,
+            [like]
+        );
+        res.json(rows);
+    } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // GET /api/servicios/cliente/:id — servicios de un cliente (para nota de pago)
 router.get('/cliente/:id', async (req, res) => {
     try {

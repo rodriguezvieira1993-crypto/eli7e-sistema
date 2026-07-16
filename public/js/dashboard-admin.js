@@ -26,9 +26,103 @@ async function loadDashboard() {
       </tr>`).join('') || '<tr><td colspan="3">Sin deudas 🎉</td></tr>';
     }
 
-    // Flota + Ranking
+    // Flota + Ranking + Tendencia
     await loadFlotaStatus();
+    await loadTendenciaChart();
     await loadRankingChart();
+}
+
+let tendenciaChart = null;
+async function loadTendenciaChart() {
+    const data = await apiFetch('/reportes/tendencia-semanal?semanas=8');
+    if (!data || !data.length) return;
+
+    const ctx = document.getElementById('chartTendencia');
+    if (!ctx) return;
+
+    if (tendenciaChart) tendenciaChart.destroy();
+
+    const labels = data.map(s => {
+        const [, m, d] = s.semana_inicio.split('-');
+        return `${d}/${m}`;
+    });
+    const facturado = data.map(s => s.facturado);
+    const cobrado = data.map(s => s.cobrado);
+
+    tendenciaChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Facturado',
+                    data: facturado,
+                    borderColor: '#00DD00',
+                    backgroundColor: 'rgba(0,221,0,0.12)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3
+                },
+                {
+                    label: 'Cobrado',
+                    data: cobrado,
+                    borderColor: '#0096FF',
+                    backgroundColor: 'rgba(0,150,255,0.08)',
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { labels: { color: '#7a9a7a', font: { family: 'Outfit' } } },
+                tooltip: {
+                    callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}` }
+                }
+            },
+            scales: {
+                x: { ticks: { color: '#7a9a7a', font: { family: 'Outfit', size: 11 } }, grid: { color: 'rgba(0,221,0,.06)' } },
+                y: { ticks: { color: '#7a9a7a', callback: v => '$' + v }, grid: { color: 'rgba(0,221,0,.06)' } }
+            }
+        }
+    });
+}
+
+// ══════════════════════════════════════════════════════════
+// ── BÚSQUEDA GLOBAL ────────────────────────────────────────
+// ══════════════════════════════════════════════════════════
+async function buscarGlobal() {
+    const input = document.getElementById('busquedaInput');
+    const q = (input?.value || '').trim();
+    const tbody = document.getElementById('busquedaBody');
+    if (q.length < 2) {
+        showToast('Escribe al menos 2 caracteres', 'err');
+        return;
+    }
+    tbody.innerHTML = '<tr><td colspan="7"><div class="spinner-wrap"><div class="spinner"></div><span>Buscando...</span></div></td></tr>';
+
+    const data = await apiFetch(`/servicios/buscar?q=${encodeURIComponent(q)}`);
+    if (!data || !data.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="loading-txt">Sin resultados</td></tr>';
+        return;
+    }
+
+    const iconos = { delivery: '📦', mototaxi: '🛵', encomienda: '📬', compras: '🛒', transporte: '🚐' };
+    const estadoCls = { pendiente: 'badge-yellow', en_curso: 'badge-blue', completado: 'badge-green', cancelado: 'badge-red' };
+
+    tbody.innerHTML = data.map(s => `
+        <tr>
+            <td>${fmtDate(s.fecha_inicio)}</td>
+            <td>${iconos[s.tipo] || ''} ${s.tipo}</td>
+            <td style="font-weight:600;">${s.cliente_nombre || '—'}</td>
+            <td>${s.motorizado_nombre || '—'}</td>
+            <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.82rem;">${s.descripcion || '—'}</td>
+            <td style="font-weight:700;color:var(--g1);">${fmt(s.monto)}</td>
+            <td><span class="badge ${estadoCls[s.estado] || ''}">${s.estado}</span></td>
+        </tr>`).join('');
 }
 
 let rankingChart = null;
@@ -1162,4 +1256,5 @@ document.addEventListener('viewChange', ({ detail: { view } }) => {
     if (view === 'usuarios') loadUsuarios();
     if (view === 'config') loadConfig();
     if (view === 'dashboard') loadDashboard();
+    if (view === 'busqueda') document.getElementById('busquedaInput')?.focus();
 });
