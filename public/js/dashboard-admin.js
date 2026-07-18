@@ -839,9 +839,11 @@ async function loadNominasAdmin() {
     document.getElementById('nominaSemanaLabel').textContent =
         `Semana: ${data.semana_inicio} → ${data.semana_fin}`;
 
-    // Si la pestaña de descuentos está visible, refrescarla con la nueva semana
+    // Si la pestaña de descuentos o cargos está visible, refrescarla con la nueva semana
     const dPanel = document.getElementById('panelNominasDescuentos');
     if (dPanel && dPanel.style.display !== 'none') loadDescuentos();
+    const cPanel = document.getElementById('panelNominasCargos');
+    if (cPanel && cPanel.style.display !== 'none') { loadCargosNomina(); loadCargosDeducciones(); }
 
     const tbody = document.getElementById('nominasAdminBody');
     if (!data.motorizados?.length) {
@@ -891,16 +893,14 @@ async function cerrarNominaUno(motorizadoId, semana, nombre) {
 
 // ── Pestañas de la vista Nóminas ──────────────────────────
 function switchNominasTab(tab) {
-    const resumen = document.getElementById('panelNominasResumen');
-    const descuentos = document.getElementById('panelNominasDescuentos');
-    const btnR = document.getElementById('tabNomResumen');
-    const btnD = document.getElementById('tabNomDescuentos');
-    const activo = tab === 'descuentos';
-    resumen.style.display = activo ? 'none' : '';
-    descuentos.style.display = activo ? '' : 'none';
-    btnR.className = activo ? 'btn-secondary' : 'btn-primary';
-    btnD.className = activo ? 'btn-primary' : 'btn-secondary';
-    if (activo) loadDescuentos();
+    const panels = { resumen: 'panelNominasResumen', descuentos: 'panelNominasDescuentos', cargos: 'panelNominasCargos' };
+    const btns = { resumen: 'tabNomResumen', descuentos: 'tabNomDescuentos', cargos: 'tabNomCargos' };
+    Object.keys(panels).forEach(key => {
+        document.getElementById(panels[key]).style.display = (key === tab) ? '' : 'none';
+        document.getElementById(btns[key]).className = (key === tab) ? 'btn-primary' : 'btn-secondary';
+    });
+    if (tab === 'descuentos') loadDescuentos();
+    if (tab === 'cargos') { loadCargosNomina(); loadCargosDeducciones(); }
 }
 
 // ── Descuentos por daños ───────────────────────────────────
@@ -995,6 +995,159 @@ async function eliminarDescuento(id) {
         loadNominasAdmin();
     } else {
         showToast(res?.error || 'Error al eliminar', 'err');
+    }
+}
+
+// ══════════════════════════════════════════════════════════
+// ── CARGOS (personal con sueldo fijo, sin perfil de motorizado) ──
+// ══════════════════════════════════════════════════════════
+async function loadCargosNomina() {
+    const data = await apiFetch(`/colaboradores/nomina/resumen-semanal?semana=${semanaSeleccionada()}`);
+    const tbody = document.getElementById('cargosNominaBody');
+    if (!data || !data.colaboradores?.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin cargos registrados — usa "+ Nuevo Cargo"</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.colaboradores.map(c => {
+        const cerrada = c.nomina_estado === 'cerrado';
+        return `
+        <tr>
+            <td><strong>${c.nombre}</strong></td>
+            <td style="font-weight:600;">${fmt(c.sueldo_base)}</td>
+            <td style="color:#FF6B6B;">-${fmt(c.deduccion_total)}</td>
+            <td style="font-weight:800;color:var(--g1);font-size:1.05rem;">${fmt(c.monto_neto)}</td>
+            <td>${cerrada
+                ? '<span class="badge badge-green">Cerrada</span>'
+                : '<span class="badge badge-yellow">Abierta</span>'}</td>
+            <td>
+                <button class="btn-icon" onclick="editarCargo('${c.colaborador_id}','${c.nombre}',${c.sueldo_base})" title="Editar cargo">✏️</button>
+                ${cerrada
+                ? ''
+                : `<button class="btn-icon" onclick="cerrarNominaCargo('${c.colaborador_id}','${data.semana_inicio}','${c.nombre}')" title="Cerrar nómina">🔒</button>`}
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+async function cerrarNominaCargo(colaboradorId, semana, nombre) {
+    if (!confirm(`¿Cerrar nómina de ${nombre} para la semana del ${semana}?\n\nEsto congela el sueldo de la semana. No se puede deshacer.`)) return;
+    const res = await apiFetch('/colaboradores/nomina/cerrar', {
+        method: 'POST',
+        body: { colaborador_id: colaboradorId, semana_inicio: semana }
+    });
+    if (res && !res.error) {
+        showToast(`Nómina de ${nombre} cerrada`);
+        loadCargosNomina();
+    } else {
+        showToast(res?.error || 'Error al cerrar nómina', 'err');
+    }
+}
+
+async function loadCargosDeducciones() {
+    const [colabs, cats, data] = await Promise.all([
+        apiFetch('/colaboradores'),
+        apiFetch('/descuentos/categorias'),
+        apiFetch(`/colaboradores/descuentos?semana=${semanaSeleccionada()}`)
+    ]);
+
+    const selColab = document.getElementById('cargoDeducColaborador');
+    if (colabs && selColab) {
+        const actual = selColab.value;
+        selColab.innerHTML = '<option value="">— Seleccionar —</option>' +
+            colabs.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        if (actual) selColab.value = actual;
+    }
+    const selCat = document.getElementById('cargoDeducCategoria');
+    if (cats && selCat) {
+        const actual = selCat.value;
+        selCat.innerHTML = '<option value="">— Sin categoría —</option>' +
+            cats.map(c => `<option value="${c.id}">${c.nombre}</option>`).join('');
+        if (actual) selCat.value = actual;
+    }
+
+    const tbody = document.getElementById('cargosDeduccionesBody');
+    if (!data || !data.descuentos?.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="loading-txt">Sin deducciones esta semana</td></tr>';
+        return;
+    }
+    tbody.innerHTML = data.descuentos.map(d => `
+        <tr>
+            <td><strong>${d.colaborador_nombre}</strong></td>
+            <td>${d.categoria_nombre || '—'}</td>
+            <td style="font-size:.85rem;">${d.descripcion || '—'}</td>
+            <td style="color:#FF6B6B;font-weight:700;">-${fmt(d.monto)}</td>
+            <td style="font-size:.82rem;color:var(--muted);">${d.registrado_por_nombre || '—'}</td>
+            <td><button class="btn-icon" onclick="eliminarDeduccionCargo('${d.id}')" title="Eliminar deducción">🗑️</button></td>
+        </tr>`).join('');
+}
+
+async function registrarDeduccionCargo(e) {
+    e.preventDefault();
+    const colaborador_id = document.getElementById('cargoDeducColaborador').value;
+    const categoria_id = document.getElementById('cargoDeducCategoria').value || null;
+    const monto = document.getElementById('cargoDeducMonto').value;
+    const descripcion = document.getElementById('cargoDeducDescripcion').value;
+    if (!colaborador_id) { showToast('Selecciona un cargo', 'err'); return; }
+
+    const res = await apiFetch('/colaboradores/descuentos', {
+        method: 'POST',
+        body: { colaborador_id, categoria_id, monto, descripcion, fecha: semanaSeleccionada() }
+    });
+    if (res && !res.error) {
+        showToast('💵 Deducción registrada');
+        document.getElementById('cargoDeducMonto').value = '';
+        document.getElementById('cargoDeducDescripcion').value = '';
+        loadCargosDeducciones();
+        loadCargosNomina();
+    } else {
+        showToast(res?.error || 'Error al registrar deducción', 'err');
+    }
+}
+
+async function eliminarDeduccionCargo(id) {
+    if (!confirm('¿Eliminar esta deducción?')) return;
+    const res = await apiFetch(`/colaboradores/descuentos/${id}`, { method: 'DELETE' });
+    if (res && !res.error) {
+        showToast('Deducción eliminada');
+        loadCargosDeducciones();
+        loadCargosNomina();
+    } else {
+        showToast(res?.error || 'Error al eliminar', 'err');
+    }
+}
+
+function abrirModalCargo() {
+    document.getElementById('cargoModeTitle').textContent = '+ Nuevo Cargo';
+    document.getElementById('formCargo').reset();
+    document.getElementById('cargo_id').value = '';
+    openModal('modalCargo');
+}
+
+function editarCargo(id, nombre, sueldo) {
+    document.getElementById('cargoModeTitle').textContent = '✏️ Editar Cargo';
+    document.getElementById('cargo_id').value = id;
+    document.getElementById('cargo_nombre').value = nombre;
+    document.getElementById('cargo_sueldo').value = sueldo;
+    openModal('modalCargo');
+}
+
+async function guardarCargo(e) {
+    e.preventDefault();
+    const id = document.getElementById('cargo_id').value;
+    const body = {
+        nombre: document.getElementById('cargo_nombre').value,
+        sueldo_semanal: document.getElementById('cargo_sueldo').value,
+    };
+    const url = id ? '/colaboradores/' + id : '/colaboradores';
+    const method = id ? 'PUT' : 'POST';
+    const res = await apiFetch(url, { method, body });
+    if (res?.id) {
+        showToast('✅ Cargo ' + (id ? 'actualizado' : 'creado'));
+        closeModal('modalCargo');
+        loadCargosNomina();
+        loadCargosDeducciones();
+    } else {
+        showToast('❌ ' + (res?.error || 'Error al guardar cargo'), 'err');
     }
 }
 

@@ -266,6 +266,69 @@ async function initDB() {
         console.log('⚠️ Migración descuentos:', err.message);
     }
 
+    // Migración: "Cargos" — personal con sueldo fijo semanal sin perfil completo
+    // (no son motorizados ni usuarios con login: ej. Daniela, Paola). Se pagan con
+    // el mismo ciclo semanal lunes-domingo que los motorizados, pero con fórmula
+    // simple: neto = sueldo_semanal - deducciones de la semana (reutiliza
+    // descuento_categorias, la misma tabla de categorías que usan los motorizados).
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS colaboradores (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                nombre VARCHAR(100) UNIQUE NOT NULL,
+                sueldo_semanal NUMERIC(10,2) NOT NULL DEFAULT 0,
+                activo BOOLEAN DEFAULT TRUE,
+                creado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS descuentos_colaborador (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                colaborador_id UUID NOT NULL REFERENCES colaboradores(id) ON DELETE CASCADE,
+                categoria_id UUID REFERENCES descuento_categorias(id),
+                monto NUMERIC(10,2) NOT NULL CHECK (monto > 0),
+                descripcion TEXT,
+                semana_inicio DATE NOT NULL,
+                registrado_por UUID REFERENCES usuarios(id),
+                creado_en TIMESTAMP DEFAULT NOW()
+            )
+        `);
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS nominas_colaborador (
+                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                colaborador_id UUID NOT NULL REFERENCES colaboradores(id) ON DELETE CASCADE,
+                semana_inicio DATE NOT NULL,
+                semana_fin DATE NOT NULL,
+                sueldo_base NUMERIC(10,2) NOT NULL DEFAULT 0,
+                deduccion_total NUMERIC(10,2) NOT NULL DEFAULT 0,
+                monto_neto NUMERIC(10,2) NOT NULL DEFAULT 0,
+                estado VARCHAR(20) DEFAULT 'borrador' CHECK (estado IN ('borrador','cerrado')),
+                cerrado_por UUID REFERENCES usuarios(id),
+                cerrado_en TIMESTAMP,
+                creado_en TIMESTAMP DEFAULT NOW(),
+                UNIQUE(colaborador_id, semana_inicio)
+            )
+        `);
+        await pool.query('CREATE INDEX IF NOT EXISTS idx_descuentos_colab_semana ON descuentos_colaborador(colaborador_id, semana_inicio)');
+        // Categoría adicional para gastos de personal fijo (comida, etc.) — se suma
+        // a las que ya usan los motorizados, misma tabla de categorías.
+        await pool.query(`
+            INSERT INTO descuento_categorias (nombre) VALUES ('Comida/Consumo')
+            ON CONFLICT (nombre) DO NOTHING
+        `);
+        // Seed: Daniela y Paola, sueldos confirmados el 2026-07-18. Si ya existen
+        // (por nombre) no se tocan — así el admin puede editar el sueldo desde la UI
+        // sin que un redeploy lo pise.
+        await pool.query(`
+            INSERT INTO colaboradores (nombre, sueldo_semanal) VALUES
+            ('Daniela', 100.00), ('Paola', 70.00)
+            ON CONFLICT DO NOTHING
+        `);
+        console.log('✅ Tablas colaboradores/nominas_colaborador/descuentos_colaborador OK');
+    } catch (err) {
+        console.log('⚠️ Migración colaboradores:', err.message);
+    }
+
     // Migración: crear tabla gastos (gastos de la empresa)
     try {
         await pool.query(`

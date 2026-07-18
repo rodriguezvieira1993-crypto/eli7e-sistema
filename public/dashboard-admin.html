@@ -421,9 +421,10 @@
 
                 <div id="nominaSemanaLabel" style="margin-bottom:12px;color:var(--g1);font-weight:600;"></div>
 
-                <div style="display:flex;gap:8px;margin-bottom:14px;">
+                <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
                     <button id="tabNomResumen" class="btn-primary" onclick="switchNominasTab('resumen')">📋 Resumen Semanal</button>
                     <button id="tabNomDescuentos" class="btn-secondary" onclick="switchNominasTab('descuentos')">💥 Descuentos por Daños</button>
+                    <button id="tabNomCargos" class="btn-secondary" onclick="switchNominasTab('cargos')">👤 Cargos</button>
                 </div>
 
                 <div id="panelNominasResumen">
@@ -486,6 +487,69 @@
                             </thead>
                             <tbody id="descuentosBody">
                                 <tr><td colspan="6" class="loading-txt">Sin descuentos esta semana</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="panelNominasCargos" style="display:none;">
+                    <div class="view-header" style="margin-bottom:12px;">
+                        <div>
+                            <span class="view-sub">Personal con sueldo fijo semanal, sin perfil de motorizado (ej. Daniela, Paola)</span>
+                        </div>
+                        <button class="btn-primary" onclick="abrirModalCargo()">+ Nuevo Cargo</button>
+                    </div>
+
+                    <div class="card" style="margin-bottom:16px;">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Sueldo Base</th>
+                                    <th>Deducciones</th>
+                                    <th>Neto</th>
+                                    <th>Estado</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cargosNominaBody">
+                                <tr><td colspan="6" class="loading-txt">Seleccione semana o cargue la actual</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="card" style="margin-bottom:16px;">
+                        <div class="card-hdr">💵 Registrar deducción a un cargo</div>
+                        <form onsubmit="registrarDeduccionCargo(event)" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:16px;align-items:end;">
+                            <div class="field" style="margin:0;">
+                                <label>Cargo</label>
+                                <select id="cargoDeducColaborador" required></select>
+                            </div>
+                            <div class="field" style="margin:0;">
+                                <label>Categoría</label>
+                                <select id="cargoDeducCategoria"></select>
+                            </div>
+                            <div class="field" style="margin:0;">
+                                <label>Monto ($)</label>
+                                <input type="number" id="cargoDeducMonto" step="0.01" min="0.01" required placeholder="0.00">
+                            </div>
+                            <div class="field" style="margin:0;">
+                                <label>Descripción</label>
+                                <input type="text" id="cargoDeducDescripcion" maxlength="200" placeholder="Ej: comida del 15/07">
+                            </div>
+                            <button type="submit" class="btn-primary">Registrar</button>
+                        </form>
+                        <div style="padding:0 16px 14px;font-size:.78rem;color:var(--muted);">La deducción se resta del sueldo de la semana seleccionada arriba. No se puede registrar sobre una semana ya cerrada.</div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-hdr">Deducciones de la semana</div>
+                        <table class="data-table">
+                            <thead>
+                                <tr><th>Cargo</th><th>Categoría</th><th>Descripción</th><th>Monto</th><th>Registrado por</th><th></th></tr>
+                            </thead>
+                            <tbody id="cargosDeduccionesBody">
+                                <tr><td colspan="6" class="loading-txt">Sin deducciones esta semana</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -709,6 +773,25 @@
                 <div class="field"><label>Precio Base (USD)</label><input type="number" step="0.01" id="ts_precio" placeholder="2.00"></div>
                 <div class="modal-footer">
                     <button type="button" class="btn-secondary" onclick="closeModal('modalTipoServicio')">Cancelar</button>
+                    <button type="submit" class="btn-primary">Guardar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CARGO (personal con sueldo fijo, sin perfil de motorizado) -->
+    <div class="modal-overlay" id="modalCargo">
+        <div class="modal">
+            <div class="modal-hdr">
+                <span id="cargoModeTitle">+ Nuevo Cargo</span>
+                <button onclick="closeModal('modalCargo')">✕</button>
+            </div>
+            <form id="formCargo" onsubmit="guardarCargo(event)">
+                <input type="hidden" id="cargo_id">
+                <div class="field"><label>Nombre *</label><input required id="cargo_nombre" placeholder="Ej: Daniela"></div>
+                <div class="field"><label>Sueldo Semanal (USD) *</label><input required type="number" step="0.01" min="0" id="cargo_sueldo" placeholder="100.00"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn-secondary" onclick="closeModal('modalCargo')">Cancelar</button>
                     <button type="submit" class="btn-primary">Guardar</button>
                 </div>
             </form>
