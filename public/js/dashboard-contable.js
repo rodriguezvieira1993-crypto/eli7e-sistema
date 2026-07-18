@@ -425,6 +425,10 @@ async function loadPagosForm() {
         .filter(c => parseFloat(c.deuda_calculada) > 0)
         .sort((a, b) => parseFloat(b.deuda_calculada) - parseFloat(a.deuda_calculada));
     initPagoClienteAutocomplete();
+    // Default a hoy, editable — permite corregir a qué día/período pertenece el pago
+    // (ej. un pago recibido hoy que corresponde a la semana pasada).
+    const fechaEl = document.getElementById('p_pago_fecha');
+    if (fechaEl && !fechaEl.value) fechaEl.value = new Date().toISOString().split('T')[0];
     await loadUltimosPagos();
 }
 
@@ -499,6 +503,7 @@ async function registrarPago(e) {
         monto: parseFloat(document.getElementById('p_monto').value),
         metodo: document.querySelector('input[name="p_metodo"]:checked')?.value || 'efectivo',
         referencia: document.getElementById('p_ref').value || null,
+        fecha: document.getElementById('p_pago_fecha').value || null,
     };
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
     if (res?.id) {
@@ -510,6 +515,7 @@ async function registrarPago(e) {
         document.getElementById('p_cliente_search').value = '';
         document.getElementById('ac_p_cliente').style.display = 'none';
         document.getElementById('detalleDeuda').innerHTML = '';
+        document.getElementById('p_pago_fecha').value = new Date().toISOString().split('T')[0];
         loadUltimosPagos();
         loadCobranza();
     } else {
@@ -521,6 +527,7 @@ async function abrirPagoRapido(clienteId, nombre, deuda) {
     document.getElementById('pr_clienteId').value = clienteId;
     document.getElementById('pr_label').textContent = 'Marca: ' + nombre + ' — Deuda: ' + fmt(deuda);
     document.getElementById('pr_monto').value = parseFloat(deuda).toFixed(2);
+    document.getElementById('pr_pago_fecha').value = new Date().toISOString().split('T')[0];
 
     // Cargar detalle en modal
     const container = document.getElementById('pr_detalleDeuda');
@@ -546,6 +553,7 @@ async function confirmarPagoRapido() {
         cliente_id: document.getElementById('pr_clienteId').value,
         monto: parseFloat(document.getElementById('pr_monto').value),
         metodo: document.querySelector('input[name="pr_metodo"]:checked')?.value || 'efectivo',
+        fecha: document.getElementById('pr_pago_fecha').value || null,
     };
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
     if (res?.id) {

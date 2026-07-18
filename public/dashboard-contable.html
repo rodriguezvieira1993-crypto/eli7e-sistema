@@ -247,6 +247,10 @@
                                 <input type="number" id="p_monto" step="0.01" required placeholder="0.00">
                             </div>
                             <div class="field">
+                                <label>Fecha del pago *</label>
+                                <input type="date" id="p_pago_fecha" style="color-scheme:dark;">
+                            </div>
+                            <div class="field">
                                 <label>Método de Pago *</label>
                                 <div style="display:flex;gap:8px;">
                                     <label class="metodo-chip" style="flex:1;text-align:center;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:.2s;">
@@ -536,6 +540,10 @@
             <div class="field">
                 <label>Monto a registrar (USD)</label>
                 <input type="number" id="pr_monto" step="0.01" placeholder="0.00">
+            </div>
+            <div class="field">
+                <label style="font-size:.82rem;">Fecha del pago</label>
+                <input type="date" id="pr_pago_fecha" style="color-scheme:dark;">
             </div>
             <div class="field">
                 <label style="font-size:.82rem;">Método de Pago</label>

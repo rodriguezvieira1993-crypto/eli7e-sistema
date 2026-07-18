@@ -29,13 +29,28 @@ router.get('/pagos', async (req, res) => {
 
 // POST /api/cobranza/pago — registrar pago
 router.post('/pago', requireRol('admin', 'contable'), async (req, res) => {
-    const { cliente_id, monto, metodo, referencia } = req.body;
+    const { cliente_id, monto, metodo, referencia, fecha } = req.body;
     if (!cliente_id || !monto) return res.status(400).json({ error: 'cliente_id y monto requeridos' });
+
+    // fecha es opcional: si no se manda, la DB usa CURRENT_DATE (comportamiento de siempre).
+    // Si se manda, permite corregir a qué período contable pertenece el pago (ej. un pago
+    // recibido hoy pero que corresponde a la semana pasada) — sin esto los reportes por
+    // período (semanal, personalizado, tendencia) lo mostraban en el día equivocado.
+    if (fecha !== undefined && fecha !== null && fecha !== '') {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
+            return res.status(400).json({ error: 'fecha debe tener formato YYYY-MM-DD' });
+        }
+        const hoyStr = new Date().toISOString().split('T')[0];
+        if (fecha > hoyStr) {
+            return res.status(400).json({ error: 'La fecha del pago no puede ser futura' });
+        }
+    }
+
     try {
         const { rows } = await pool.query(
-            `INSERT INTO pagos (cliente_id, monto, metodo, referencia, registrado_por)
-       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-            [cliente_id, monto, metodo || 'efectivo', referencia || null, req.user.id]
+            `INSERT INTO pagos (cliente_id, monto, metodo, referencia, registrado_por, fecha)
+       VALUES ($1,$2,$3,$4,$5, COALESCE($6::date, CURRENT_DATE)) RETURNING *`,
+            [cliente_id, monto, metodo || 'efectivo', referencia || null, req.user.id, fecha || null]
         );
         // Actualizar saldo cliente
         await pool.query(
