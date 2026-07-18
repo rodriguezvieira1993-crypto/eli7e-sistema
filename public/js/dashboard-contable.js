@@ -157,6 +157,74 @@ async function generarNotaPago(clienteId, nombreMarca, montoPagado) {
     w.document.close();
 }
 
+// ── Recibo simple de pago (auto, al registrar) ───────────
+// A diferencia de generarNotaPago() (estado de cuenta completo con TODOS los
+// servicios históricos, on-demand vía botón "📄 Nota"), esto es un comprobante
+// liviano de ESTE pago puntual — monto, fecha, método, cliente. Siempre genera
+// algo aunque el cliente no tenga servicios completados registrados (bug que
+// tenía generarNotaPago: sin servicios no mostraba nada, dejando el pago sin
+// comprobante). Recibe `pago` = la fila devuelta por POST /cobranza/pago, así
+// el recibo refleja exactamente lo guardado (incluida la fecha elegida).
+function generarReciboPago(pago, nombreMarca) {
+    const metodoLabel = {
+        pago_movil: 'Pago Móvil', efectivo: 'Efectivo', divisas: 'Divisas',
+        binance: 'Binance', transferencia: 'Transferencia'
+    }[pago.metodo] || pago.metodo;
+    const fechaObj = new Date(pago.fecha + 'T12:00:00');
+    const fechaFmt = fechaObj.toLocaleDateString('es-VE', { day: '2-digit', month: 'long', year: 'numeric' });
+    const numRecibo = 'RP-' + String(pago.fecha).replace(/-/g, '') + '-' + String(pago.id).slice(0, 6).toUpperCase();
+
+    const html = '<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">' +
+        '<title>Recibo de Pago — ' + nombreMarca + '</title>' +
+        '<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">' +
+        '<style>' +
+        '* { margin:0; padding:0; box-sizing:border-box; }' +
+        'body { font-family:"Outfit",sans-serif; background:#0a0f0a; color:#e0e0e0; padding:40px; display:flex; justify-content:center; }' +
+        '.recibo { max-width:420px; width:100%; background:#111a11; border-radius:16px; border:1px solid #1a3a1a; overflow:hidden; }' +
+        '.r-header { background:linear-gradient(135deg,#0d1f0d,#1a3a1a); padding:24px 30px; text-align:center; }' +
+        '.r-header h1 { font-size:1.6rem; font-weight:800; background:linear-gradient(135deg,#00dd00,#00ff41); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }' +
+        '.r-header span { font-size:.78rem; color:#666; display:block; margin-top:2px; }' +
+        '.r-num { text-align:center; padding:10px 0 0; font-size:.75rem; color:#555; letter-spacing:.5px; }' +
+        '.r-monto { text-align:center; padding:24px 30px; }' +
+        '.r-monto .lbl { font-size:.78rem; color:#888; text-transform:uppercase; letter-spacing:1px; }' +
+        '.r-monto .val { font-size:2.4rem; font-weight:800; color:#00dd00; margin-top:4px; }' +
+        '.r-rows { padding:0 30px 24px; }' +
+        '.r-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #1a3a1a; font-size:.9rem; }' +
+        '.r-row:last-child { border-bottom:none; }' +
+        '.r-row .k { color:#888; }' +
+        '.r-row .v { font-weight:600; text-align:right; }' +
+        '.r-footer { padding:16px 30px; text-align:center; font-size:.72rem; color:#555; border-top:1px solid #1a3a1a; }' +
+        '.r-actions { display:flex; gap:10px; justify-content:center; padding:20px; }' +
+        '.r-actions button { padding:11px 24px; border-radius:10px; border:none; font-family:inherit; font-weight:700; cursor:pointer; font-size:.85rem; }' +
+        '.btn-print { background:linear-gradient(135deg,#00dd00,#00aa00); color:#000; }' +
+        '.btn-close { background:#222; color:#888; border:1px solid #333 !important; }' +
+        '@media print { body { background:#fff; color:#111; padding:20px; } .recibo { border:1px solid #ddd; background:#fff; }' +
+        '.r-header { background:#f8f8f8 !important; } .r-header h1 { -webkit-text-fill-color:#006600; }' +
+        '.r-monto .val { color:#006600; } .r-row { border-bottom:1px solid #eee !important; }' +
+        '.r-actions { display:none !important; } }' +
+        '</style></head><body>' +
+        '<div class="recibo">' +
+        '<div class="r-header"><h1>Eli7e</h1><span>Servicios de Mensajería &amp; Delivery</span></div>' +
+        '<div class="r-num">' + numRecibo + '</div>' +
+        '<div class="r-monto"><div class="lbl">Monto Recibido</div><div class="val">$' + parseFloat(pago.monto).toFixed(2) + '</div></div>' +
+        '<div class="r-rows">' +
+        '<div class="r-row"><span class="k">Cliente</span><span class="v">' + escapeHtml(nombreMarca) + '</span></div>' +
+        '<div class="r-row"><span class="k">Fecha</span><span class="v">' + fechaFmt + '</span></div>' +
+        '<div class="r-row"><span class="k">Método</span><span class="v">' + metodoLabel + '</span></div>' +
+        (pago.referencia ? '<div class="r-row"><span class="k">Nota</span><span class="v">' + escapeHtml(pago.referencia) + '</span></div>' : '') +
+        '</div>' +
+        '<div class="r-footer">Recibo generado automáticamente por el sistema Eli7e.<br>Comprobante del monto recibido — no detalla servicios.</div>' +
+        '</div>' +
+        '<div class="r-actions">' +
+        '<button class="btn-print" onclick="window.print()">🖨️ Imprimir / Guardar PDF</button>' +
+        '<button class="btn-close" onclick="window.close()">Cerrar</button>' +
+        '</div></body></html>';
+
+    const w = window.open('', '_blank', 'width=480,height=650');
+    w.document.write(html);
+    w.document.close();
+}
+
 // ── Detalle de deuda al seleccionar marca ────────────
 async function loadDetalleDeuda() {
     const clienteId = document.getElementById('p_cliente').value;
@@ -508,8 +576,8 @@ async function registrarPago(e) {
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
     if (res?.id) {
         showToast('✅ Pago registrado correctamente');
-        // Generar nota de pago automáticamente
-        generarNotaPago(clienteId, nombreMarca, body.monto);
+        // Recibo simple del pago (comprobante inmediato, no el estado de cuenta completo)
+        generarReciboPago(res, nombreMarca);
         document.getElementById('formPago').reset();
         document.getElementById('p_cliente').value = '';
         document.getElementById('p_cliente_search').value = '';
@@ -525,6 +593,7 @@ async function registrarPago(e) {
 
 async function abrirPagoRapido(clienteId, nombre, deuda) {
     document.getElementById('pr_clienteId').value = clienteId;
+    document.getElementById('pr_clienteNombre').value = nombre;
     document.getElementById('pr_label').textContent = 'Marca: ' + nombre + ' — Deuda: ' + fmt(deuda);
     document.getElementById('pr_monto').value = parseFloat(deuda).toFixed(2);
     document.getElementById('pr_pago_fecha').value = new Date().toISOString().split('T')[0];
@@ -558,6 +627,7 @@ async function confirmarPagoRapido() {
     const res = await apiFetch('/cobranza/pago', { method: 'POST', body });
     if (res?.id) {
         showToast('✅ Pago registrado');
+        generarReciboPago(res, document.getElementById('pr_clienteNombre').value);
         closeModal('modalPagoRapido');
         loadCobranza();
     } else {
