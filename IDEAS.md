@@ -33,11 +33,15 @@
 - **Pago retroactivo de servicios atrasados** (construido 2026-06-29, revertido 2026-07-03) — la nómina arrastraba servicios completados tarde de semanas cerradas hacia la nómina actual. Se descartó porque en producción los montos acumulados de "atrasos" resultaron gigantes e inmanejables (un motorizado llegó a mostrar +$3524), ya que casi ninguna semana vieja se había cerrado nunca. **Si alguien vuelve a proponer esto:** primero medir cuántos servicios/semanas atrasadas existen realmente antes de construir un mecanismo de arrastre. Ver [sesión 2026-06-29](sesiones/2026-06-29.md) y [sesión 2026-07-03](sesiones/2026-07-03.md).
 - **"Cerrar Todas" las nóminas de un click** (existía en Admin, eliminado 2026-06-28) — descartado: congela y cobra la cuota de préstamo a motorizados con servicios sin completar, listos o no. El cierre de nómina siempre es de a uno.
 - **Aceptación retroactiva de servicios sin límite de tiempo** (construida 2026-06-28, reemplazada 2026-07-16) — el motorizado podía aceptar cualquier servicio viejo desde cualquier fecha. El cliente pidió acotarlo a un plazo duro de 48 horas; pasado ese plazo el servicio queda vencido y no se paga.
+- **Nota de texto libre en la factura del cliente** (pedida en reunión 2026-07-17, descartada 2026-07-18) — la idea era que Yai pudiera escribir a mano ajustes de consumo (comida de motorizados, pedidos dañados) directamente en la factura de clientes como Farandi/Coenca. El cliente decidió no implementarla.
 
 ---
 
 ## ✅ Implementado recientemente (no repetir)
 
+- **Cargos — personal con sueldo fijo semanal sin perfil de motorizado** (2026-07-18) — pestaña "👤 Cargos" en Nóminas (solo Admin). Daniela ($100/sem) y Paola ($70/sem), pagadas lunes-domingo igual que los motorizados, con deducciones (reutiliza las categorías de daños + "Comida/Consumo"). Tablas nuevas `colaboradores`, `descuentos_colaborador`, `nominas_colaborador`.
+- **Recibo automático al registrar un pago** (2026-07-18) — comprobante simple (monto, fecha, cliente, método), no un estado de cuenta completo. Reemplaza el auto-disparo de `generarNotaPago()` (que sí sigue existiendo para su botón "📄 Nota" on-demand, pero lista TODOS los servicios históricos — no era lo que se pedía como recibo inmediato).
+- **Fecha manual al registrar un pago** (2026-07-18) — antes siempre se guardaba con la fecha de hoy, causando discrepancias contables reales (casos: Cometa, Mermelada Hots, Pan de Oro, Romanes). Ahora los formularios "Registrar Pago" y "Pago Rápido" tienen selector de fecha.
 - **Historial de pagos en la factura del cliente** — YA estaba implementado (sección "💰 Pagos Registrados" en `/api/reportes/factura/:clienteId`), descubierto el 2026-07-16 al revisar el backlog. Lista todos los abonos históricos, no solo la deuda actual.
 - **Búsqueda global en el admin** (2026-07-16) — vista "🔍 Búsqueda", por ID de servicio, cliente, motorizado o descripción desde un único input.
 - **Dashboard con gráficas** (2026-07-16) — gráfica de línea (Chart.js) de Facturación vs Cobranza, últimas 8 semanas, en el Dashboard del admin.
@@ -69,4 +73,4 @@
 
 ---
 
-*Última revisión: 2026-07-16*
+*Última revisión: 2026-07-18*
